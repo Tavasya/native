@@ -1,12 +1,13 @@
-import './App.css'
+// src/App.tsx
+import { BrowserRouter } from 'react-router-dom';
+import Navbar from '@/components/NavBar';
+import AppRoutes from '@/routes';
 
-
-function App() {
-
+export default function App() {
   return (
-    <div>Hi</div>
-      
-  )
+    <BrowserRouter>
+      <Navbar />      {/* persistent layout element */}
+      <AppRoutes />   {/* all route definitions */}
+    </BrowserRouter>
+  );
 }
-
-export default App
