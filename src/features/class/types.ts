@@ -1,8 +1,8 @@
 export interface Class {
   id: string;
   name: string;
-  description?: string;
   teacherId: string;
+  class_code: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -10,6 +10,7 @@ export interface Class {
 export interface CreateClassDto {
   name: string;
   teacher_id: string; 
+  class_code: string;
 }
 
 export interface ClassState {

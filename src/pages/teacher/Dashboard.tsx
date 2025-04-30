@@ -18,11 +18,23 @@ const buttonBaseStyle = {
 } as const;
 
 export default function TeacherDashboard() {
+
   const { user } = useAppSelector(state => state.auth);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [classData, setClassData] = React.useState({ name: '' });
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+
+
+  //Class Code
+  const generateClassCode = (length = 6) => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < length; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
   
   // Mouse event handlers
   const handleMouseEnter = (e) => {
@@ -41,8 +53,8 @@ export default function TeacherDashboard() {
   const handleCreateClass = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
-    console.log({ ...classData, teacher_id: user.id });
-    dispatch(createClass({ ...classData, teacher_id: user.id }));
+    const class_code = generateClassCode();
+    dispatch(createClass({ ...classData, teacher_id: user.id, class_code }))
     setIsModalOpen(false);
     setClassData({ name: '' });
   };
