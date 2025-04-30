@@ -9,6 +9,8 @@ const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
 const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"))
 const TeacherDashboard = lazy(() => import("@/pages/teacher/Dashboard"))
+//const StudentClasses = lazy(() => import("@/pages/teacher/Classes"))
+const TeacherClasses = lazy(() => import("@/pages//teacher/Classes"))
 
 export default function AppRoutes() {
     return (
@@ -20,10 +22,20 @@ export default function AppRoutes() {
             <Route path="/login" element={<Login />} />
             <Route path="/sign-up" element={<SignUp />} />
     
-            {/* -------- PRIVATE (any logged-in user) -------- */}
-            <Route element={<RequireAuth />}>
+            {/* -------- STUDENT ROUTES -------- */}
+            <Route element={<RequireAuth allowedRoles={['student']} />}>
               <Route path="/student/dashboard" element={<StudentDashboard />} />
+              
+            </Route>
+
+            {/* -------- TEACHER ROUTES -------- */}
+            <Route element={<RequireAuth allowedRoles={['teacher']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+              <Route path="/teacher/classes" element={<TeacherClasses />} />
+            </Route>
+
+            {/* -------- COMMON ROUTES -------- */}
+            <Route element={<RequireAuth />}>
               <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
             </Route>
           </Route>
