@@ -1,7 +1,7 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { useNavigate } from 'react-router-dom';
-import { createClass } from '@/features/class/classThunks';
+import { createClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 
 const buttonBaseStyle = {
   color: 'white',
@@ -19,11 +19,31 @@ const buttonBaseStyle = {
 
 export default function TeacherDashboard() {
 
+  const [creating, setCreating] = useState(false);
+
   const { user } = useAppSelector(state => state.auth);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [classData, setClassData] = React.useState({ name: '' });
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { classes, loading, createClassLoading } = useAppSelector(state => state.classes);
+
+
+  //Fetch classes
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchClassStatsByTeacher(user.id));
+    }
+  }, [user, dispatch]);
+
+  //for loading effect
+  useEffect(() => {
+    if (creating && !createClassLoading) {
+      setIsModalOpen(false);
+      setCreating(false);
+    }
+  }, [createClassLoading, creating]);
+  
 
 
   //Class Code
@@ -37,25 +57,26 @@ export default function TeacherDashboard() {
   }
   
   // Mouse event handlers
-  const handleMouseEnter = (e) => {
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget;
     btn.style.transform = 'translateY(-2px)';
     btn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
   };
   
-  const handleMouseLeave = (e) => {
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget;
     btn.style.transform = 'none';
     btn.style.boxShadow = 'none';
   };
   
   // Moved inside the component so it has access to the necessary variables
-  const handleCreateClass = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateClass = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
+    setCreating(true);
     const class_code = generateClassCode();
-    dispatch(createClass({ ...classData, teacher_id: user.id, class_code }))
-    setIsModalOpen(false);
+    await dispatch(createClass({ ...classData, teacher_id: user.id, class_code }));
+    
     setClassData({ name: '' });
   };
   
@@ -157,28 +178,44 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* Debug Info */}
-      <div style={{ 
+
+      {/* Classes List with Mock Stats */}
+      <div style={{
         background: '#2a2a2a',
         padding: '24px',
         borderRadius: '12px',
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        marginBottom: '24px'
       }}>
-        <h3 style={{ 
-          fontSize: '20px',
-          color: '#fff',
-          marginBottom: '16px'
-        }}>Debug Info</h3>
-        <pre style={{ 
-          background: '#363636',
-          padding: '16px',
-          borderRadius: '8px',
-          color: '#fff',
-          fontSize: '14px',
-          overflow: 'auto'
-        }}>
-          {JSON.stringify(user, null, 2)}
-        </pre>
+        <h3 style={{ fontSize: '20px', color: '#fff', marginBottom: '16px' }}>Your Classes</h3>
+        {loading ? (
+          <div style={{ color: '#fff' }}>Loading...</div>
+        ) : (
+          <table style={{ width: '100%', color: '#fff', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Class Name</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Class Code</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}># Students</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}># Assignments</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Avg Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {classes.map(cls => (
+                <tr key={cls.id}>
+                  <td style={{ padding: '8px' }}>{cls.name}</td>
+                  <td style={{ padding: '8px' }}>{cls.class_code}</td>
+                  <td style={{ padding: '8px' }}>{cls.student_count}</td>
+                  <td style={{ padding: '8px' }}>{cls.assignment_count}</td>
+                  <td style={{ padding: '8px' }}>
+                    {cls.avg_grade !== null ? `${cls.avg_grade}%` : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       
       {/* Modal for creating a class */}
@@ -233,6 +270,7 @@ export default function TeacherDashboard() {
                     fontSize: '16px'
                   }}
                   required
+                  disabled={creating}
                 />
               </div>
               <div style={{
@@ -252,6 +290,7 @@ export default function TeacherDashboard() {
                     cursor: 'pointer',
                     fontSize: '16px',
                   }}
+                  disabled={creating}
                 >
                   Cancel
                 </button>
@@ -266,8 +305,9 @@ export default function TeacherDashboard() {
                     cursor: 'pointer',
                     fontSize: '16px',
                   }}
+                  disabled={creating}
                 >
-                  Create Class
+                  {creating ? "Creating..." : "Create Class"}
                 </button>
               </div>
             </form>

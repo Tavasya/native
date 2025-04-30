@@ -32,3 +32,15 @@ export const fetchClasses = createAsyncThunk(
         }
     }
 )
+
+export const fetchClassStatsByTeacher = createAsyncThunk(
+    'class/fetchClassStatsByTeacher',
+    async (teacherId: string, { rejectWithValue }) => {
+        try {
+            return await classService.getClassStatsByTeacher(teacherId);
+        } catch (error) {
+            return rejectWithValue((error as Error).message)
+        }
+    }
+)
+

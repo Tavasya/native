@@ -1,11 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { ClassState } from "./types";
-import { createClass, fetchClasses } from "./classThunks";
+import { createClass, fetchClasses, fetchClassStatsByTeacher } from "./classThunks";
 
 const initialState: ClassState = {
     classes: [],
     loading: false,
     error: null,
+    createClassLoading: false,
 };
 
 const classSlice  = createSlice({
@@ -19,15 +20,15 @@ const classSlice  = createSlice({
         builder
             //Create Classes
             .addCase(createClass.pending, (state) => {
-                state.loading = true;
+                state.createClassLoading = true;
                 state.error = null;
             })
             .addCase(createClass.fulfilled, (state, action) => {
-                state.loading = false;
+                state.createClassLoading = false;
                 state.classes.push(action.payload); //push new class onto array
             })
             .addCase(createClass.rejected, (state, action) => {
-                state.loading = false;
+                state.createClassLoading = false;
                 state.error = action.payload as string;
             })
 
@@ -43,7 +44,21 @@ const classSlice  = createSlice({
               .addCase(fetchClasses.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload as string;
-              });
+              })
+
+            //Fetch All Class Stats
+            .addCase(fetchClassStatsByTeacher.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchClassStatsByTeacher.fulfilled, (state, action) => {
+                state.loading = false;
+                state.classes = action.payload;
+            })
+            .addCase(fetchClassStatsByTeacher.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            });
     }
 })
 

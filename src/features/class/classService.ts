@@ -1,4 +1,4 @@
-import { Class, CreateClassDto } from './types';
+import { Class, CreateClassDto, ClassStats } from './types';
 import { supabase } from '@/integrations/supabase/client';
 
 export const classService = {
@@ -56,4 +56,18 @@ export const classService = {
 
     return data;
   },
-};
+
+  async getClassStatsByTeacher(teacherId: string): Promise<ClassStats> {
+    const { data, error } = await supabase
+      .from('class_stats')
+      .select('*')
+      .eq('teacher_id', teacherId);
+
+    if (error) {
+      throw new Error(error.message);
+    };
+
+    return data;
+  }
+  
+}

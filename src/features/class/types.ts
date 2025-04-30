@@ -14,7 +14,18 @@ export interface CreateClassDto {
 }
 
 export interface ClassState {
-  classes: Class[];
+  classes: ClassStats[];
   loading: boolean;
   error: string | null;
-} 
+  createClassLoading: boolean;
+}
+
+export interface ClassStats {
+  id: string;
+  name: string;
+  class_code : string;
+  teacher_id: string;
+  student_count: number;
+  assignment_count: number;
+  avg_grade: number | null;
+}
