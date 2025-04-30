@@ -44,3 +44,15 @@ export const fetchClassStatsByTeacher = createAsyncThunk(
     }
 )
 
+export const deleteClass = createAsyncThunk(
+    'class/deleteClass',
+    async (classId: string, { rejectWithValue }) => {
+        try {
+            await classService.deleteClass(classId);
+            return classId;
+        } catch (error) {
+            return rejectWithValue((error as Error).message)
+        }
+    }
+)
+

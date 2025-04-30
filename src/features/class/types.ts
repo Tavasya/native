@@ -18,6 +18,7 @@ export interface ClassState {
   loading: boolean;
   error: string | null;
   createClassLoading: boolean;
+  deletingClassId: string | null;
 }
 
 export interface ClassStats {

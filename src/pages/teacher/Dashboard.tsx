@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { useNavigate } from 'react-router-dom';
-import { createClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
+import { createClass, fetchClassStatsByTeacher, deleteClass } from '@/features/class/classThunks';
 
 const buttonBaseStyle = {
   color: 'white',
@@ -26,7 +26,7 @@ export default function TeacherDashboard() {
   const [classData, setClassData] = React.useState({ name: '' });
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { classes, loading, createClassLoading } = useAppSelector(state => state.classes);
+  const { classes, loading, createClassLoading, deletingClassId } = useAppSelector(state => state.classes);
 
 
   //Fetch classes
@@ -78,6 +78,12 @@ export default function TeacherDashboard() {
     await dispatch(createClass({ ...classData, teacher_id: user.id, class_code }));
     
     setClassData({ name: '' });
+  };
+  
+  const handleDeleteClass = async (classId: string) => {
+    if (window.confirm('Are you sure you want to delete this class? This action cannot be undone.')) {
+      await dispatch(deleteClass(classId));
+    }
   };
   
   return (
@@ -199,6 +205,7 @@ export default function TeacherDashboard() {
                 <th style={{ textAlign: 'left', padding: '8px' }}># Students</th>
                 <th style={{ textAlign: 'left', padding: '8px' }}># Assignments</th>
                 <th style={{ textAlign: 'left', padding: '8px' }}>Avg Grade</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -210,6 +217,29 @@ export default function TeacherDashboard() {
                   <td style={{ padding: '8px' }}>{cls.assignment_count}</td>
                   <td style={{ padding: '8px' }}>
                     {cls.avg_grade !== null ? `${cls.avg_grade}%` : 'N/A'}
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <button
+                      disabled={deletingClassId === cls.id}
+                      onClick={() => handleDeleteClass(cls.id)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#c82333';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#dc3545';
+                      }}
+                    >
+                      {deletingClassId === cls.id ? "Deleting..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}

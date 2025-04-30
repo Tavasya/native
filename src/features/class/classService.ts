@@ -68,6 +68,17 @@ export const classService = {
     };
 
     return data;
+  },
+
+  async deleteClass(classId: string): Promise<void> {
+    const { error } = await supabase
+      .from('classes')
+      .delete()
+      .eq('id', classId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
   }
   
 }

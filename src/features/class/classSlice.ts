@@ -1,12 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { ClassState } from "./types";
-import { createClass, fetchClasses, fetchClassStatsByTeacher } from "./classThunks";
+import { createClass, fetchClasses, fetchClassStatsByTeacher, deleteClass } from "./classThunks";
 
 const initialState: ClassState = {
     classes: [],
     loading: false,
     error: null,
     createClassLoading: false,
+    deletingClassId: null,
 };
 
 const classSlice  = createSlice({
@@ -57,6 +58,20 @@ const classSlice  = createSlice({
             })
             .addCase(fetchClassStatsByTeacher.rejected, (state, action) => {
                 state.loading = false;
+                state.error = action.payload as string;
+            })
+
+            //Delete Class
+            .addCase(deleteClass.pending, (state, action) => {
+                state.deletingClassId = action.meta.arg;
+                state.error = null;
+            })
+            .addCase(deleteClass.fulfilled, (state, action) => {
+                state.deletingClassId = null;
+                state.classes = state.classes.filter(cls => cls.id !== action.payload);
+            })
+            .addCase(deleteClass.rejected, (state, action) => {
+                state.deletingClassId = null;
                 state.error = action.payload as string;
             });
     }
