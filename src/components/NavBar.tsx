@@ -20,9 +20,9 @@ const NavBar: React.FC = () => {
       display: "flex",
       gap: "16px"
     }}>
-      <Link to="/">Home</Link>
       {user ? (
         <>
+          <Link to={`/${role}/dashboard`}>Home</Link>
           <Link to={`/${role}/dashboard`}>Dashboard</Link>
           <button 
             onClick={handleLogout}
