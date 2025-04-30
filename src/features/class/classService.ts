@@ -57,7 +57,7 @@ export const classService = {
     return data;
   },
 
-  async getClassStatsByTeacher(teacherId: string): Promise<ClassStats> {
+  async getClassStatsByTeacher(teacherId: string): Promise<ClassStats[]> {
     const { data, error } = await supabase
       .from('class_stats')
       .select('*')
