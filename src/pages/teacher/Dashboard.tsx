@@ -154,18 +154,6 @@ export default function TeacherDashboard() {
             View Students
           </button>
           <button
-            onClick={() => console.log('Create Assignment clicked')}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            style={{
-              ...buttonBaseStyle,
-              background: '#FF9800',
-            }}
-          >
-            <span style={{ fontSize: '24px' }}>📝</span>
-            Create Assignment
-          </button>
-          <button
             onClick={() => console.log('View Analytics clicked')}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}

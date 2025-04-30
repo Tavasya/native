@@ -3,6 +3,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
 
+const buttonBaseStyle = {
+  color: 'white',
+  padding: '20px',
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontSize: '16px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '8px',
+  transition: 'all 0.2s ease'
+} as const;
+
 export default function ClassPage() {
   const { classId } = useParams<{ classId: string }>();
   const dispatch = useAppDispatch();
@@ -19,6 +33,19 @@ export default function ClassPage() {
       dispatch(fetchClassStatsByTeacher(user.id));
     }
   }, [user, dispatch, currentClass]);
+
+  // Mouse event handlers
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const btn = e.currentTarget;
+    btn.style.transform = 'translateY(-2px)';
+    btn.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+  };
+  
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const btn = e.currentTarget;
+    btn.style.transform = 'none';
+    btn.style.boxShadow = 'none';
+  };
 
   // If we have the class data, show it immediately
   if (currentClass) {
@@ -45,6 +72,68 @@ export default function ClassPage() {
             color: '#ccc'
           }}>Class Code: {currentClass.class_code}</p>
         </header>
+
+        {/* Quick Actions */}
+        <div style={{ 
+          background: '#2a2a2a',
+          padding: '24px',
+          borderRadius: '12px',
+          marginBottom: '24px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        }}>
+          <h2 style={{ 
+            fontSize: '24px',
+            color: '#fff',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            🛠️ Quick Actions
+          </h2>
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '16px'
+          }}>
+            <button
+              onClick={() => console.log('Create Assignment clicked')}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                ...buttonBaseStyle,
+                background: '#FF9800',
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>📝</span>
+              Create Assignment
+            </button>
+            <button
+              onClick={() => console.log('View Students clicked')}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                ...buttonBaseStyle,
+                background: '#2196F3',
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>👥</span>
+              View Students
+            </button>
+            <button
+              onClick={() => console.log('View Analytics clicked')}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                ...buttonBaseStyle,
+                background: '#9C27B0',
+              }}
+            >
+              <span style={{ fontSize: '24px' }}>📊</span>
+              View Analytics
+            </button>
+          </div>
+        </div>
 
         <div style={{
           display: 'grid',
