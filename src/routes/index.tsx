@@ -9,11 +9,11 @@ const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
 const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"))
 const TeacherDashboard = lazy(() => import("@/pages/teacher/Dashboard"))
+const ClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
 //const StudentClasses = lazy(() => import("@/pages/teacher/Classes"))
-const TeacherClasses = lazy(() => import("@/pages//teacher/Classes"))
 
 export default function AppRoutes() {
-    return (
+    return ( 
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
           <Route element={<Layout />}>
@@ -31,7 +31,7 @@ export default function AppRoutes() {
             {/* -------- TEACHER ROUTES -------- */}
             <Route element={<RequireAuth allowedRoles={['teacher']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-              <Route path="/teacher/classes" element={<TeacherClasses />} />
+              <Route path="/teacher/class/:classId" element={<ClassPage />} />
             </Route>
 
             {/* -------- COMMON ROUTES -------- */}

@@ -85,6 +85,10 @@ export default function TeacherDashboard() {
       await dispatch(deleteClass(classId));
     }
   };
+
+  const handleRowClick = (classId: string) => {
+    navigate(`/teacher/class/${classId}`);
+  };
   
   return (
     <div style={{ 
@@ -210,7 +214,17 @@ export default function TeacherDashboard() {
             </thead>
             <tbody>
               {classes.map(cls => (
-                <tr key={cls.id}>
+                <tr 
+                  key={cls.id}
+                  onClick={() => handleRowClick(cls.id)}
+                  style={{
+                    cursor: 'pointer',
+                    backgroundColor: deletingClassId === cls.id ? '#2a2a2a' : 'inherit',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = deletingClassId === cls.id ? '#2a2a2a' : 'inherit')}
+                >
                   <td style={{ padding: '8px' }}>{cls.name}</td>
                   <td style={{ padding: '8px' }}>{cls.class_code}</td>
                   <td style={{ padding: '8px' }}>{cls.student_count}</td>
@@ -221,7 +235,10 @@ export default function TeacherDashboard() {
                   <td style={{ padding: '8px' }}>
                     <button
                       disabled={deletingClassId === cls.id}
-                      onClick={() => handleDeleteClass(cls.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent row navigation when clicking delete
+                        handleDeleteClass(cls.id);
+                      }}
                       style={{
                         padding: '6px 12px',
                         backgroundColor: '#dc3545',
