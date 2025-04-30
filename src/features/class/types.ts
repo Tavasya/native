@@ -9,6 +9,7 @@ export interface Class {
 
 export interface CreateClassDto {
   name: string;
+  teacher_id: string; 
 }
 
 export interface ClassState {

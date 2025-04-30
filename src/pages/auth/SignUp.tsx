@@ -8,7 +8,7 @@ import { clearAuth } from '@/features/auth/authSlice';
 // Quick signup presets for development
 const DEV_ACCOUNTS = {
     teacher: { 
-        email: 'teacher@test.com', 
+        email: 'rami@gmail.com', 
         password: '123456',
         name: 'Test Teacher',
         role: 'teacher' as UserRole
