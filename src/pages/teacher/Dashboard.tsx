@@ -1,5 +1,8 @@
 import React from 'react'
 import { useAppSelector } from '@/app/hooks';
+import { useNavigate } from 'react-router-dom';
+
+
 
 const buttonBaseStyle = {
   color: 'white',
@@ -17,6 +20,8 @@ const buttonBaseStyle = {
 
 export default function TeacherDashboard() {
   const { user } = useAppSelector(state => state.auth);
+  
+  const navigate = useNavigate();
   
   return (
     <div style={{ 
