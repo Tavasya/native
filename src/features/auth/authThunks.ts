@@ -14,14 +14,29 @@ type SignupCreds = {
   };
 
 
-async function fetchUserRole(id: string): Promise<UserRole> {
+async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
+  console.log('Fetching user profile for ID:', id);
   const { data, error } = await supabase
     .from('users')
-    .select('role')
+    .select('role, name')  // Now fetching both role and name
     .eq('id', id)
     .single();
-  if (error || !data) throw new Error(error?.message || 'Role not found');
-  return data.role as UserRole;
+  
+  console.log('Profile query result:', data);
+  
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    throw new Error(error.message || 'Profile not found');
+  }
+  if (!data) {
+    console.error('No user record found for ID:', id);
+    throw new Error('User record not found');
+  }
+  
+  return {
+    role: data.role as UserRole,
+    name: data.name || data.email // Fallback to email if name is null
+  };
 }
 
 
@@ -36,7 +51,7 @@ export const signUpWithEmail = createAsyncThunk<
   'auth/signUpWithEmail',
   async (creds, { rejectWithValue }) => {
     try {
-      // 1. Create the user in Supabase Auth (this will trigger the database trigger)
+      // 1. Create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: creds.email,
         password: creds.password,
@@ -51,17 +66,19 @@ export const signUpWithEmail = createAsyncThunk<
         return rejectWithValue(authError?.message || 'Signup failed');
       }
 
-      // 2. Update the role if it's different from default
-      if (creds.role !== 'student') {
-        const { error: roleError } = await supabase
-          .from('users')
-          .update({ role: creds.role })
-          .eq('id', authData.user.id);
+      // 2. Create or update the user record with role
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({ 
+          id: authData.user.id,
+          email: authData.user.email,
+          name: creds.name || authData.user.user_metadata?.name,
+          role: creds.role
+        });
 
-        if (roleError) {
-          console.error('Role update error:', roleError);
-          return rejectWithValue(`Role update failed: ${roleError.message}`);
-        }
+      if (userError) {
+        console.error('User creation error:', userError);
+        return rejectWithValue(`User creation failed: ${userError.message}`);
       }
 
       // 3. Return the new user and role
@@ -94,8 +111,14 @@ export const loadSession = createAsyncThunk<
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return null;                   // not logged-in
     try {
-      const role = await fetchUserRole(session.user.id);
-      return { user: session.user, role };
+      const profile = await fetchUserProfile(session.user.id);
+      return { 
+        user: {
+          ...session.user,
+          name: profile.name
+        },
+        role: profile.role 
+      };
     } catch (err: any) {
       return rejectWithValue(err.message);
     }
@@ -110,13 +133,25 @@ export const signInWithEmail = createAsyncThunk<
 >(
   'auth/signInWithEmail',
   async (creds, { rejectWithValue }) => {
+    console.log('Starting login process...');
     const { data, error } = await supabase.auth.signInWithPassword(creds);
-    if (error || !data.user) return rejectWithValue(error?.message || 'Login failed');
+    
+    if (error || !data.user) {
+      console.error('Login error:', error);
+      return rejectWithValue(error?.message || 'Login failed');
+    }
 
     try {
-      const role = await fetchUserRole(data.user.id);
-      return { user: data.user, role };
+      const profile = await fetchUserProfile(data.user.id);
+      return { 
+        user: {
+          ...data.user,
+          name: profile.name
+        },
+        role: profile.role 
+      };
     } catch (err: any) {
+      console.error('Profile fetch error:', err);
       return rejectWithValue(err.message);
     }
   }

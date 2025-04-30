@@ -1,34 +1,49 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { signInWithEmail } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { loading, error, role } = useAppSelector(state => state.auth);
+    const auth = useAppSelector(state => state.auth);
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Memoize the navigation check to prevent unnecessary re-renders
+    const checkAndNavigate = useCallback(() => {
+        if (auth.user && auth.role && !auth.loading && !auth.error) {
+            console.log('Navigation check - Role:', auth.role);
+            navigate(`/${auth.role}/dashboard`);
+        }
+    }, [auth.user, auth.role, auth.loading, auth.error, navigate]);
+
+    // Only run navigation effect after form submission
+    useEffect(() => {
+        if (isSubmitting) {
+            checkAndNavigate();
+        }
+    }, [isSubmitting, checkAndNavigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        const result = await dispatch(signInWithEmail({ 
-            email, 
-            password 
-        }));
-
-        if (signInWithEmail.fulfilled.match(result)) {
-            // Redirect to the appropriate dashboard based on role
-            navigate(`/${role}/dashboard`);
+        setIsSubmitting(true);
+        
+        console.log('Submitting login form...');
+        const result = await dispatch(signInWithEmail({ email, password }));
+        
+        if (signInWithEmail.rejected.match(result)) {
+            console.error('Login failed:', result.payload);
+            setIsSubmitting(false);
         }
     }
 
     return (
         <div>
             <h2>Login</h2>
-            {error && <div style={{ color: 'red' }}>{error}</div>}
+            {auth.error && <div style={{ color: 'red' }}>{auth.error}</div>}
             <form onSubmit={handleSubmit}>
                 <input
                     type="email"
@@ -44,12 +59,12 @@ export default function Login() {
                     onChange={e => setPassword(e.target.value)}
                     required
                 /><br/>
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Logging in...' : 'Login'}
+                <button type="submit" disabled={auth.loading}>
+                    {auth.loading ? 'Logging in...' : 'Login'}
                 </button>
             </form>
             <p>
-                Don't have an account? <a href="/sign-up">Sign up</a>
+                Don't have an account? <Link to="/sign-up">Sign up</Link>
             </p>
         </div>
     )

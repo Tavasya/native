@@ -1,9 +1,17 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { useAppSelector } from "@/app/hooks";
+import { Link, useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "@/app/hooks";
+import { signOut } from "@/features/auth/authThunks";
 
 const NavBar: React.FC = () => {
   const { user, role } = useAppSelector(state => state.auth);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  
+  const handleLogout = async () => {
+    await signOut(dispatch);
+    navigate('/login');
+  };
   
   return (
     <nav style={{
@@ -16,7 +24,20 @@ const NavBar: React.FC = () => {
       {user ? (
         <>
           <Link to={`/${role}/dashboard`}>Dashboard</Link>
-          <Link to="/logout">Logout</Link>
+          <button 
+            onClick={handleLogout}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#646cff',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              font: 'inherit'
+            }}
+          >
+            Logout
+          </button>
         </>
       ) : (
         <>

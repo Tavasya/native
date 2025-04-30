@@ -27,6 +27,7 @@ const authSlice = createSlice({
     builder
       .addCase(loadSession.pending, state => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(
         loadSession.fulfilled,
@@ -34,6 +35,7 @@ const authSlice = createSlice({
           state.loading = false;
           state.user = action.payload?.user ?? null;
           state.role = action.payload?.role ?? null;
+          state.error = null;
         }
       )
       .addCase(loadSession.rejected, (state, action) => {
@@ -45,6 +47,7 @@ const authSlice = createSlice({
       /* ---- signInWithEmail ---- */
       .addCase(signInWithEmail.pending, state => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(
         signInWithEmail.fulfilled,
@@ -52,6 +55,7 @@ const authSlice = createSlice({
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;
+          state.error = null;
         }
       )
       .addCase(signInWithEmail.rejected, (state, action) => {
@@ -62,6 +66,7 @@ const authSlice = createSlice({
       /* ---- signUpWithEmail ---- */
       .addCase(signUpWithEmail.pending, state => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(
         signUpWithEmail.fulfilled,
@@ -69,11 +74,12 @@ const authSlice = createSlice({
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;
+          state.error = null;
         }
       )
       .addCase(signUpWithEmail.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Sign Up Failed'
+        state.error = action.error.message ?? 'Sign Up Failed';
       })
   }
 });
