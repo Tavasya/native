@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { useNavigate } from 'react-router-dom';
-import { createClass, fetchClassStatsByTeacher, deleteClass } from '@/features/class/classThunks';
+import { createClass, deleteClass } from '@/features/class/classThunks';
 
 const buttonBaseStyle = {
   color: 'white',
@@ -27,14 +27,6 @@ export default function TeacherDashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { classes, loading, createClassLoading, deletingClassId } = useAppSelector(state => state.classes);
-
-
-  //Fetch classes
-  useEffect(() => {
-    if (user) {
-      dispatch(fetchClassStatsByTeacher(user.id));
-    }
-  }, [user, dispatch]);
 
   //for loading effect
   useEffect(() => {
