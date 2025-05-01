@@ -1,7 +1,8 @@
-import React from 'react'
-import { useAppSelector } from '@/app/hooks';
+import React, { useEffect } from 'react'
+import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { useNavigate } from 'react-router-dom';
 import Modal from '@/components/Modal';
+import { fetchClasses, joinClass } from '@/features/class/classThunks';
 
 const buttonBaseStyle = {
   color: 'white',
@@ -19,27 +20,38 @@ const buttonBaseStyle = {
 
 export default function StudentDashboard() {
   const { user } = useAppSelector(state => state.auth);
+  const { classes, loading } = useAppSelector(state => state.classes);
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [classCode, setClassCode] = React.useState('');
-  
-  // Mock data for student classes - replace with actual data from your state
-  const studentClasses = [
-    { id: '1', name: 'Mathematics 101', teacher: 'Mr. Smith', grade: 'A' },
-    { id: '2', name: 'Physics 201', teacher: 'Ms. Johnson', grade: 'B+' },
-    { id: '3', name: 'Chemistry 101', teacher: 'Dr. Brown', grade: 'A-' },
-  ];
+  const [joinError, setJoinError] = React.useState<string | null>(null);
+
+  // Fetch student's classes when component mounts
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchClasses({ role: 'student', userId: user.id }));
+    }
+  }, [user, dispatch]);
 
   const handleRowClick = (classId: string) => {
     navigate(`/student/class/${classId}`);
   };
 
-  const handleJoinClass = (e: React.FormEvent) => {
+  const handleJoinClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement join class functionality
-    console.log('Joining class with code:', classCode);
-    setIsModalOpen(false);
-    setClassCode('');
+    if (!user) return;
+    
+    try {
+      setJoinError(null);
+      await dispatch(joinClass({ studentId: user.id, classCode })).unwrap();
+      // Refresh the classes list after joining
+      dispatch(fetchClasses({ role: 'student', userId: user.id }));
+      setIsModalOpen(false);
+      setClassCode('');
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'Failed to join class');
+    }
   };
   
   return (
@@ -160,39 +172,47 @@ export default function StudentDashboard() {
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
       }}>
         <h3 style={{ fontSize: '20px', color: '#fff', marginBottom: '16px' }}>Your Classes</h3>
-        <table style={{ width: '100%', color: '#fff', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Class Name</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Teacher</th>
-              <th style={{ textAlign: 'left', padding: '8px' }}>Current Grade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {studentClasses.map(cls => (
-              <tr 
-                key={cls.id}
-                onClick={() => handleRowClick(cls.id)}
-                style={{
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'inherit')}
-              >
-                <td style={{ padding: '8px' }}>{cls.name}</td>
-                <td style={{ padding: '8px' }}>{cls.teacher}</td>
-                <td style={{ padding: '8px' }}>{cls.grade}</td>
+        {loading ? (
+          <div style={{ color: '#fff' }}>Loading classes...</div>
+        ) : (
+          <table style={{ width: '100%', color: '#fff', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Class Name</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Teacher</th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>Class Code</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {classes.map(cls => (
+                <tr 
+                  key={cls.id}
+                  onClick={() => handleRowClick(cls.id)}
+                  style={{
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#333')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'inherit')}
+                >
+                  <td style={{ padding: '8px' }}>{cls.name}</td>
+                  <td style={{ padding: '8px' }}>{cls.teacherId}</td>
+                  <td style={{ padding: '8px' }}>{cls.class_code}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Join Class Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setClassCode('');
+          setJoinError(null);
+        }}
         title="Join a Class"
       >
         <form onSubmit={handleJoinClass} style={{ color: '#fff' }}>
@@ -216,11 +236,24 @@ export default function StudentDashboard() {
                 placeholder="Enter class code"
               />
             </label>
+            {joinError && (
+              <div style={{ 
+                color: '#ff4444', 
+                marginTop: '8px', 
+                fontSize: '14px' 
+              }}>
+                {joinError}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setClassCode('');
+                setJoinError(null);
+              }}
               style={{
                 background: '#666',
                 color: 'white',

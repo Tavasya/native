@@ -83,7 +83,6 @@ export const classService = {
 
 
   async joinClass(studentId: string, class_code: string): Promise<Class> {
-
     //find class
     const { data: classData, error: classError } = await supabase
       .from('classes')
@@ -97,7 +96,7 @@ export const classService = {
 
     //add student to class
     const { error: joinError } = await supabase
-      .from('student_classes')
+      .from('students_classes')
       .insert([{
         student_id: studentId,
         class_id: classData.id
@@ -105,13 +104,12 @@ export const classService = {
     
     if (joinError) {
       if (joinError.code === '23505') {
-        throw new Error('Your are already enrolled in this class');
+        throw new Error('You are already enrolled in this class');
       }
       throw new Error(joinError.message);
     }
 
     return classData;
-
   }
   
 }
