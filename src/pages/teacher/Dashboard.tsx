@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { useNavigate } from 'react-router-dom';
-import { createClass, deleteClass } from '@/features/class/classThunks';
+import { createClass, deleteClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 
 const buttonBaseStyle = {
   color: 'white',
@@ -27,6 +27,13 @@ export default function TeacherDashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { classes, loading, createClassLoading, deletingClassId } = useAppSelector(state => state.classes);
+
+  // Add useEffect to fetch classes
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchClassStatsByTeacher(user.id));
+    }
+  }, [user, dispatch]);
 
   //for loading effect
   useEffect(() => {
@@ -207,10 +214,10 @@ export default function TeacherDashboard() {
                 >
                   <td style={{ padding: '8px' }}>{cls.name}</td>
                   <td style={{ padding: '8px' }}>{cls.class_code}</td>
-                  <td style={{ padding: '8px' }}>{cls.student_count}</td>
-                  <td style={{ padding: '8px' }}>{cls.assignment_count}</td>
+                  <td style={{ padding: '8px' }}>{cls.student_count || 0}</td>
+                  <td style={{ padding: '8px' }}>{cls.assignment_count || 0}</td>
                   <td style={{ padding: '8px' }}>
-                    {cls.avg_grade !== null ? `${cls.avg_grade}%` : 'N/A'}
+                    {cls.avg_grade !== null && cls.avg_grade !== undefined ? `${cls.avg_grade}%` : 'N/A'}
                   </td>
                   <td style={{ padding: '8px' }}>
                     <button
