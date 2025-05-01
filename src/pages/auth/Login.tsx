@@ -7,7 +7,7 @@ import { clearAuth } from '@/features/auth/authSlice';
 // Quick login presets for development
 const DEV_ACCOUNTS = {
     teacher: { email: 'rami@gmail.com', password: '123456' },
-    student: { email: 'student@test.com', password: '123456' }
+    student: { email: 'vishal@gmail.com', password: '123456' }
 };
 
 export default function Login() {
