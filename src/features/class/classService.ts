@@ -79,6 +79,39 @@ export const classService = {
     if (error) {
       throw new Error(error.message);
     }
+  },
+
+
+  async joinClass(studentId: string, class_code: string): Promise<Class> {
+
+    //find class
+    const { data: classData, error: classError } = await supabase
+      .from('classes')
+      .select('*')
+      .eq('class_code', class_code)
+      .single();
+    
+    if (classError) {
+      throw new Error('Invalid class Code');
+    }
+
+    //add student to class
+    const { error: joinError } = await supabase
+      .from('student_classes')
+      .insert([{
+        student_id: studentId,
+        class_id: classData.id
+      }]);
+    
+    if (joinError) {
+      if (joinError.code === '23505') {
+        throw new Error('Your are already enrolled in this class');
+      }
+      throw new Error(joinError.message);
+    }
+
+    return classData;
+
   }
   
 }

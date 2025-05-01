@@ -26,7 +26,7 @@ export default function TeacherDashboard() {
   const [classData, setClassData] = React.useState({ name: '' });
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { classes, loading, createClassLoading, deletingClassId } = useAppSelector(state => state.classes);
+  const { classStats, loading, createClassLoading, deletingClassId } = useAppSelector(state => state.classes);
 
   // Add useEffect to fetch classes
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function TeacherDashboard() {
               </tr>
             </thead>
             <tbody>
-              {classes.map(cls => (
+              {classStats.map(cls => (
                 <tr 
                   key={cls.id}
                   onClick={() => handleRowClick(cls.id)}
