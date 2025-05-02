@@ -7,10 +7,11 @@ import Layout from '@/components/Layout';
 //Lazy loading
 const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
-const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"))
 const TeacherDashboard = lazy(() => import("@/pages/teacher/Dashboard"))
 const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
+const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"))
 const StudentClassPage = lazy(() => import("@/pages/student/ClassPage"))
+const StudentAssignment = lazy(() => import("@/pages/student/AssignmentPage"))
 
 export default function AppRoutes() {
     return ( 
@@ -26,6 +27,7 @@ export default function AppRoutes() {
             <Route element={<RequireAuth allowedRoles={['student']} />}>
               <Route path="/student/dashboard" element={<StudentDashboard />} />
               <Route path="/student/class/:classId" element={<StudentClassPage />} />
+              <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} />
             </Route>
 
             {/* -------- TEACHER ROUTES -------- */}
