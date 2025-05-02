@@ -9,8 +9,8 @@ const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
 const StudentDashboard = lazy(() => import("@/pages/student/Dashboard"))
 const TeacherDashboard = lazy(() => import("@/pages/teacher/Dashboard"))
-const ClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
-//const StudentClasses = lazy(() => import("@/pages/teacher/Classes"))
+const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
+const StudentClassPage = lazy(() => import("@/pages/student/ClassPage"))
 
 export default function AppRoutes() {
     return ( 
@@ -25,13 +25,13 @@ export default function AppRoutes() {
             {/* -------- STUDENT ROUTES -------- */}
             <Route element={<RequireAuth allowedRoles={['student']} />}>
               <Route path="/student/dashboard" element={<StudentDashboard />} />
-              
+              <Route path="/student/class/:classId" element={<StudentClassPage />} />
             </Route>
 
             {/* -------- TEACHER ROUTES -------- */}
             <Route element={<RequireAuth allowedRoles={['teacher']} />}>
               <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-              <Route path="/teacher/class/:classId" element={<ClassPage />} />
+              <Route path="/teacher/class/:classId" element={<TeacherClassPage />} />
             </Route>
 
             {/* -------- COMMON ROUTES -------- */}

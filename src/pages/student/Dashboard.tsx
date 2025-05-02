@@ -179,7 +179,6 @@ export default function StudentDashboard() {
             <thead>
               <tr>
                 <th style={{ textAlign: 'left', padding: '8px' }}>Class Name</th>
-                <th style={{ textAlign: 'left', padding: '8px' }}>Teacher</th>
                 <th style={{ textAlign: 'left', padding: '8px' }}>Class Code</th>
               </tr>
             </thead>
@@ -196,7 +195,6 @@ export default function StudentDashboard() {
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'inherit')}
                 >
                   <td style={{ padding: '8px' }}>{cls.name}</td>
-                  <td style={{ padding: '8px' }}>{cls.teacherId}</td>
                   <td style={{ padding: '8px' }}>{cls.class_code}</td>
                 </tr>
               ))}
