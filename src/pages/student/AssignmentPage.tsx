@@ -132,6 +132,25 @@ export default function AssignmentPage() {
             </div>
           ))}
         </div>
+        <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
+          <button
+            style={{
+              padding: '12px 24px',
+              background: '#2a2a2a',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = '#363636'}
+            onMouseOut={(e) => e.currentTarget.style.background = '#2a2a2a'}
+          >
+            Submit Assignment
+          </button>
+        </div>
       </div>
     </div>
   )
