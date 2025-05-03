@@ -4,7 +4,7 @@ import { RootState } from '@/app/store';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/app/hooks';
 import { fetchAssignmentByClass, updateAssignmentStatus } from '@/features/assignments/assignmentThunks';
-import { createSubmission } from '@/features/submissions/submissionThunks';
+import { createSubmission, fetchSubmissionsByAssignmentAndStudent } from '@/features/submissions/submissionThunks';
 
 // Define types for better type safety
 interface Question {
@@ -24,6 +24,7 @@ export default function AssignmentPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { assignments } = useSelector((state: RootState) => state.assignments);
+  const { submissions } = useSelector((state: RootState) => state.submissions);
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const { user } = useSelector((state: RootState) => state.auth);
   const studentId = user?.id;
@@ -51,6 +52,55 @@ export default function AssignmentPage() {
       }
     }
   }, [assignmentId, assignments, dispatch]);
+
+  useEffect(() => {
+    // Fetch existing submissions for this assignment
+    if (assignmentId && studentId) {
+      dispatch(fetchSubmissionsByAssignmentAndStudent({ 
+        assignment_id: assignmentId, 
+        student_id: studentId 
+      }));
+    }
+  }, [assignmentId, studentId, dispatch]);
+
+  useEffect(() => {
+    // Load existing recordings if there's a submission
+    if (assignmentId && submissions.length > 0) {
+      const submission = submissions.find(s => s.assignment_id === assignmentId);
+      if (submission?.recordings) {
+        const loadedRecordings: Record<number, RecordingAttempt[]> = {};
+        const loadedSelectedRecordings: Record<number, RecordingAttempt | null> = {};
+        
+        submission.recordings.forEach((recording, idx) => {
+          // Convert the audio URL to a Blob and create a RecordingAttempt
+          fetch(recording.audioUrl)
+            .then(response => response.blob())
+            .then(blob => {
+              const recordingAttempt: RecordingAttempt = {
+                blob,
+                url: recording.audioUrl,
+                createdAt: new Date() // We don't have the original creation date
+              };
+              
+              loadedRecordings[idx] = [recordingAttempt];
+              loadedSelectedRecordings[idx] = recordingAttempt;
+              
+              setRecordings(prev => ({
+                ...prev,
+                ...loadedRecordings
+              }));
+              setSelectedRecordings(prev => ({
+                ...prev,
+                ...loadedSelectedRecordings
+              }));
+            })
+            .catch(error => {
+              console.error('Error loading existing recording:', error);
+            });
+        });
+      }
+    }
+  }, [assignmentId, submissions]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {

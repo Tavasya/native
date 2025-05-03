@@ -2,9 +2,11 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchAssignmentByClass } from '@/features/assignments/assignmentThunks';
+import { fetchSubmissionsByAssignmentAndStudent } from '@/features/submissions/submissionThunks';
 import { AssignmentStatus } from '@/features/assignments/types';
 
 const getStatusColor = (status: AssignmentStatus) => {
+  
   switch (status) {
     case 'not_started':
       return '#ff4444'; // Red
@@ -23,6 +25,8 @@ export default function ClassPage() {
   const dispatch = useAppDispatch();
   const { classes } = useAppSelector(state => state.classes);
   const { assignments, loading: assignmentsLoading } = useAppSelector(state => state.assignments);
+  const { submissions } = useAppSelector(state => state.submissions);
+  const { user } = useAppSelector(state => state.auth);
 
   const currentClass = classes.find(c => c.id === classId);
 
@@ -31,6 +35,31 @@ export default function ClassPage() {
       dispatch(fetchAssignmentByClass(classId));
     }
   }, [classId, dispatch]);
+
+  useEffect(() => {
+    if (user?.id && assignments.length > 0) {
+      assignments.forEach(assignment => {
+        dispatch(fetchSubmissionsByAssignmentAndStudent({ 
+          assignment_id: assignment.id, 
+          student_id: user.id 
+        }));
+      });
+    }
+  }, [user?.id, assignments, dispatch]);
+
+  const handleAssignmentClick = (assignmentId: string) => {
+    const submission = submissions.find(s => s.assignment_id === assignmentId);
+    
+    if (submission) {
+      if (submission.status === 'graded' || submission.status === 'rejected') {
+        navigate(`/student/submission/${submission.id}`);
+      } else {
+        navigate(`/student/assignment/${assignmentId}`);
+      }
+    } else {
+      navigate(`/student/assignment/${assignmentId}`);
+    }
+  };
 
   if (!currentClass) {
     return (
@@ -71,37 +100,43 @@ export default function ClassPage() {
               </div>
             ) : (
               <>
-                {assignments.map((assignment) => (
-                  <div key={assignment.id} className="p-6 bg-white rounded-lg shadow">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-xl font-semibold">{assignment.title}</h3>
-                        <p className="text-gray-600 mt-2">{assignment.topic}</p>
-                        <p className="text-sm text-gray-500 mt-2">
-                          Due: {new Date(assignment.due_date).toLocaleDateString()}
-                        </p>
-                        <div style={{
-                          display: 'inline-block',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          background: getStatusColor(assignment.status),
-                          color: '#fff',
-                          fontSize: '12px',
-                          marginTop: '8px',
-                          textTransform: 'capitalize'
-                        }}>
-                          {assignment.status.replace('_', ' ')}
+                {assignments.map((assignment) => {
+                  const submission = submissions.find(s => s.assignment_id === assignment.id);
+                  
+                  return (
+                    <div key={assignment.id} className="p-6 bg-white rounded-lg shadow">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-xl font-semibold">{assignment.title}</h3>
+                          <p className="text-gray-600 mt-2">{assignment.topic}</p>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Due: {new Date(assignment.due_date).toLocaleDateString()}
+                          </p>
+                          <div style={{
+                            display: 'inline-block',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            background: getStatusColor(assignment.status),
+                            color: '#fff',
+                            fontSize: '12px',
+                            marginTop: '8px',
+                            textTransform: 'capitalize'
+                          }}>
+                            {assignment.status.replace('_', ' ')}
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleAssignmentClick(assignment.id)}
+                          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        >
+                          {submission?.status === 'graded' || submission?.status === 'rejected' 
+                            ? 'View Submission' 
+                            : 'View Assignment'}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => navigate(`/student/assignment/${assignment.id}`)}
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                      >
-                        View Assignment
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {assignments.length === 0 && (
                   <p className="text-gray-500">No assignments available</p>
                 )}
