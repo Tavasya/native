@@ -20,6 +20,68 @@ interface RecordingAttempt {
   createdAt: Date;
 }
 
+interface StoredRecording {
+  url: string;
+  createdAt: string;
+  base64: string | null;
+}
+
+interface StoredRecordings {
+  [questionIdx: string]: StoredRecording[];
+}
+
+// Helper function to save recordings to local storage
+const saveRecordingsToLocalStorage = (assignmentId: string, recordings: Record<number, RecordingAttempt[]>) => {
+  try {
+    // Convert Blobs to base64 strings for storage
+    const recordingsForStorage = Object.entries(recordings).reduce((acc, [questionIdx, attempts]) => {
+      acc[questionIdx] = attempts.map(attempt => ({
+        url: attempt.url,
+        createdAt: attempt.createdAt.toISOString(),
+        // Convert blob to base64
+        base64: attempt.blob instanceof Blob ? URL.createObjectURL(attempt.blob) : null
+      }));
+      return acc;
+    }, {} as StoredRecordings);
+
+    localStorage.setItem(`recordings_${assignmentId}`, JSON.stringify(recordingsForStorage));
+  } catch (error) {
+    console.error('Error saving recordings to local storage:', error);
+  }
+};
+
+// Helper function to load recordings from local storage
+const loadRecordingsFromLocalStorage = async (assignmentId: string): Promise<Record<number, RecordingAttempt[]>> => {
+  try {
+    const storedData = localStorage.getItem(`recordings_${assignmentId}`);
+    if (!storedData) return {};
+
+    const parsedData = JSON.parse(storedData) as StoredRecordings;
+    const loadedRecordings: Record<number, RecordingAttempt[]> = {};
+
+    for (const [questionIdx, attempts] of Object.entries(parsedData)) {
+      const questionAttempts = attempts.map(async (attempt) => {
+        // Convert base64 back to Blob
+        const response = await fetch(attempt.base64 || '');
+        const blob = await response.blob();
+        
+        return {
+          blob,
+          url: attempt.url,
+          createdAt: new Date(attempt.createdAt)
+        };
+      });
+
+      loadedRecordings[parseInt(questionIdx)] = await Promise.all(questionAttempts);
+    }
+
+    return loadedRecordings;
+  } catch (error) {
+    console.error('Error loading recordings from local storage:', error);
+    return {};
+  }
+};
+
 export default function AssignmentPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -101,6 +163,30 @@ export default function AssignmentPage() {
       }
     }
   }, [assignmentId, submissions]);
+
+  // Load recordings from local storage when component mounts
+  useEffect(() => {
+    if (assignmentId) {
+      loadRecordingsFromLocalStorage(assignmentId).then(loadedRecordings => {
+        setRecordings(loadedRecordings);
+        // Select the most recent recording for each question
+        const selected: Record<number, RecordingAttempt | null> = {};
+        Object.entries(loadedRecordings).forEach(([questionIdx, attempts]) => {
+          if (attempts.length > 0) {
+            selected[parseInt(questionIdx)] = attempts[attempts.length - 1];
+          }
+        });
+        setSelectedRecordings(selected);
+      });
+    }
+  }, [assignmentId]);
+
+  // Save recordings to local storage whenever they change
+  useEffect(() => {
+    if (assignmentId && Object.keys(recordings).length > 0) {
+      saveRecordingsToLocalStorage(assignmentId, recordings);
+    }
+  }, [assignmentId, recordings]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -257,10 +343,11 @@ export default function AssignmentPage() {
           
           setRecordings(prev => {
             const questionRecordings = prev[questionIdx] || [];
-            return {
+            const updated = {
               ...prev,
               [questionIdx]: [...questionRecordings, newRecording]
             };
+            return updated;
           });
           
           // Automatically select this recording if none selected for this question
