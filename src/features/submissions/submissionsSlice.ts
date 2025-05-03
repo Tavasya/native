@@ -6,6 +6,7 @@ import {
     fetchSubmissionById,
     updateSubmission,
     deleteSubmission,
+    submitAudioAndAnalyze,
 } from "./submissionThunks"
 
 const initialState: SubmissionsState = {
@@ -24,6 +25,14 @@ const submissionsSlice = createSlice({
         },
         clearError(state) {
             state.error = null;
+        },
+        updateSubmissionFromRealtime(state, action: PayloadAction<Submission>) {
+            const updated = action.payload;
+            const idx = state.submissions.findIndex(s => s.id === updated.id);
+            if (idx !== -1) state.submissions[idx] = updated;
+            if (state.selectedSubmission?.id === updated.id) {
+                state.selectedSubmission = updated;
+            }
         },
     },
     extraReducers(builder) {
@@ -104,9 +113,24 @@ const submissionsSlice = createSlice({
         .addCase(deleteSubmission.rejected, (state, action) => {
             state.loading = false;
             state.error = action.payload as string;
+        })
+
+        
+
+        //For analysis
+        .addCase(submitAudioAndAnalyze.pending, (state) => {
+            state.loading = true;
+            state.error = null;
+        })
+        .addCase(submitAudioAndAnalyze.fulfilled, (state) => {
+            state.loading = false;
+        })
+        .addCase(submitAudioAndAnalyze.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
         });
     },
 });
 
-export const { selectSubmission, clearError } = submissionsSlice.actions;
+export const { selectSubmission, clearError, updateSubmissionFromRealtime } = submissionsSlice.actions;
 export default submissionsSlice.reducer;

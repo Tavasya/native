@@ -7,6 +7,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import { Submission, CreateSubmissionDto, UpdateSubmissionDto } from "./types";
 
+interface AudioAnalysisResponse {
+  success: boolean;
+  data?: {
+    // Add specific fields based on your backend response
+    transcription?: string;
+    analysis?: any;
+  };
+  error?: string;
+}
+
 export const submissionService = {
 
   // Create new Submission
@@ -26,13 +36,27 @@ export const submissionService = {
         : 1;
     }
 
+    // Prepare the data for Supabase
+    const submissionData = {
+      assignment_id: data.assignment_id,
+      student_id: data.student_id,
+      attempt: data.attempt,
+      recordings: data.recordings,
+      status: 'pending',
+      valid_transcript: false,
+      submitted_at: new Date().toISOString()
+    };
+
     const { data: submission, error } = await supabase
       .from("submissions")
-      .insert([data])
+      .insert([submissionData])
       .select()
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Supabase error:", error);
+      throw new Error(error.message);
+    }
     if (!submission) throw new Error("No submission returned from Supabase.");
     return submission;
   },
@@ -81,5 +105,52 @@ export const submissionService = {
         .eq("id", id);
 
         if (error) throw new Error(error.message);
-  }
+  },
+
+
+  async analyzeAudio(urls: string[], submission_id: string): Promise<AudioAnalysisResponse> {
+    try {
+      if (!urls.length) {
+        throw new Error("No audio URLs provided for analysis");
+      }
+
+      console.log("Sending request to analyze audio:", { 
+        urls, 
+        submission_id,
+        count: urls.length 
+      });
+      
+      const response = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          urls, 
+          submission_id,
+          count: urls.length 
+        }),
+      });
+
+      console.log("Received response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error:", errorData);
+        throw new Error(errorData.message || "Failed to analyze audio");
+      }
+
+      const data = await response.json();
+      console.log("Successfully analyzed audio:", data);
+      
+      return {
+        success: true,
+        data
+      };
+    } catch (error) {
+      console.error("Error analyzing audio:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error occurred"
+      };
+    }
+  },
 };

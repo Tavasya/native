@@ -27,7 +27,21 @@ export const createSubmission = createAsyncThunk(
                 recordings: audioUrls
             };
             
-            return await submissionService.createSubmission(submissionData);
+            const submission = await submissionService.createSubmission(submissionData);
+            
+            // Send all audio URLs for analysis at once
+            try {
+                console.log("Starting audio analysis for all recordings");
+                const result = await submissionService.analyzeAudio(
+                    audioUrls.map(r => r.audioUrl),
+                    submission.id
+                );
+                console.log("Audio analysis result:", result);
+            } catch (error) {
+                console.error("Error analyzing audio:", error);
+            }
+            
+            return submission;
         } catch(error: any) {
             return rejectWithValue(error.message);
         }
@@ -86,3 +100,18 @@ export const deleteSubmission = createAsyncThunk(
         }
     }
 )
+
+export const submitAudioAndAnalyze = createAsyncThunk<
+    { success: boolean },
+    { audioUrl: string; submissionId: string }
+>(
+    "submissions/submitAudioAndAnalyze",
+    async ({ audioUrl, submissionId }, thunkAPI) => {
+        try {
+            await submissionService.analyzeAudio([audioUrl], submissionId);
+            return { success: true };
+        } catch (error: any) {
+            return thunkAPI.rejectWithValue(error.message);
+        }
+    }
+);
