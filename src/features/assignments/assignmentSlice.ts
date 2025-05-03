@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { AssignmentState } from "./types";
-import { createAssignment, fetchAssignmentByClass, deleteAssignment } from "./assignmentThunks";
+import { createAssignment, fetchAssignmentByClass, deleteAssignment, updateAssignmentStatus } from "./assignmentThunks";
 
 const initialState: AssignmentState = {
     assignments: [],
@@ -42,6 +42,18 @@ const assignmentSlice = createSlice({
             .addCase(fetchAssignmentByClass.rejected, (state, action) => {
                 state.createAssignmentLoading = false;
                 state.error = action.payload as string
+            })
+
+            //Update Assignment Status
+            .addCase(updateAssignmentStatus.fulfilled, (state, action) => {
+                const { assignmentId, status } = action.payload;
+                const assignment = state.assignments.find(a => a.id === assignmentId);
+                if (assignment) {
+                    assignment.status = status;
+                }
+            })
+            .addCase(updateAssignmentStatus.rejected, (state, action) => {
+                state.error = action.payload as string;
             })
 
             //Delete Assignment

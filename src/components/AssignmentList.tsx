@@ -1,11 +1,24 @@
 import React from 'react';
 import { useAppDispatch } from '@/app/hooks';
-import { Assignment } from '@/features/assignments/types';
+import { Assignment, AssignmentStatus } from '@/features/assignments/types';
 import { deleteAssignment } from '@/features/assignments/assignmentThunks';
 
 interface AssignmentListProps {
   assignments: Assignment[];
 }
+
+const getStatusColor = (status: AssignmentStatus) => {
+  switch (status) {
+    case 'not_started':
+      return '#ff4444'; // Red
+    case 'in_progress':
+      return '#ffbb33'; // Yellow
+    case 'completed':
+      return '#00C851'; // Green
+    default:
+      return '#666';
+  }
+};
 
 const AssignmentList: React.FC<AssignmentListProps> = ({ assignments }) => {
   const dispatch = useAppDispatch();
@@ -66,6 +79,18 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ assignments }) => {
               }}>
                 Topic: {assignment.topic || 'No topic'}
               </p>
+              <div style={{
+                display: 'inline-block',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                background: getStatusColor(assignment.status),
+                color: '#fff',
+                fontSize: '12px',
+                marginTop: '8px',
+                textTransform: 'capitalize'
+              }}>
+                {assignment.status.replace('_', ' ')}
+              </div>
             </div>
             <button
               onClick={() => handleDelete(assignment.id)}

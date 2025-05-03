@@ -4,6 +4,8 @@ export interface Question {
     example: string;
 }
 
+export type AssignmentStatus = 'not_started' | 'in_progress' | 'completed';
+
 export interface Assignment {
     id: string;
     class_id: string;
@@ -13,6 +15,7 @@ export interface Assignment {
     due_date: string;
     topic: string;
     metadata: any;
+    status: AssignmentStatus;
 }
 
 export interface CreateAssignmentDto {

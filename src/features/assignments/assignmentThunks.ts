@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { CreateAssignmentDto } from "./types";
+import { CreateAssignmentDto, AssignmentStatus } from "./types";
 import { assignmentService } from "./assignmentService";
 
 export const createAssignment = createAsyncThunk(
@@ -35,4 +35,16 @@ export const deleteAssignment = createAsyncThunk(
         }
     }
 )
+
+export const updateAssignmentStatus = createAsyncThunk(
+    'assignment/updateStatus',
+    async ({ assignmentId, status }: { assignmentId: string, status: AssignmentStatus }, { rejectWithValue }) => {
+        try {
+            await assignmentService.updateAssignmentStatus(assignmentId, status);
+            return { assignmentId, status };
+        } catch (error) {
+            return rejectWithValue((error as Error).message);
+        }
+    }
+);
 
