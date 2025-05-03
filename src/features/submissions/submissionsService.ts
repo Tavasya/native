@@ -11,6 +11,21 @@ export const submissionService = {
 
   // Create new Submission
   async createSubmission(data: CreateSubmissionDto): Promise<Submission> {
+    // If attempt is not provided, calculate it based on existing submissions
+    if (data.attempt === undefined) {
+      const { data: existingSubmissions } = await supabase
+        .from("submissions")
+        .select("attempt")
+        .eq("assignment_id", data.assignment_id)
+        .eq("student_id", data.student_id)
+        .order("attempt", { ascending: false })
+        .limit(1);
+
+      data.attempt = existingSubmissions && existingSubmissions.length > 0 
+        ? existingSubmissions[0].attempt + 1 
+        : 1;
+    }
+
     const { data: submission, error } = await supabase
       .from("submissions")
       .insert([data])
