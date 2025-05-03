@@ -2,6 +2,20 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchAssignmentByClass } from '@/features/assignments/assignmentThunks';
+import { AssignmentStatus } from '@/features/assignments/types';
+
+const getStatusColor = (status: AssignmentStatus) => {
+  switch (status) {
+    case 'not_started':
+      return '#ff4444'; // Red
+    case 'in_progress':
+      return '#ffbb33'; // Yellow
+    case 'completed':
+      return '#00C851'; // Green
+    default:
+      return '#666';
+  }
+};
 
 export default function ClassPage() {
   const { classId } = useParams<{ classId: string }>();
@@ -66,6 +80,18 @@ export default function ClassPage() {
                         <p className="text-sm text-gray-500 mt-2">
                           Due: {new Date(assignment.due_date).toLocaleDateString()}
                         </p>
+                        <div style={{
+                          display: 'inline-block',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          background: getStatusColor(assignment.status),
+                          color: '#fff',
+                          fontSize: '12px',
+                          marginTop: '8px',
+                          textTransform: 'capitalize'
+                        }}>
+                          {assignment.status.replace('_', ' ')}
+                        </div>
                       </div>
                       <button
                         onClick={() => navigate(`/student/assignment/${assignment.id}`)}

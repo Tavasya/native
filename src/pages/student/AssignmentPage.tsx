@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/app/hooks';
-import { fetchAssignmentByClass } from '@/features/assignments/assignmentThunks';
+import { fetchAssignmentByClass, updateAssignmentStatus } from '@/features/assignments/assignmentThunks';
 import { createSubmission } from '@/features/submissions/submissionThunks';
 
 // Define types for better type safety
@@ -105,14 +105,14 @@ export default function AssignmentPage() {
         createSubmission({
           assignment_id: assignmentId,
           student_id: studentId,
-          // Add an attempt number if needed
-          // attempt: 1, 
           recordings: selectedRecordings,
           questions: questionsForSubmission
         })
       );
       
       if (createSubmission.fulfilled.match(resultAction)) {
+        // Update assignment status to completed when submission is successful
+        await dispatch(updateAssignmentStatus({ assignmentId, status: 'completed' }));
         const submission = resultAction.payload;
         navigate(`/student/submission/${submission.id}`);
       } else {
@@ -181,6 +181,11 @@ export default function AssignmentPage() {
   function startRecording(questionIdx: number) {
     setActiveRecording(questionIdx);
     currentChunksRef.current = [];
+    
+    // Update assignment status to in_progress when recording starts
+    if (assignmentId) {
+      dispatch(updateAssignmentStatus({ assignmentId, status: 'in_progress' }));
+    }
     
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {

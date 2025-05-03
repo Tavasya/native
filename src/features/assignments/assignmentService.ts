@@ -12,7 +12,8 @@ export const assignmentService = {
                 due_date: assignmentData.due_date,
                 class_id: assignmentData.class_id,
                 questions: assignmentData.questions,
-                topic: assignmentData.topic
+                topic: assignmentData.topic,
+                status: 'not_started' // Default status
             }])
             .select()
             .single();
@@ -37,6 +38,17 @@ export const assignmentService = {
         return data;
     },
 
+    //Update assignment status
+    async updateAssignmentStatus(assignmentId: string, status: 'not_started' | 'in_progress' | 'completed'): Promise<void> {
+        const { error } = await supabase
+            .from('assignments')
+            .update({ status })
+            .eq('id', assignmentId);
+        
+        if (error) {
+            throw new Error(error.message);
+        }
+    },
 
     //Delete
     async deleteAssignment(assignmentId: string): Promise<void> {
@@ -48,7 +60,5 @@ export const assignmentService = {
         if (error) {
             throw new Error(error.message);
         }
-
-
     }
 }
