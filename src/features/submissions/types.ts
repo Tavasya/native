@@ -29,7 +29,6 @@ export interface Submission {
     status: SubmissionStatus;
     section_feedback: Record<string, SectionFeedback>;
     submitted_at: string;
-    submission_uid?: string;
     grade?: number; //overall grade
     valid_transcript: boolean;
     recordings?: RecordingData[]; // New field for multiple recordings
