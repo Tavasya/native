@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch } from '@/app/hooks';
 import { fetchAssignmentByClass, updateAssignmentStatus } from '@/features/assignments/assignmentThunks';
 import { createSubmission, fetchSubmissionsByAssignmentAndStudent } from '@/features/submissions/submissionThunks';
@@ -27,20 +27,22 @@ interface StoredRecording {
 }
 
 interface StoredRecordings {
-  [questionIdx: string]: StoredRecording[];
+  [questionIdx: string]: StoredRecording;
 }
 
 // Helper function to save recordings to local storage
-const saveRecordingsToLocalStorage = (assignmentId: string, recordings: Record<number, RecordingAttempt[]>) => {
+const saveRecordingsToLocalStorage = (assignmentId: string, recordings: Record<number, RecordingAttempt | null>) => {
   try {
     // Convert Blobs to base64 strings for storage
-    const recordingsForStorage = Object.entries(recordings).reduce((acc, [questionIdx, attempts]) => {
-      acc[questionIdx] = attempts.map(attempt => ({
-        url: attempt.url,
-        createdAt: attempt.createdAt.toISOString(),
-        // Convert blob to base64
-        base64: attempt.blob instanceof Blob ? URL.createObjectURL(attempt.blob) : null
-      }));
+    const recordingsForStorage = Object.entries(recordings).reduce((acc, [questionIdx, attempt]) => {
+      if (attempt) {
+        acc[questionIdx] = {
+          url: attempt.url,
+          createdAt: attempt.createdAt.toISOString(),
+          // Convert blob to base64
+          base64: attempt.blob instanceof Blob ? URL.createObjectURL(attempt.blob) : null
+        };
+      }
       return acc;
     }, {} as StoredRecordings);
 
@@ -51,28 +53,26 @@ const saveRecordingsToLocalStorage = (assignmentId: string, recordings: Record<n
 };
 
 // Helper function to load recordings from local storage
-const loadRecordingsFromLocalStorage = async (assignmentId: string): Promise<Record<number, RecordingAttempt[]>> => {
+const loadRecordingsFromLocalStorage = async (assignmentId: string): Promise<Record<number, RecordingAttempt | null>> => {
   try {
     const storedData = localStorage.getItem(`recordings_${assignmentId}`);
     if (!storedData) return {};
 
     const parsedData = JSON.parse(storedData) as StoredRecordings;
-    const loadedRecordings: Record<number, RecordingAttempt[]> = {};
+    const loadedRecordings: Record<number, RecordingAttempt | null> = {};
 
-    for (const [questionIdx, attempts] of Object.entries(parsedData)) {
-      const questionAttempts = attempts.map(async (attempt) => {
+    for (const [questionIdx, attempt] of Object.entries(parsedData)) {
+      if (attempt) {
         // Convert base64 back to Blob
         const response = await fetch(attempt.base64 || '');
         const blob = await response.blob();
         
-        return {
+        loadedRecordings[parseInt(questionIdx)] = {
           blob,
           url: attempt.url,
           createdAt: new Date(attempt.createdAt)
         };
-      });
-
-      loadedRecordings[parseInt(questionIdx)] = await Promise.all(questionAttempts);
+      }
     }
 
     return loadedRecordings;
@@ -84,6 +84,7 @@ const loadRecordingsFromLocalStorage = async (assignmentId: string): Promise<Rec
 
 export default function AssignmentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { assignments } = useSelector((state: RootState) => state.assignments);
   const { submissions } = useSelector((state: RootState) => state.submissions);
@@ -95,12 +96,10 @@ export default function AssignmentPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const currentChunksRef = useRef<Blob[]>([]);
   
-  // For tracking recordings per question (array of attempts per question index)
-  const [recordings, setRecordings] = useState<Record<number, RecordingAttempt[]>>({});
+  // For tracking recordings per question (single recording per question)
+  const [recordings, setRecordings] = useState<Record<number, RecordingAttempt | null>>({});
   // For tracking which question is currently being recorded
   const [activeRecording, setActiveRecording] = useState<number | null>(null);
-  // For tracking selected recording per question for submission
-  const [selectedRecordings, setSelectedRecordings] = useState<Record<number, RecordingAttempt | null>>({});
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -126,12 +125,22 @@ export default function AssignmentPage() {
   }, [assignmentId, studentId, dispatch]);
 
   useEffect(() => {
+    // Check if there are existing submissions and redirect if needed
+    if (assignmentId && submissions.length > 0) {
+      const submission = submissions.find(s => s.assignment_id === assignmentId);
+      if (submission && !location.state?.isRetry) {
+        navigate(`/student/submission/${submission.id}`);
+        return;
+      }
+    }
+  }, [assignmentId, submissions, navigate, location.state?.isRetry]);
+
+  useEffect(() => {
     // Load existing recordings if there's a submission
     if (assignmentId && submissions.length > 0) {
       const submission = submissions.find(s => s.assignment_id === assignmentId);
       if (submission?.recordings) {
-        const loadedRecordings: Record<number, RecordingAttempt[]> = {};
-        const loadedSelectedRecordings: Record<number, RecordingAttempt | null> = {};
+        const loadedRecordings: Record<number, RecordingAttempt | null> = {};
         
         submission.recordings.forEach((recording, idx) => {
           // Convert the audio URL to a Blob and create a RecordingAttempt
@@ -144,16 +153,11 @@ export default function AssignmentPage() {
                 createdAt: new Date() // We don't have the original creation date
               };
               
-              loadedRecordings[idx] = [recordingAttempt];
-              loadedSelectedRecordings[idx] = recordingAttempt;
+              loadedRecordings[idx] = recordingAttempt;
               
               setRecordings(prev => ({
                 ...prev,
                 ...loadedRecordings
-              }));
-              setSelectedRecordings(prev => ({
-                ...prev,
-                ...loadedSelectedRecordings
               }));
             })
             .catch(error => {
@@ -167,19 +171,21 @@ export default function AssignmentPage() {
   // Load recordings from local storage when component mounts
   useEffect(() => {
     if (assignmentId) {
-      loadRecordingsFromLocalStorage(assignmentId).then(loadedRecordings => {
-        setRecordings(loadedRecordings);
-        // Select the most recent recording for each question
-        const selected: Record<number, RecordingAttempt | null> = {};
-        Object.entries(loadedRecordings).forEach(([questionIdx, attempts]) => {
-          if (attempts.length > 0) {
-            selected[parseInt(questionIdx)] = attempts[attempts.length - 1];
-          }
+      // Check if there's a submission for this assignment
+      const existingSubmission = submissions.find(s => s.assignment_id === assignmentId);
+      
+      if (existingSubmission) {
+        // If there's a submission, clear localStorage to start fresh
+        localStorage.removeItem(`recordings_${assignmentId}`);
+        setRecordings({});
+      } else {
+        // If no submission exists, load from localStorage
+        loadRecordingsFromLocalStorage(assignmentId).then(loadedRecordings => {
+          setRecordings(loadedRecordings);
         });
-        setSelectedRecordings(selected);
-      });
+      }
     }
-  }, [assignmentId]);
+  }, [assignmentId, submissions]);
 
   // Save recordings to local storage whenever they change
   useEffect(() => {
@@ -203,7 +209,7 @@ export default function AssignmentPage() {
     }
     
     // Check if at least one recording is selected
-    const hasSelectedRecording = Object.values(selectedRecordings).some(recording => recording !== null);
+    const hasSelectedRecording = Object.values(recordings).some(recording => recording !== null);
     
     if (!hasSelectedRecording) {
       alert("Please select at least one recording to submit!");
@@ -241,7 +247,7 @@ export default function AssignmentPage() {
         createSubmission({
           assignment_id: assignmentId,
           student_id: studentId,
-          recordings: selectedRecordings,
+          recordings: recordings,
           questions: questionsForSubmission
         })
       );
@@ -341,22 +347,10 @@ export default function AssignmentPage() {
           const url = URL.createObjectURL(blob);
           const newRecording = { blob, url, createdAt: new Date() };
           
-          setRecordings(prev => {
-            const questionRecordings = prev[questionIdx] || [];
-            const updated = {
-              ...prev,
-              [questionIdx]: [...questionRecordings, newRecording]
-            };
-            return updated;
-          });
-          
-          // Automatically select this recording if none selected for this question
-          if (!selectedRecordings[questionIdx]) {
-            setSelectedRecordings(prev => ({
-              ...prev,
-              [questionIdx]: newRecording
-            }));
-          }
+          setRecordings(prev => ({
+            ...prev,
+            [questionIdx]: newRecording
+          }));
           
           setActiveRecording(null);
           
@@ -378,14 +372,6 @@ export default function AssignmentPage() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
-  }
-
-  // Select a recording for submission
-  function selectRecording(questionIdx: number, attempt: RecordingAttempt) {
-    setSelectedRecordings(prev => ({
-      ...prev,
-      [questionIdx]: attempt
-    }));
   }
 
   return (
@@ -413,29 +399,26 @@ export default function AssignmentPage() {
       </div>
       
       <form onSubmit={handleSubmit}>
-        <div style={{ marginTop: '15px' }}>
-          <h3>Questions:</h3>
-          {questions.length === 0 ? (
-            <div style={{ padding: '20px', background: '#2a2a2a', borderRadius: '8px' }}>
-              No questions found for this assignment.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div>
+          {questions.length > 0 && (
+            <div>
               {questions.map((question, idx) => (
-                <div 
-                  key={idx}
-                  style={{
-                    background: '#2a2a2a',
-                    padding: '20px',
-                    borderRadius: '8px',
-                  }}
-                >
+                <div key={idx} style={{ 
+                  marginBottom: '30px',
+                  padding: '20px',
+                  background: '#2a2a2a',
+                  borderRadius: '8px',
+                  border: '1px solid #363636'
+                }}>
+                  <h3 style={{ marginBottom: '16px', color: '#fff' }}>
+                    Question {idx + 1}
+                  </h3>
                   <div style={{ 
-                    marginBottom: '16px', 
-                    fontSize: '16px',
-                    color: '#fff'
+                    color: '#ddd',
+                    marginBottom: '16px',
+                    lineHeight: '1.5'
                   }}>
-                    <strong>Question {idx + 1}:</strong> {question.text}
+                    {question.text}
                   </div>
                   
                   <div style={{
@@ -482,13 +465,11 @@ export default function AssignmentPage() {
                         }}
                         disabled={activeRecording !== null}
                       >
-                        🎤 Record Answer
+                        🎤 {recordings[idx] ? 'Retry Recording' : 'Record Answer'}
                       </button>
                     )}
                     <span style={{ color: '#aaa', fontSize: '13px' }}>
-                      {recordings[idx]?.length
-                        ? `(${recordings[idx].length} attempt${recordings[idx].length > 1 ? 's' : ''})`
-                        : '(No recording yet)'}
+                      {recordings[idx] ? '(Recording saved)' : '(No recording yet)'}
                     </span>
                   </div>
                   
@@ -523,47 +504,27 @@ export default function AssignmentPage() {
                     </div>
                   )}
                   
-                  {/* Recordings list */}
-                  {recordings[idx]?.length > 0 && (
+                  {/* Recording player */}
+                  {recordings[idx] && (
                     <div style={{ marginTop: '16px' }}>
                       <div style={{ color: '#aaa', fontSize: '14px', marginBottom: '8px' }}>
-                        Your Recordings:
+                        Your Recording:
                       </div>
-                      {recordings[idx].map((attempt, attemptIdx) => (
-                        <div key={attemptIdx} style={{ 
-                          marginTop: '8px',
-                          padding: '10px',
-                          background: selectedRecordings[idx] === attempt ? '#363636' : 'transparent',
-                          borderRadius: '4px',
-                          border: '1px solid #444'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <audio 
-                              controls 
-                              src={attempt.url} 
-                              style={{ maxWidth: '100%' }} 
-                            />
-                            <button
-                              type="button"
-                              onClick={() => selectRecording(idx, attempt)}
-                              style={{
-                                padding: '4px 8px',
-                                background: selectedRecordings[idx] === attempt ? '#4CAF50' : '#363636',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px'
-                              }}
-                            >
-                              {selectedRecordings[idx] === attempt ? 'Selected' : 'Select'}
-                            </button>
-                          </div>
-                          <div style={{ marginLeft: '8px', color: '#888', fontSize: '12px' }}>
-                            Attempt {attemptIdx + 1} ({attempt.createdAt.toLocaleTimeString()})
-                          </div>
+                      <div style={{ 
+                        padding: '10px',
+                        background: '#363636',
+                        borderRadius: '4px',
+                        border: '1px solid #444'
+                      }}>
+                        <audio 
+                          controls 
+                          src={recordings[idx]?.url} 
+                          style={{ maxWidth: '100%' }} 
+                        />
+                        <div style={{ marginLeft: '8px', color: '#888', fontSize: '12px' }}>
+                          Recorded at {recordings[idx]?.createdAt.toLocaleTimeString()}
                         </div>
-                      ))}
+                      </div>
                     </div>
                   )}
                 </div>

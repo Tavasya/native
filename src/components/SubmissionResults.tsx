@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useRealtimeSubmission } from '@/hooks/useRealtimeSubmission';
 import { RootState } from '@/app/store';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 
 const ResultsContainer = styled.div`
   padding: 24px;
@@ -45,8 +46,49 @@ const GradeBadge = styled.span<{ $grade: number }>`
   margin-right: 8px;
 `;
 
+const AttemptSelector = styled.div`
+  margin: 16px 0;
+  padding: 12px;
+  background: #333;
+  border-radius: 4px;
+`;
+
+const AttemptButton = styled.button<{ $isSelected: boolean }>`
+  padding: 8px 16px;
+  margin-right: 8px;
+  background: ${props => props.$isSelected ? '#4CAF50' : '#666'};
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: ${props => props.$isSelected ? '#45a049' : '#777'};
+  }
+`;
+
+const RetryButton = styled.button`
+  padding: 12px 24px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-top: 16px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #1976D2;
+  }
+`;
+
 export function SubmissionResults() {
-  const { selectedSubmission, loading, error } = useSelector((state: RootState) => state.submissions);
+  const navigate = useNavigate();
+  const { selectedSubmission, submissions, loading, error } = useSelector((state: RootState) => state.submissions);
+  const [selectedAttempt, setSelectedAttempt] = useState<number>(0);
+  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   useRealtimeSubmission(selectedSubmission?.id);
 
@@ -54,25 +96,79 @@ export function SubmissionResults() {
   if (error) return <div>Error: {error}</div>;
   if (!selectedSubmission) return <div>No submission selected</div>;
 
+  // Get all submissions for this assignment
+  const assignmentSubmissions = submissions.filter(
+    s => s.assignment_id === selectedSubmission.assignment_id
+  ).sort((a, b) => b.attempt - a.attempt);
+
+  const currentSubmission = assignmentSubmissions[selectedAttempt];
+
+  const handleRetry = () => {
+    navigate(`/student/assignment/${selectedSubmission.assignment_id}`, { 
+      state: { isRetry: true } 
+    });
+  };
+
+  // Handle attempt change
+  const handleAttemptChange = (idx: number) => {
+    // Pause all audio players when switching attempts
+    Object.values(audioRefs.current).forEach(audio => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    });
+    setSelectedAttempt(idx);
+  };
+
   return (
     <ResultsContainer>
-      <h2>Submission #{selectedSubmission.attempt}</h2>
-      <div style={{ marginBottom: '24px' }}>
-        Status: {selectedSubmission.status}
-        {selectedSubmission.grade && (
-          <GradeBadge $grade={selectedSubmission.grade}>
-            Overall Grade: {selectedSubmission.grade}%
-          </GradeBadge>
-        )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2>Submission #{currentSubmission.attempt}</h2>
+        <div>
+          Status: {currentSubmission.status}
+          {currentSubmission.grade && (
+            <GradeBadge $grade={currentSubmission.grade}>
+              Overall Grade: {currentSubmission.grade}%
+            </GradeBadge>
+          )}
+        </div>
       </div>
 
-      {selectedSubmission.recordings && selectedSubmission.recordings.map((recording, index) => {
-        const feedback = selectedSubmission.section_feedback?.[recording.questionId];
+      {assignmentSubmissions.length > 1 && (
+        <AttemptSelector>
+          <h3>View Attempts:</h3>
+          <div>
+            {assignmentSubmissions.map((submission, idx) => (
+              <AttemptButton
+                key={submission.id}
+                $isSelected={idx === selectedAttempt}
+                onClick={() => handleAttemptChange(idx)}
+              >
+                Attempt {submission.attempt}
+                {submission.grade && ` (${submission.grade}%)`}
+              </AttemptButton>
+            ))}
+          </div>
+        </AttemptSelector>
+      )}
+
+      {currentSubmission.recordings && currentSubmission.recordings.map((recording, index) => {
+        const feedback = currentSubmission.section_feedback?.[recording.questionId];
+        const audioKey = `${currentSubmission.id}_${recording.questionId}`;
         
         return (
           <SectionContainer key={recording.questionId}>
             <h3>Question {index + 1}</h3>
-            <AudioPlayer controls>
+            <AudioPlayer 
+              controls 
+              ref={el => {
+                if (el) {
+                  audioRefs.current[audioKey] = el;
+                }
+              }}
+              key={audioKey} // Add key to force re-render when switching attempts
+            >
               <source src={recording.audioUrl} type="audio/webm" />
               Your browser does not support the audio element.
             </AudioPlayer>
@@ -90,6 +186,10 @@ export function SubmissionResults() {
           </SectionContainer>
         );
       })}
+
+      <RetryButton onClick={handleRetry}>
+        Retry Assignment
+      </RetryButton>
     </ResultsContainer>
   );
 }
