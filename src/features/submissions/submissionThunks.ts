@@ -19,15 +19,12 @@ export const createSubmission = createAsyncThunk(
                 data.questions
             );
             
-            // Use the first URL as the main audio_url for backward compatibility
-            const mainAudioUrl = audioUrls[0];
-            
-            // Create the submission with the primary URL
+            // Create the submission with the recordings array
             const submissionData: CreateSubmissionDto = {
                 assignment_id: data.assignment_id,
                 student_id: data.student_id,
                 attempt: data.attempt,
-                audio_url: mainAudioUrl
+                recordings: audioUrls
             };
             
             return await submissionService.createSubmission(submissionData);

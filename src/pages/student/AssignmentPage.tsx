@@ -30,13 +30,12 @@ export default function AssignmentPage() {
 
   // Reference to the media recorder
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const currentChunksRef = useRef<Blob[]>([]);
   
   // For tracking recordings per question (array of attempts per question index)
   const [recordings, setRecordings] = useState<Record<number, RecordingAttempt[]>>({});
   // For tracking which question is currently being recorded
   const [activeRecording, setActiveRecording] = useState<number | null>(null);
-  // For storing audio chunks while recording
-  const [currentChunks, setCurrentChunks] = useState<Blob[]>([]);
   // For tracking selected recording per question for submission
   const [selectedRecordings, setSelectedRecordings] = useState<Record<number, RecordingAttempt | null>>({});
   // Loading state
@@ -75,24 +74,41 @@ export default function AssignmentPage() {
       return;
     }
     
-    // Prepare submission data with all selected recordings
-    const recordingsData = Object.entries(selectedRecordings)
-      .filter(([_, recording]) => recording !== null)
-      .reduce((acc, [questionIdx, recording]) => {
-        if (recording) {
-          acc[questionIdx] = recording.url;
-        }
-        return acc;
-      }, {} as Record<string, string>);
-    
     setIsSubmitting(true);
     
     try {
+      // Find the specific assignment from the Redux store
+      const assignment = assignments.find(a => a.id === assignmentId);
+      
+      // Parse questions if they're stored as a string
+      let questions: Question[] = [];
+      
+      if (assignment?.questions) {
+        if (typeof assignment.questions === 'string') {
+          try {
+            questions = JSON.parse(assignment.questions);
+          } catch (e) {
+            console.error('Failed to parse questions:', e);
+            questions = [];
+          }
+        } else if (Array.isArray(assignment.questions)) {
+          questions = assignment.questions;
+        }
+      }
+      
+      // Prepare questions array with IDs for the submission
+      const questionsForSubmission = questions.map((q, idx) => ({
+        id: q.id || idx.toString()
+      }));
+      
       const resultAction = await dispatch(
         createSubmission({
           assignment_id: assignmentId,
           student_id: studentId,
-          recordings: recordingsData,
+          // Add an attempt number if needed
+          // attempt: 1, 
+          recordings: selectedRecordings,
+          questions: questionsForSubmission
         })
       );
       
@@ -143,25 +159,44 @@ export default function AssignmentPage() {
     }
   }
 
+  // Get supported MIME type
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/mpeg',
+      'audio/wav'
+    ];
+    
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return 'audio/webm'; // Fallback to webm if no other type is supported
+  };
+
   // Start recording for a specific question
   function startRecording(questionIdx: number) {
     setActiveRecording(questionIdx);
-    setCurrentChunks([]);
+    currentChunksRef.current = [];
     
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
-        const recorder = new MediaRecorder(stream);
+        const mimeType = getSupportedMimeType();
+        const recorder = new MediaRecorder(stream, { mimeType });
         mediaRecorderRef.current = recorder;
         
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) {
-            setCurrentChunks(prev => [...prev, e.data]);
+            currentChunksRef.current.push(e.data);
           }
         };
         
         recorder.onstop = () => {
-          const audioChunks = currentChunks;
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const audioChunks = currentChunksRef.current;
+          const blob = new Blob(audioChunks, { type: mimeType });
           const url = URL.createObjectURL(blob);
           const newRecording = { blob, url, createdAt: new Date() };
           
@@ -182,7 +217,6 @@ export default function AssignmentPage() {
           }
           
           setActiveRecording(null);
-          setCurrentChunks([]);
           
           // Stop all tracks to release the microphone
           stream.getTracks().forEach(track => track.stop());

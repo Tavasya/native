@@ -32,7 +32,6 @@ export interface Submission {
     submission_uid?: string;
     grade?: number; //overall grade
     valid_transcript: boolean;
-    audio_url?: string;  // Keep for backward compatibility
     recordings?: RecordingData[]; // New field for multiple recordings
 }
 
@@ -41,7 +40,8 @@ export interface CreateSubmissionDto {
     assignment_id: string;
     student_id: string;
     attempt?: number;
-    audio_url: string;  // Keep as required for backward compatibility
+    audio_url?: string;  // Made optional for backward compatibility
+    recordings: RecordingData[]; // Made required since we're using this now
 }
 
 export interface UpdateSubmissionDto {
