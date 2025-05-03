@@ -3,12 +3,15 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from '@/features/auth/authSlice';
 import classReducer from '@/features/class/classSlice'
 import assignmentReducer from '@/features/assignments/assignmentSlice'
+import submissionsReducer from '@/features/submissions/submissionsSlice'
 
 export const store = configureStore({ 
     reducer: {
         auth: authReducer,
         classes: classReducer,
-        assignments: assignmentReducer
+        assignments: assignmentReducer,
+        submissions: submissionsReducer,
+        
     } });
     
 export type RootState = ReturnType<typeof store.getState>; //Auuto checks types of state for typescript

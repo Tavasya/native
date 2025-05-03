@@ -57,7 +57,8 @@ export const deleteSubmission = createAsyncThunk(
     "submissions/deleteSubmission",
     async (id: string, {rejectWithValue}) => {
         try {
-            return await submissionService.deleteSubmission(id);
+            await submissionService.deleteSubmission(id);
+            return id;
         } catch (error: any) {
             return rejectWithValue(error.message)
         }
