@@ -114,7 +114,7 @@ export default function AssignmentPage() {
       
       if (createSubmission.fulfilled.match(resultAction)) {
         const submission = resultAction.payload;
-        navigate(`/submissions/${submission.id}`);
+        navigate(`/student/submission/${submission.id}`);
       } else {
         throw new Error('Failed to create submission');
       }
