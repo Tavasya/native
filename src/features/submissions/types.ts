@@ -4,7 +4,21 @@ export interface SectionFeedback {
     grade: number;
     feedback: string
 }
+
 export type SubmissionStatus = 'pending' | 'graded' | 'rejected';
+
+export interface RecordingData {
+    questionId: string;  // ID of the question this recording answers
+    audioUrl: string;    // URL to the audio file in Supabase Storage
+}
+
+export interface CreateSubmissionWithRecordings {
+    assignment_id: string;
+    student_id: string;
+    attempt?: number;
+    recordings: Record<number, { blob: Blob, url: string, createdAt: Date } | null>;
+    questions: { id: string }[];  // We only need the id property
+}
 
 //Data for supabase
 export interface Submission {
@@ -13,12 +27,13 @@ export interface Submission {
     student_id: string;
     attempt: number;
     status: SubmissionStatus;
-    section_feedback: Record<string, SectionFeedback>
+    section_feedback: Record<string, SectionFeedback>;
     submitted_at: string;
     submission_uid?: string;
     grade?: number; //overall grade
     valid_transcript: boolean;
-    audio_url?: string;
+    audio_url?: string;  // Keep for backward compatibility
+    recordings?: RecordingData[]; // New field for multiple recordings
 }
 
 //data for backend api
@@ -26,7 +41,7 @@ export interface CreateSubmissionDto {
     assignment_id: string;
     student_id: string;
     attempt?: number;
-    audio_url: string;
+    audio_url: string;  // Keep as required for backward compatibility
 }
 
 export interface UpdateSubmissionDto {

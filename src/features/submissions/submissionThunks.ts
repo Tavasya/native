@@ -1,18 +1,43 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { submissionService } from "./submissionsService";
-import { CreateSubmissionDto, UpdateSubmissionDto } from "./types";
+import { 
+    CreateSubmissionDto, 
+    UpdateSubmissionDto,
+    CreateSubmissionWithRecordings
+} from "./types";
+import { prepareRecordingsForSubmission } from "./audioUploadService";
 
 export const createSubmission = createAsyncThunk(
     "submissions/createSubmission",
-    async (data: CreateSubmissionDto, { rejectWithValue }) => {
-        try{
-            return await submissionService.createSubmission(data);
+    async (data: CreateSubmissionWithRecordings, { rejectWithValue }) => {
+        try {
+            // First upload the recordings to Supabase Storage
+            const audioUrls = await prepareRecordingsForSubmission(
+                data.recordings,
+                data.assignment_id,
+                data.student_id,
+                data.questions
+            );
+            
+            // Use the first URL as the main audio_url for backward compatibility
+            const mainAudioUrl = audioUrls[0];
+            
+            // Create the submission with the primary URL
+            const submissionData: CreateSubmissionDto = {
+                assignment_id: data.assignment_id,
+                student_id: data.student_id,
+                attempt: data.attempt,
+                audio_url: mainAudioUrl
+            };
+            
+            return await submissionService.createSubmission(submissionData);
         } catch(error: any) {
             return rejectWithValue(error.message);
         }
     }
 );
 
+// Rest of your thunks remain unchanged
 export const fetchSubmissionsByAssignmentAndStudent = createAsyncThunk(
     "submissions/fetchByAssignmentAndStudent",
     async (
