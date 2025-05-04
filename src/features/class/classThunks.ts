@@ -56,3 +56,14 @@ export const deleteClass = createAsyncThunk(
     }
 )
 
+export const joinClass = createAsyncThunk(
+    'class/joinClass',
+    async ({studentId, classCode}: { studentId: string, classCode: string}, { rejectWithValue }) => {
+        try {
+            return await classService.joinClass(studentId, classCode);
+        } catch (error) {
+            return rejectWithValue((error as Error).message);
+        }
+    }
+);
+

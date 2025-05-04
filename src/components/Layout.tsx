@@ -3,6 +3,18 @@ import { Outlet, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
+import styled from 'styled-components';
+
+const LayoutContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+`;
+
+const MainContent = styled.main`
+  flex: 1;
+  transition: opacity 0.3s ease-in-out;
+`;
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -18,12 +30,12 @@ const Layout: React.FC = () => {
   }, [user, role, dispatch]);
 
   return (
-    <div>
+    <LayoutContainer>
       {!isAuthPage && <NavBar />}
-      <main>
+      <MainContent>
         <Outlet />
-      </main>
-    </div>
+      </MainContent>
+    </LayoutContainer>
   );
 };
 

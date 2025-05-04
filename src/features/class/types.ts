@@ -13,8 +13,14 @@ export interface CreateClassDto {
   class_code: string;
 }
 
+export interface JoinClassDto {
+  student_id: string;
+  class_code: string
+}
+
 export interface ClassState {
-  classes: ClassStats[];
+  classes: Class[];
+  classStats: ClassStats[];
   loading: boolean;
   error: string | null;
   createClassLoading: boolean;

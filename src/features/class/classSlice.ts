@@ -1,9 +1,10 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { ClassState, ClassStats } from "./types";
-import { createClass, fetchClasses, fetchClassStatsByTeacher, deleteClass } from "./classThunks";
+import { createClass, fetchClasses, fetchClassStatsByTeacher, deleteClass, joinClass } from "./classThunks";
 
 const initialState: ClassState = {
     classes: [],
+    classStats: [],
     loading: false,
     error: null,
     createClassLoading: false,
@@ -37,6 +38,8 @@ const classSlice  = createSlice({
                     avg_grade: null
                 };
                 state.classes.push(classStats);
+                // Add to classStats array as well
+                state.classStats.push(classStats);
             })
             .addCase(createClass.rejected, (state, action) => {
                 state.createClassLoading = false;
@@ -73,7 +76,7 @@ const classSlice  = createSlice({
             })
             .addCase(fetchClassStatsByTeacher.fulfilled, (state, action) => {
                 state.loading = false;
-                state.classes = action.payload;
+                state.classStats = action.payload;
             })
             .addCase(fetchClassStatsByTeacher.rejected, (state, action) => {
                 state.loading = false;
@@ -88,11 +91,36 @@ const classSlice  = createSlice({
             .addCase(deleteClass.fulfilled, (state, action) => {
                 state.deletingClassId = null;
                 state.classes = state.classes.filter(cls => cls.id !== action.payload);
+                state.classStats = state.classStats.filter(cls => cls.id !== action.payload);
             })
             .addCase(deleteClass.rejected, (state, action) => {
                 state.deletingClassId = null;
                 state.error = action.payload as string;
-            });
+            })
+
+            //Join Class
+            .addCase(joinClass.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(joinClass.fulfilled, (state, action) => {
+                state.loading = false;
+                // Convert joined class to ClassStats format
+                const classStats: ClassStats = {
+                    id: action.payload.id,
+                    name: action.payload.name,
+                    class_code: action.payload.class_code,
+                    teacher_id: action.payload.teacherId,
+                    student_count: 0,
+                    assignment_count: 0,
+                    avg_grade: null
+                };
+                state.classes.push(classStats);
+            })
+            .addCase(joinClass.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            })
     }
 })
 

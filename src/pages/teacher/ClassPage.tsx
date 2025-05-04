@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
-import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
+import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { fetchAssignmentByClass, createAssignment } from '@/features/assignments/assignmentThunks';
 import { Question } from '@/features/assignments/types';
 import Modal from '@/components/Modal';
@@ -25,7 +25,7 @@ const ClassPage: React.FC = () => {
   const { classId } = useParams();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
-  const { classes, loading: classLoading } = useAppSelector(state => state.classes);
+  const { classStats, loading: classLoading } = useAppSelector(state => state.classes);
   const { assignments, loading: assignmentLoading } = useAppSelector(state => state.assignments);
   const [isCreateAssignmentModalOpen, setIsCreateAssignmentModalOpen] = useState(false);
   const [assignmentData, setAssignmentData] = useState({
@@ -39,12 +39,14 @@ const ClassPage: React.FC = () => {
     }] as Question[]
   });
 
-  // Find the current class from the classes array
-  const currentClass = classes.find(cls => cls.id === classId);
+  // Find the current class from both classes and classStats arrays
+  const currentClass = classStats.find(cls => cls.id === classId);
 
   // Fetch class and assignment data
   useEffect(() => {
     if (user) {
+      // Fetch both regular class data and class stats
+      dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
       dispatch(fetchClassStatsByTeacher(user.id));
     }
     if (classId) {
