@@ -1,4 +1,3 @@
-
 import styled, { keyframes } from 'styled-components';
 
 const spin = keyframes`
@@ -30,4 +29,4 @@ export default function LoadingSpinner() {
       <Spinner />
     </SpinnerContainer>
   );
-} 
+}

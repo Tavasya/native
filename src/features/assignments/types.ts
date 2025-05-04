@@ -1,3 +1,10 @@
+export interface AssignmentMetadata {
+    difficulty?: string;
+    points?: number;
+    tags?: string[];
+    [key: string]: unknown;
+}
+
 export interface Question {
     text: string;
     showExample: boolean;
@@ -14,7 +21,7 @@ export interface Assignment {
     questions: Question[];
     due_date: string;
     topic: string;
-    metadata: any;
+    metadata: AssignmentMetadata;
     status: AssignmentStatus;
 }
 
@@ -24,7 +31,7 @@ export interface CreateAssignmentDto {
     class_id: string;
     questions: Question[];
     topic?: string;
-    metadata?: any;
+    metadata?: AssignmentMetadata;
 }
 
 export interface AssignmentState {
