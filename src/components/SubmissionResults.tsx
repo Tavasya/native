@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useRealtimeSubmission } from '@/hooks/useRealtimeSubmission';
 import { RootState } from '@/app/store';

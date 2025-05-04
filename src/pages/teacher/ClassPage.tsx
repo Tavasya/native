@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { fetchAssignmentByClass, createAssignment } from '@/features/assignments/assignmentThunks';
@@ -24,9 +24,8 @@ const buttonBaseStyle = {
 export default function ClassPage() {
   const { classId } = useParams<{ classId: string }>();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { user } = useAppSelector(state => state.auth);
-  const { classes, classStats, loading: classLoading } = useAppSelector(state => state.classes);
+  const { classStats, loading: classLoading } = useAppSelector(state => state.classes);
   const { assignments, loading: assignmentLoading } = useAppSelector(state => state.assignments);
   const [isCreateAssignmentModalOpen, setIsCreateAssignmentModalOpen] = useState(false);
   const [assignmentData, setAssignmentData] = useState({

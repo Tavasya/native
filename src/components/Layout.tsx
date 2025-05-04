@@ -4,7 +4,6 @@ import NavBar from './NavBar';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import styled from 'styled-components';
-import { UserRole } from '@/features/auth/types';
 
 const LayoutContainer = styled.div`
   min-height: 100vh;

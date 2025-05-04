@@ -18,7 +18,7 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
   console.log('Fetching user profile for ID:', id);
   const { data, error } = await supabase
     .from('users')
-    .select('role, name')  // Now fetching both role and name
+    .select('role, name, email')  // Now fetching role, name, and email
     .eq('id', id)
     .single();
   
@@ -35,7 +35,7 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
   
   return {
     role: data.role as UserRole,
-    name: data.name || data.email // Fallback to email if name is null
+    name: data.name || data.email // Now email is properly typed
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useParams } from 'react-router-dom'; // or useRouter if using Next.js
 import { fetchSubmissionById } from '@/features/submissions/submissionThunks';

@@ -1,4 +1,4 @@
-import { createSlice, isAction, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { loadSession, signInWithEmail, signUpWithEmail} from './authThunks';
 import { AuthState, UserRole } from './types';   // single source of truth
 
@@ -18,6 +18,16 @@ const authSlice = createSlice({
     clearAuth(state) {
       state.user  = null;
       state.role  = null;
+      state.error = null;
+    },
+    setUser(state, action: PayloadAction<{ user: any; role: UserRole }>) {
+      state.user = action.payload.user;
+      state.role = action.payload.role;
+      state.error = null;
+    },
+    clearUser(state) {
+      state.user = null;
+      state.role = null;
       state.error = null;
     }
   },
@@ -84,5 +94,5 @@ const authSlice = createSlice({
   }
 });
 
-export const { clearAuth } = authSlice.actions;
+export const { clearAuth, setUser, clearUser } = authSlice.actions;
 export default authSlice.reducer;
