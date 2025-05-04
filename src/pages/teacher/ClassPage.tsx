@@ -21,8 +21,8 @@ const buttonBaseStyle = {
   transition: 'all 0.2s ease'
 } as const;
 
-const ClassPage: React.FC = () => {
-  const { classId } = useParams();
+export default function ClassPage() {
+  const { classId } = useParams<{ classId: string }>();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
   const { classStats, loading: classLoading } = useAppSelector(state => state.classes);
@@ -525,6 +525,4 @@ const ClassPage: React.FC = () => {
       <div style={{ color: '#fff', padding: '20px' }}>Class not found</div>
     </div>
   );
-}
-
-export default ClassPage; 
+} 
