@@ -5,14 +5,13 @@ import { UserRole, AuthUser } from './types';
 
 /* ---------- helpers ---------- */
 type EmailCreds      = { email: string; password: string };
-type SessionPayload  = { user: any; role: UserRole };
+type SessionPayload  = { user: AuthUser; role: UserRole };
 type SignupCreds = {
     email: string;
     password: string;
     name?: string;
     role: UserRole;
-  };
-
+};
 
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   console.log('Fetching user profile for ID:', id);
@@ -39,10 +38,7 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
   };
 }
 
-
-  
-
-  /* ---------- thunk: signup with email ---------- */
+/* ---------- thunk: signup with email ---------- */
 export const signUpWithEmail = createAsyncThunk<
   { user: AuthUser; role: UserRole },
   SignupCreds,
@@ -90,37 +86,33 @@ export const signUpWithEmail = createAsyncThunk<
         },
         role: creds.role
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Signup error:', err);
-      return rejectWithValue(err.message || 'An unexpected error occurred during signup');
+      return rejectWithValue(err instanceof Error ? err.message : 'An unexpected error occurred during signup');
     }
   }
 );
 
-
-
-
 /* ---------- thunk: restore session on page boot ---------- */
 export const loadSession = createAsyncThunk<
-  SessionPayload | null,     // return type
-  void,                      // arg type
-  { rejectValue: string }    // rejected value
+  SessionPayload | null,
+  void,
+  { rejectValue: string }
 >(
   'auth/loadSession',
   async (_, { rejectWithValue }) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;                   // not logged-in
+    if (!session) return null;
     try {
       const profile = await fetchUserProfile(session.user.id);
-      return { 
-        user: {
-          ...session.user,
-          name: profile.name
-        },
-        role: profile.role 
+      const user: AuthUser = {
+        id: session.user.id,
+        email: session.user.email as string,
+        name: profile.name
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message);
+      return { user, role: profile.role };
+    } catch (err: unknown) {
+      return rejectWithValue(err instanceof Error ? err.message : 'Failed to load session');
     }
   }
 );
@@ -143,22 +135,21 @@ export const signInWithEmail = createAsyncThunk<
 
     try {
       const profile = await fetchUserProfile(data.user.id);
-      return { 
-        user: {
-          ...data.user,
-          name: profile.name
-        },
-        role: profile.role 
+      const user: AuthUser = {
+        id: data.user.id,
+        email: data.user.email as string,
+        name: profile.name
       };
-    } catch (err: any) {
+      return { user, role: profile.role };
+    } catch (err: unknown) {
       console.error('Profile fetch error:', err);
-      return rejectWithValue(err.message);
+      return rejectWithValue(err instanceof Error ? err.message : 'Failed to fetch profile');
     }
   }
 );
 
 /* ---------- helper: sign-out ---------- */
-export async function signOut(dispatch: any) {
+export async function signOut(dispatch: (action: { type: string }) => void) {
   await supabase.auth.signOut();
   // raw action string = no import cycle with slice
   dispatch({ type: 'auth/clearAuth' });

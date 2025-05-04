@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { ClassState } from "./types";
+import { ClassState, ClassStats } from "./types";
 import { createClass, fetchClasses, fetchClassStatsByTeacher, deleteClass, joinClass } from "./classThunks";
 
 const initialState: ClassState = {
@@ -27,9 +27,8 @@ const classSlice  = createSlice({
             })
             .addCase(createClass.fulfilled, (state, action) => {
                 state.createClassLoading = false;
-                state.classes.push(action.payload);
-                // Add empty stats for the new class
-                state.classStats.push({
+                // Convert Class to ClassStats
+                const classStats: ClassStats = {
                     id: action.payload.id,
                     name: action.payload.name,
                     class_code: action.payload.class_code,
@@ -37,7 +36,10 @@ const classSlice  = createSlice({
                     student_count: 0,
                     assignment_count: 0,
                     avg_grade: null
-                });
+                };
+                state.classes.push(classStats);
+                // Add to classStats array as well
+                state.classStats.push(classStats);
             })
             .addCase(createClass.rejected, (state, action) => {
                 state.createClassLoading = false;
@@ -51,7 +53,16 @@ const classSlice  = createSlice({
               })
               .addCase(fetchClasses.fulfilled, (state, action) => {
                 state.loading = false;
-                state.classes = action.payload;
+                // Convert Class[] to ClassStats[]
+                state.classes = action.payload.map(cls => ({
+                    id: cls.id,
+                    name: cls.name,
+                    class_code: cls.class_code,
+                    teacher_id: cls.teacherId,
+                    student_count: 0,
+                    assignment_count: 0,
+                    avg_grade: null
+                }));
               })
               .addCase(fetchClasses.rejected, (state, action) => {
                 state.loading = false;
@@ -94,7 +105,17 @@ const classSlice  = createSlice({
             })
             .addCase(joinClass.fulfilled, (state, action) => {
                 state.loading = false;
-                state.classes.push(action.payload);
+                // Convert joined class to ClassStats format
+                const classStats: ClassStats = {
+                    id: action.payload.id,
+                    name: action.payload.name,
+                    class_code: action.payload.class_code,
+                    teacher_id: action.payload.teacherId,
+                    student_count: 0,
+                    assignment_count: 0,
+                    avg_grade: null
+                };
+                state.classes.push(classStats);
             })
             .addCase(joinClass.rejected, (state, action) => {
                 state.loading = false;
@@ -102,6 +123,5 @@ const classSlice  = createSlice({
             })
     }
 })
-
 
 export default classSlice.reducer;
