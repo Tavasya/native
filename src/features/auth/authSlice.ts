@@ -1,6 +1,6 @@
-import { createSlice, isAction, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { loadSession, signInWithEmail, signUpWithEmail} from './authThunks';
-import { AuthState, UserRole } from './types';   // single source of truth
+import { AuthState, UserRole, AuthUser } from './types';   // single source of truth
 
 /* ---------- initial state ---------- */
 const initialState: AuthState = {
@@ -31,7 +31,7 @@ const authSlice = createSlice({
       })
       .addCase(
         loadSession.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole } | null>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole } | null>) => {
           state.loading = false;
           state.user = action.payload?.user ?? null;
           state.role = action.payload?.role ?? null;
@@ -51,7 +51,7 @@ const authSlice = createSlice({
       })
       .addCase(
         signInWithEmail.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole }>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole }>) => {
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;
@@ -70,7 +70,7 @@ const authSlice = createSlice({
       })
       .addCase(
         signUpWithEmail.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole }>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole }>) => {
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;

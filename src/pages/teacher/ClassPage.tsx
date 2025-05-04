@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { fetchAssignmentByClass, createAssignment } from '@/features/assignments/assignmentThunks';
@@ -21,10 +21,9 @@ const buttonBaseStyle = {
   transition: 'all 0.2s ease'
 } as const;
 
-export default function ClassPage() {
-  const { classId } = useParams<{ classId: string }>();
+const ClassPage: React.FC = () => {
+  const { classId } = useParams();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { user } = useAppSelector(state => state.auth);
   const { classes, loading: classLoading } = useAppSelector(state => state.classes);
   const { assignments, loading: assignmentLoading } = useAppSelector(state => state.assignments);
@@ -524,4 +523,6 @@ export default function ClassPage() {
       <div style={{ color: '#fff', padding: '20px' }}>Class not found</div>
     </div>
   );
-} 
+}
+
+export default ClassPage; 
