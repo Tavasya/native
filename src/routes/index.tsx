@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'react'
 import RequireAuth from '@/components/RequireAuth';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Layout from '@/components/Layout';
-import Index from '@/pages/Index';
+import Index from '@/pages/reports/Index';
 
 //Lazy loading
 const SignUp = lazy(() => import("@/pages/auth/SignUp"))
