@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
-import OverviewPage from '@/pages/OverviewPage';
-import PronunciationPage from '@/pages/PronunciationPage';
-import FluencyPage from '@/pages/FluencyPage';
-import GrammarPage from '@/pages/GrammarPage';
-import VocabularyPage from '@/pages/VocabularyPage';
-import PageNavigation from '@/components/PageNavigation';
+import OverviewPage from '@/pages/reports/OverviewPage';
+import PronunciationPage from '@/pages/reports/PronunciationPage';
+import FluencyPage from '@/pages/reports/FluencyPage';
+import GrammarPage from '@/pages/reports/GrammarPage';
+import VocabularyPage from '@/pages/reports/VocabularyPage';
 
 const Index = () => {
   const [currentPage, setCurrentPage] = useState(0);
