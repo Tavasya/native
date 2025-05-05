@@ -25,6 +25,8 @@ export interface ClassState {
   error: string | null;
   createClassLoading: boolean;
   deletingClassId: string | null;
+  statsLoading: boolean;  // Added this
+  statsError: string | null;  // Added this
 }
 
 export interface ClassStats {
