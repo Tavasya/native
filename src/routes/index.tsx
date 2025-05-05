@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 import RequireAuth from '@/components/RequireAuth';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Layout from '@/components/Layout';
+import Index from '@/pages/Index';
 
 //Lazy loading
 const SignUp = lazy(() => import("@/pages/auth/SignUp"))
@@ -38,6 +39,7 @@ export default function AppRoutes() {
               <Route path="/teacher/class/:classId" element={<TeacherClassPage />} />
             </Route>
 
+            <Route path="/index" element={<Index />} />
             {/* -------- COMMON ROUTES -------- */}
             <Route element={<RequireAuth />}>
               <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
