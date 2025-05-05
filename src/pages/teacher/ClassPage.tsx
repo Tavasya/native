@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { fetchAssignmentByClass, createAssignment } from '@/features/assignments/assignmentThunks';
@@ -23,6 +23,7 @@ const buttonBaseStyle = {
 
 export default function ClassPage() {
   const { classId } = useParams<{ classId: string }>();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
   const { classStats, loading: classLoading } = useAppSelector(state => state.classes);
@@ -186,17 +187,17 @@ export default function ClassPage() {
             gap: '16px'
           }}>
             <button
-              onClick={() => setIsCreateAssignmentModalOpen(true)}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-              style={{
-                ...buttonBaseStyle,
-                background: '#FF9800',
-              }}
-            >
-              <span style={{ fontSize: '24px' }}>📝</span>
-              Create Assignment
-            </button>
+  onClick={() => navigate(`/teacher/class/${classId}/create-assignment`)}
+  onMouseEnter={handleMouseEnter}
+  onMouseLeave={handleMouseLeave}
+  style={{
+    ...buttonBaseStyle,
+    background: '#FF9800',
+  }}
+>
+  <span style={{ fontSize: '24px' }}>📝</span>
+  Create Assignment
+</button>
             <button
               onClick={() => console.log('View Students clicked')}
               onMouseEnter={handleMouseEnter}
@@ -464,20 +465,21 @@ export default function ClassPage() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={() => setIsCreateAssignmentModalOpen(false)}
-                style={{
-                  background: '#666',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  padding: '8px 16px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
+            <button
+  onClick={() => navigate(`/teacher/class/${classId}`)}
+  style={{
+    padding: '12px 24px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#666',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: '16px',
+    marginBottom: '24px' // or marginTop if at bottom
+  }}
+>
+  Cancel
+</button>
               <button
                 type="submit"
                 style={{
