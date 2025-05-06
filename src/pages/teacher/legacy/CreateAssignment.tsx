@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, GripVertical, List, Volume2, Eye } from 'lucide-react';
 
 interface QuestionCard {

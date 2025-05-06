@@ -1,19 +1,21 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import RequireAuth from '@/components/RequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Layout from '@/components/Layout'
 import Index from '@/pages/reports/Index'
-import CreateAssignment from '@/pages/teacher/CreateAssignment'
+import ClassDetail from '@/components/teacher/ClassDetail'
 
 // Eager load frequently visited components
-import TeacherDashboard from '@/pages/teacher/Dashboard'
 import StudentDashboard from '@/pages/student/Dashboard'
+import TeacherDash from '@/components/teacher/TeacherDash'
+import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
+import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 
 // Lazy load less frequently visited components
 const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
-const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
+// const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
 const StudentClassPage = lazy(() => import("@/pages/student/ClassPage"))
 const StudentAssignment = lazy(() => import("@/pages/student/AssignmentPage"))
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -22,7 +24,7 @@ const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
 const preloadComponents = () => {
   // Preload after initial load
   setTimeout(() => {
-    import("@/pages/teacher/ClassPage")
+    import("@/pages/teacher/legacy/ClassPage")
     import("@/pages/student/ClassPage")
     import("@/pages/student/AssignmentPage")
   }, 1000)
@@ -70,6 +72,8 @@ const EnhancedLoadingSpinner = () => (
 )
 
 export default function AppRoutes() {
+  const navigate = useNavigate();
+  
   useEffect(() => {
     preloadComponents()
   }, [])
@@ -90,12 +94,12 @@ export default function AppRoutes() {
             <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} />
             <Route path="/student/submission/:submissionId" element={<StudentSubmission />} />
           </Route>
-
+          
           {/* -------- TEACHER ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
-            <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-            <Route path="/teacher/class/:classId" element={<TeacherClassPage />} />
-            <Route path="/teacher/class/:classId/create-assignment" element={<CreateAssignment />} />
+            <Route path="/teacher/dashboard" element={<TeacherDash />} />
+            <Route path="/teacher/class/:classId" element={<ClassDetail onBack={() => navigate('/teacher/dashboard')} />} />
+            <Route path="/teacher/class/:classId/create-assignment" element={<CreateAssignmentPage />} />
           </Route>
 
           <Route path="/index" element={<Index />} />

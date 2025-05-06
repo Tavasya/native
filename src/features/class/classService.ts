@@ -82,6 +82,7 @@ export const classService = {
   },
 
 
+
   async joinClass(studentId: string, class_code: string): Promise<Class> {
     //find class
     const { data: classData, error: classError } = await supabase
@@ -110,6 +111,7 @@ export const classService = {
     }
 
     return classData;
-  }
+  },
+
   
 }

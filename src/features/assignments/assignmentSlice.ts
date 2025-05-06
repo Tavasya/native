@@ -1,77 +1,140 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { AssignmentState } from "./types";
-import { createAssignment, fetchAssignmentByClass, deleteAssignment, updateAssignmentStatus } from "./assignmentThunks";
+import {
+  createAssignment,
+  fetchAssignmentByClass,
+  deleteAssignment,
+  updateAssignmentStatus,
+  fetchLatestSubmissionsByAssignment,
+  fetchClassStatistics,
+  fetchAssignmentCompletionStats,
+  fetchClassDetailView
+} from "./assignmentThunks";
 
 const initialState: AssignmentState = {
-    assignments: [],
-    loading: false,
-    error: null,
-    createAssignmentLoading: false,
-    deletingAssignmentId: null,
+  assignments: [],
+  loading: false,
+  error: null,
+  createAssignmentLoading: false,
+  deletingAssignmentId: null,
+  submissions: {},
+  loadingSubmissions: false,
+  classStats: undefined
 };
 
-
 const assignmentSlice = createSlice({
-    name: "assignment",
-    initialState,
-    reducers: {},
-    extraReducers: (builder) => {
-        builder
-            .addCase(createAssignment.pending, (state) => {
-                state.createAssignmentLoading = true;
-                state.error = null;
-            })
-            .addCase(createAssignment.fulfilled, (state, action) => {
-                state.createAssignmentLoading = false;
-                state.assignments.push(action.payload);
-            })
-            .addCase(createAssignment.rejected, (state, action) => {
-                state.createAssignmentLoading = false;
-                state.error = action.payload as string;
-            })
-            
-            //Fetch Assignments by Class
-            .addCase(fetchAssignmentByClass.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(fetchAssignmentByClass.fulfilled, (state, action) => {
-                state.loading = false;
-                state.assignments = action.payload;
-            })
-            .addCase(fetchAssignmentByClass.rejected, (state, action) => {
-                state.createAssignmentLoading = false;
-                state.error = action.payload as string
-            })
+  name: "assignments",
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      // createAssignment
+      .addCase(createAssignment.pending, (s) => {
+        s.createAssignmentLoading = true;
+        s.error = null;
+      })
+      .addCase(createAssignment.fulfilled, (s, a) => {
+        s.createAssignmentLoading = false;
+        s.assignments.push(a.payload);
+      })
+      .addCase(createAssignment.rejected, (s, a) => {
+        s.createAssignmentLoading = false;
+        s.error = a.payload as string;
+      })
 
-            //Update Assignment Status
-            .addCase(updateAssignmentStatus.fulfilled, (state, action) => {
-                const { assignmentId, status } = action.payload;
-                const assignment = state.assignments.find(a => a.id === assignmentId);
-                if (assignment) {
-                    assignment.status = status;
-                }
-            })
-            .addCase(updateAssignmentStatus.rejected, (state, action) => {
-                state.error = action.payload as string;
-            })
+      // fetchAssignmentByClass
+      .addCase(fetchAssignmentByClass.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchAssignmentByClass.fulfilled, (s, a) => {
+        s.loading = false;
+        s.assignments = a.payload;
+      })
+      .addCase(fetchAssignmentByClass.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
 
-            //Delete Assignment
-            .addCase(deleteAssignment.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(deleteAssignment.fulfilled, (state, action) => {
-                state.deletingAssignmentId = null;
-                state.assignments = state.assignments.filter(
-                    assignment => assignment.id !== action.meta.arg
-                );
-            })
-            .addCase(deleteAssignment.rejected, (state, action) => {
-                state.deletingAssignmentId = null
-                state.error = action.payload as string;
-            });
-    }
+      // updateAssignmentStatus
+      .addCase(updateAssignmentStatus.fulfilled, (s, a) => {
+        const { assignmentId, status } = a.payload;
+        const asg = s.assignments.find(x => x.id === assignmentId);
+        if (asg) asg.status = status;
+      })
+      .addCase(updateAssignmentStatus.rejected, (s, a) => {
+        s.error = a.payload as string;
+      })
+
+      // deleteAssignment
+      .addCase(deleteAssignment.pending, (s, a) => {
+        s.deletingAssignmentId = a.meta.arg;
+        s.error = null;
+      })
+      .addCase(deleteAssignment.fulfilled, (s, a) => {
+        s.deletingAssignmentId = null;
+        s.assignments = s.assignments.filter(x => x.id !== a.meta.arg);
+      })
+      .addCase(deleteAssignment.rejected, (s, a) => {
+        s.deletingAssignmentId = null;
+        s.error = a.payload as string;
+      })
+
+      // fetchLatestSubmissionsByAssignment
+      .addCase(fetchLatestSubmissionsByAssignment.pending, (s) => {
+        s.loadingSubmissions = true;
+        s.error = null;
+      })
+      .addCase(fetchLatestSubmissionsByAssignment.fulfilled, (s, a) => {
+        s.loadingSubmissions = false;
+        s.submissions[a.meta.arg] = a.payload;
+      })
+      .addCase(fetchLatestSubmissionsByAssignment.rejected, (s, a) => {
+        s.loadingSubmissions = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchClassStatistics
+      .addCase(fetchClassStatistics.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchClassStatistics.fulfilled, (s, a) => {
+        s.loading = false;
+        s.classStats = a.payload;
+      })
+      .addCase(fetchClassStatistics.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchAssignmentCompletionStats
+      .addCase(fetchAssignmentCompletionStats.pending, (s) => {
+        s.error = null;
+      })
+      .addCase(fetchAssignmentCompletionStats.fulfilled, (s, a) => {
+        const { assignmentId, stats } = a.payload;
+        const asg = s.assignments.find(x => x.id === assignmentId);
+        if (asg) asg.completionStats = stats;
+      })
+      .addCase(fetchAssignmentCompletionStats.rejected, (s, a) => {
+        s.error = a.payload as string;
+      })
+
+      // fetchClassDetailView
+      .addCase(fetchClassDetailView.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchClassDetailView.fulfilled, (s) => {
+        s.loading = false;
+        // handle mapping of detail‑view data to state if needed
+      })
+      .addCase(fetchClassDetailView.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      });
+  }
 });
 
 export default assignmentSlice.reducer;

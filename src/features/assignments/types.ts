@@ -1,36 +1,80 @@
-export interface Question {
-    text: string;
-    showExample: boolean;
-    example: string;
+// src/features/assignments/types.ts
+
+export type AssignmentStatus    = 'not_started' | 'in_progress' | 'completed';
+export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed';
+
+export interface QuestionCard {
+  id: string;
+  type: 'normal' | 'bulletPoints';
+  question: string;
+  bulletPoints?: string[];
+  speakAloud: boolean;
+  timeLimit: string;          // in minutes, e.g. "5"
 }
 
-export type AssignmentStatus = 'not_started' | 'in_progress' | 'completed';
-
 export interface Assignment {
-    id: string;
-    class_id: string;
-    created_at: string;
-    title: string;
-    questions: Question[];
-    due_date: string;
-    topic: string;
-    metadata: any;
-    status: AssignmentStatus;
+  id: string;
+  class_id: string;
+  created_at: string;
+  title: string;
+  prompt: string;             // your “description”
+  topic?: string;
+  due_date: string;           // ISO timestamp
+  questions: QuestionCard[];  // now an array of the above
+  metadata: {
+    autoSendReport: boolean;
+    [key: string]: any;       // for future flags
+  };
+  status: AssignmentStatus;
+  // optionally injected by stats thunk:
+  completionStats?: {
+    submitted: number;
+    inProgress: number;
+    notStarted: number;
+    totalStudents: number;
+  };
 }
 
 export interface CreateAssignmentDto {
-    title: string;
-    due_date: string;
-    class_id: string;
-    questions: Question[];
-    topic?: string;
-    metadata?: any;
+  class_id: string;
+  created_by: string;
+  title: string;
+  prompt: string;
+  topic?: string;
+  due_date: string;           // ISO timestamp
+  questions: QuestionCard[];
+  metadata?: {
+    autoSendReport: boolean;
+    [key: string]: any;
+  };
+  status?: AssignmentStatus;
+}
+
+export interface StudentSubmission {
+  id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  assignment_id: string;
+  attempt: number;
+  status: SubmissionStatus;
+  submitted_at: string | null;
+  grade: number | null;
+  overall_grade: number | null;
 }
 
 export interface AssignmentState {
-    assignments: Assignment[];
-    loading: boolean;
-    error: string | null;
-    createAssignmentLoading: boolean;
-    deletingAssignmentId: string | null;
+  assignments: Assignment[];
+  loading: boolean;
+  error: string | null;
+  createAssignmentLoading: boolean;
+  deletingAssignmentId: string | null;
+  submissions: Record<string, StudentSubmission[]>;
+  loadingSubmissions: boolean;
+  classStats?: {
+    avgGrade: number | null;
+    completedAssignments: number;
+    totalAssignments: number;
+    studentCount: number;
+  };
 }

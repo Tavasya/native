@@ -38,3 +38,19 @@ export interface ClassStats {
   assignment_count: number;
   avg_grade: number | null;
 }
+export interface CreateAssignmentDto {
+  classId: string;
+  title: string;
+  description: string;
+  template: string;
+  dueDate: string;
+  autoSendReport: boolean;
+  questions: {
+    id: string;
+    type: 'normal' | 'bulletPoints';
+    question: string;
+    bulletPoints?: string[];
+    speakAloud: boolean;
+    timeLimit: string;
+  }[];
+}
