@@ -95,11 +95,12 @@ export default function AppRoutes() {
             <Route path="/student/submission/:submissionId" element={<StudentSubmission />} />
           </Route>
           
+          
           {/* -------- TEACHER ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
-            <Route path="/teacher/class/:classId" element={<ClassDetail onBack={() => navigate('/teacher/dashboard')} />} />
-            <Route path="/teacher/class/:classId/create-assignment" element={<CreateAssignmentPage />} />
+            <Route path="/class/:id" element={<ClassDetailPage />} />
+            <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
           </Route>
 
           <Route path="/index" element={<Index />} />
