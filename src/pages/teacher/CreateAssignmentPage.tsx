@@ -34,9 +34,7 @@ const CreateAssignmentPage: React.FC = () => {
   const dispatch = useAppDispatch();
   // State
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [template, setTemplate] = useState('');
-  const [autoSendReport, setAutoSendReport] = useState(false);
+  // const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [questionCards, setQuestionCards] = useState<QuestionCard[]>([
     {
@@ -49,22 +47,7 @@ const CreateAssignmentPage: React.FC = () => {
   ]);
   const [activeCardId, setActiveCardId] = useState('1');
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Template topics
-  const templateTopics = [
-    'Math',
-    'Science',
-    'English Language Arts',
-    'History',
-    'Geography',
-    'Art',
-    'Music',
-    'Physical Education',
-    'Technology',
-    'Foreign Language',
-    'Custom'
-  ];
+  // const [showPreview, setShowPreview] = useState(false);
 
   // Time limit options in minutes
   const timeLimits = [
@@ -196,11 +179,10 @@ const CreateAssignmentPage: React.FC = () => {
           class_id: classId!,
           created_by: user || '',
           title,
-          prompt: description,
-          topic: template,
+          prompt: '',
           due_date: dueDate,
           questions: questionCards,
-          metadata: { autoSendReport },
+          metadata: { autoSendReport: false },
           status: 'not_started',
         })
       ).unwrap();
@@ -302,6 +284,7 @@ const CreateAssignmentPage: React.FC = () => {
                     className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
+                {/* Description input commented out for now
                 <div className={cn(
                   "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
                   activeHeaderCard ? "bg-gray-50" : "bg-transparent"
@@ -317,27 +300,13 @@ const CreateAssignmentPage: React.FC = () => {
                     className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
+                */}
               </div>
 
               {/* Settings - Only show if header card is active */}
               {activeHeaderCard && (
                 <div className="space-y-5 pt-3 border-t">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Template Topic */}
-                    <div className="space-y-2">
-                      <Label htmlFor="template" className="text-sm font-medium">Template Topic</Label>
-                      <Select value={template} onValueChange={setTemplate}>
-                        <SelectTrigger id="template" className="border rounded-md">
-                          <SelectValue placeholder="Select a template topic" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {templateTopics.map((topic) => (
-                            <SelectItem key={topic} value={topic}>{topic}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
                     {/* Due Date */}
                     <div className="space-y-2">
                       <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
@@ -360,7 +329,7 @@ const CreateAssignmentPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Auto-send Report Toggle */}
+                  {/* Auto-send Report Toggle commented out for now
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="autoSendReport"
@@ -371,6 +340,7 @@ const CreateAssignmentPage: React.FC = () => {
                       Auto-send report to students
                     </Label>
                   </div>
+                  */}
                 </div>
               )}
             </CardContent>
@@ -391,7 +361,6 @@ const CreateAssignmentPage: React.FC = () => {
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          // {...provided.dragHandleProps}
                           className={cn(
                             "mb-4 relative rounded-lg overflow-hidden",
                             activeCardId === card.id && "ring-2 ring-blue-500"
@@ -408,7 +377,6 @@ const CreateAssignmentPage: React.FC = () => {
                           }}
                         >
                           <Card className="border-0 shadow-sm">
-
                             <div {...provided.dragHandleProps} className="flex justify-center">
                               <DragHandle />
                             </div>
@@ -565,23 +533,7 @@ const CreateAssignmentPage: React.FC = () => {
                                           </SelectContent>
                                         </Select>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                          <Switch
-                                            id={`speakAloud-${card.id}`}
-                                            checked={card.speakAloud}
-                                            onCheckedChange={checked =>
-                                              updateQuestionCard(card.id, { speakAloud: checked })
-                                            }
-                                          />
-                                          <Label
-                                            htmlFor={`speakAloud-${card.id}`}
-                                            className="text-sm font-medium cursor-pointer flex items-center space-x-2"
-                                          >
-                                            <Volume2 className="h-4 w-4" />
-                                            <span>Read question aloud</span>
-                                          </Label>
-                                        </div>
+                                      <div className="flex items-center justify-end">
                                         <Button
                                           variant="destructive"
                                           size="icon"
@@ -607,54 +559,25 @@ const CreateAssignmentPage: React.FC = () => {
 
                   {provided.placeholder}
 
+                  {/* Add Question Button */}
+                  <div className="flex justify-center mt-4">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => addQuestionCard('normal')}
+                      className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                    >
+                      <Plus className="h-6 w-6" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </Droppable>
           </DragDropContext>
-
-          {/* Floating action buttons on the right */}
-          <div className="fixed right-6 top-1/2 transform -translate-y-1/2 flex flex-col gap-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => addQuestionCard('normal')}
-                    className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                  >
-                    <Plus className="h-6 w-6" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  <p>Add Question</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => setShowPreview(!showPreview)}
-                    className={cn(
-                      "h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100 mt-4",
-                      showPreview && "bg-blue-100 text-blue-700"
-                    )}
-                  >
-                    <Eye className="h-6 w-6" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  <p>Preview</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
         </div>
       </main>
 
-      {/* Preview Modal */}
+      {/* Preview Modal commented out for now
       {showPreview && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-3xl max-h-[90vh] overflow-auto">
@@ -719,6 +642,7 @@ const CreateAssignmentPage: React.FC = () => {
           </Card>
         </div>
       )}
+      */}
     </div>
   );
 };

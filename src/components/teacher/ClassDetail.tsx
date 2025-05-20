@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card,
@@ -76,7 +76,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDelete, setToDelete] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const fetchedAssignmentIds = useRef<Set<string>>(new Set());
 
   /* ------------------------------------------------------------------ *
    *  Fetch flow – first load basic slices, then per‑assignment data.
@@ -84,31 +84,27 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   useEffect(() => {
     if (!user || !classId) return;
 
-    setIsLoaded(false);
-    Promise.all([
-      dispatch(fetchClasses({ role: 'teacher', userId: user.id })).unwrap(),
-      dispatch(fetchClassStatsByTeacher(user.id)).unwrap(),
-      dispatch(fetchAssignmentByClass(classId)).unwrap(),
-    ])
-      .catch((err) => {
-        console.error(err);
-        toast({ title: 'Error loading data', variant: 'destructive' });
-      })
-      .finally(() => setIsLoaded(true));
-  }, [user, classId, dispatch, toast]);
+    dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
+    dispatch(fetchClassStatsByTeacher(user.id));
+    dispatch(fetchAssignmentByClass(classId));
+    console.log("fetching");
+  }, [user, classId, dispatch]);
 
-  /** once we know the assignment ids, fetch submissions & completion stats */
   useEffect(() => {
-    if (!isLoaded || assignments.length === 0) return;
+    if (!assignments.length) return;
+    console.log("fetching 2");
 
-    assignments.forEach((a) => {
-      dispatch(fetchLatestSubmissionsByAssignment(a.id));
-      dispatch(fetchAssignmentCompletionStats(a.id));
+    assignments.forEach((assignment) => {
+      if (!fetchedAssignmentIds.current.has(assignment.id)) {
+        dispatch(fetchLatestSubmissionsByAssignment(assignment.id));
+        dispatch(fetchAssignmentCompletionStats(assignment.id));
+        fetchedAssignmentIds.current.add(assignment.id);
+      }
     });
-  }, [isLoaded, assignments, dispatch]);
+  }, [assignments, dispatch]);
 
-  /* Don't render anything until *all* initial slices have loaded */
-  if (classLoading || assignmentsLoading || !isLoaded) {
+  /* Don't render anything until initial data is loaded */
+  if (classLoading || assignmentsLoading) {
     return (
       <div className="p-8 text-center text-gray-500">Loading class details…</div>
     );

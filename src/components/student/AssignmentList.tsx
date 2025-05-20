@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import AssignmentCard, { AssignmentStatus } from './AssignmentCard';
+import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Plus } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -16,81 +15,54 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from 'react-router-dom';
-
-interface Assignment {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  status: AssignmentStatus;
-  isPractice?: boolean;
-  isUnread?: boolean;
-}
-
-// Sample assignment data - sorted by due date (most recent first)
-const assignments: Assignment[] = [
-  {
-    id: '1',
-    title: 'IELTS Writing Task 2',
-    description: 'Write a 250-word essay on environmental challenges',
-    dueDate: '05/21/2025',
-    status: 'not started',
-    isUnread: true
-  },
-  {
-    id: '2',
-    title: 'IELTS Speaking Practice',
-    description: 'Record a 2-minute response to the provided speaking prompt',
-    dueDate: '05/25/2025',
-    status: 'in progress'
-  },
-  {
-    id: '4',
-    title: 'IELTS Reading Comprehension',
-    description: 'Complete three academic reading passages with questions',
-    dueDate: '05/30/2025',
-    status: 'not started',
-    isUnread: true
-  },
-  {
-    id: '5',
-    title: 'IELTS Listening Test Prep',
-    description: 'Practice with four recorded listening passages and answer questions',
-    dueDate: '06/05/2025',
-    status: 'not started'
-  },
-  {
-    id: '6',
-    title: 'IELTS Academic Vocabulary',
-    description: 'Complete vocabulary exercises focusing on academic word list',
-    dueDate: '06/10/2025',
-    status: 'not started'
-  },
-
-  // Practice assignment - always displayed and fixed
-  {
-    id: '3',
-    title: 'Practice',
-    description: 'Practice your IELTS writing with AI feedback and corrections',
-    dueDate: 'Ongoing',
-    status: 'in progress',
-    isPractice: true
-  },
-];
+import { useAppSelector, useAppDispatch } from '@/app/hooks';
+import { joinClass } from '@/features/class/classThunks';
+import { fetchAssignmentByClass } from '@/features/assignments/assignmentThunks';
+import { Assignment, AssignmentStatus } from '@/features/assignments/types';
+import { Card } from "@/components/ui/card";
 
 interface AssignmentListProps {
   onAddClass: () => void;
 }
 
+const getButtonText = (status: AssignmentStatus) => {
+  switch (status) {
+    case 'not_started':
+      return 'Start Assignment';
+    case 'in_progress':
+      return 'Continue Assignment';
+    case 'completed':
+      return 'Review Assignment';
+    default:
+      return 'View Assignment';
+  }
+};
+
 const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [showAllAssignments, setShowAllAssignments] = useState(false);
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector(state => state.auth);
+  const { classes } = useAppSelector(state => state.classes);
+  const { assignments, loading } = useAppSelector(state => state.assignments);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [joinCode, setJoinCode] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (classes.length > 0 && !selectedClassId) {
+      setSelectedClassId(classes[0].id);
+    }
+  }, [classes, selectedClassId]);
+
+  useEffect(() => {
+    if (selectedClassId) {
+      dispatch(fetchAssignmentByClass(selectedClassId));
+    }
+  }, [selectedClassId, dispatch]);
 
   const handleViewAssignment = (id: string) => {
-    // Navigate to the practice page directly instead of the overview
     navigate(`/student/assignment/${id}/practice`);
     toast({
       title: "View Assignment",
@@ -98,53 +70,52 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
     });
   };
 
-  const handleJoinClass = () => {
-    if (joinCode.trim()) {
+  const handleJoinClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    try {
+      setJoinError(null);
+      await dispatch(joinClass({ studentId: user.id, classCode: joinCode })).unwrap();
       toast({
         title: "Class Joined",
         description: `Successfully joined class with code: ${joinCode}`,
       });
       setJoinCode('');
       setIsDialogOpen(false);
-    } else {
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'Failed to join class');
       toast({
         title: "Error",
-        description: "Please enter a valid class code",
+        description: error instanceof Error ? error.message : 'Failed to join class',
         variant: "destructive",
       });
     }
   };
 
-  // Sort all non-practice assignments by due date (most recent first)
-  const regularAssignments = assignments
-    .filter(assignment => !assignment.isPractice)
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-
-  // Get practice assignment
-  const practiceAssignment = assignments.find(assignment => assignment.isPractice);
-
-  // Get assignments to display - always exactly 3 (or less if there aren't 3)
-  const displayedRegularAssignments = showAllAssignments 
-    ? regularAssignments 
-    : regularAssignments.slice(0, 3);
-
   return (
     <div className="space-y-10">
-      {/* Upcoming Assignments Section */}
+      {/* Assignments Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900">Upcoming Assignments</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">Assignments</h2>
           
           <div className="flex items-center">
             <div className="relative">
               <div className="flex bg-gray-100 rounded-lg items-center">
-                <Select defaultValue="class1">
+                <Select 
+                  value={selectedClassId} 
+                  onValueChange={setSelectedClassId}
+                >
                   <SelectTrigger className="w-[180px] border-none bg-transparent">
-                    <SelectValue placeholder="Biology 101" />
+                    <SelectValue placeholder="Select a class" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="class1">Biology 101</SelectItem>
-                    <SelectItem value="class2">Mathematics 202</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 
@@ -165,19 +136,24 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
                         Enter the class code provided by your teacher.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                      <Label htmlFor="class-code">Class Code</Label>
-                      <Input 
-                        id="class-code" 
-                        value={joinCode} 
-                        onChange={(e) => setJoinCode(e.target.value)} 
-                        placeholder="Enter class code (e.g., XYZ123)"
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button onClick={handleJoinClass}>Join Class</Button>
-                    </DialogFooter>
+                    <form onSubmit={handleJoinClass}>
+                      <div className="py-4">
+                        <Label htmlFor="class-code">Class Code</Label>
+                        <Input 
+                          id="class-code" 
+                          value={joinCode} 
+                          onChange={(e) => setJoinCode(e.target.value)} 
+                          placeholder="Enter class code (e.g., XYZ123)"
+                        />
+                        {joinError && (
+                          <p className="text-red-500 text-sm mt-2">{joinError}</p>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit">Join Class</Button>
+                      </DialogFooter>
+                    </form>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -185,49 +161,45 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Always display practice assignment first with special styling */}
-          {practiceAssignment && (
-            <AssignmentCard
-              key={practiceAssignment.id}
-              id={practiceAssignment.id}
-              title={practiceAssignment.title}
-              description={practiceAssignment.description}
-              dueDate={practiceAssignment.dueDate}
-              status={practiceAssignment.status}
-              isPractice={true}
-              onView={() => navigate('/student/practice')}
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              Loading assignments...
+            </div>
+          ) : assignments.length > 0 ? (
+            assignments.map((assignment) => (
+              <Card 
+                key={assignment.id}
+                className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col rounded-lg"
+                onClick={() => handleViewAssignment(assignment.id)}
+              >
+                <div className="p-5 bg-white flex flex-col h-full">
+                  <h3 className="text-lg font-medium text-gray-800 mb-3">{assignment.title}</h3>
+                  <p className="text-xs font-medium text-gray-500 mb-4">Due: {new Date(assignment.due_date).toLocaleDateString()}</p>
+                  
+                  <div className="mt-auto">
+                    <Button 
+                      variant="outline" 
+                      className="w-full hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium rounded-lg"
+                      onClick={() => handleViewAssignment(assignment.id)}
+                    >
+                      {getButtonText(assignment.status)}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))
+          ) : selectedClassId ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              No assignments available for this class
+            </div>
+          ) : (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              Select a class to view assignments
+            </div>
           )}
-          
-          {/* Display regular assignments */}
-          {displayedRegularAssignments.map((assignment) => (
-            <AssignmentCard
-              key={assignment.id}
-              id={assignment.id}
-              title={assignment.title}
-              description={assignment.description}
-              dueDate={assignment.dueDate}
-              status={assignment.status}
-              isUnread={assignment.isUnread}
-              onView={() => handleViewAssignment(assignment.id)}
-            />
-          ))}
         </div>
-        
-        {/* See more button - only if there are more than 3 assignments */}
-        {regularAssignments.length > 3 && (
-          <div className="flex justify-end mt-4">
-            <Button 
-              variant="link" 
-              className="text-blue-600 font-medium"
-              onClick={() => setShowAllAssignments(!showAllAssignments)}
-            >
-              {showAllAssignments ? 'Show less' : 'See more'}
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
