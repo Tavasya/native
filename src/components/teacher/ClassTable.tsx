@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Users, FileText, GraduationCap } from "lucide-react";
+import { Trash2, Users, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
@@ -73,7 +72,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
                   {classItem.code}
                 </Badge>
                 
-                <div className="grid grid-cols-3 gap-2 mt-4">
+                <div className="grid grid-cols-2 gap-2 mt-4">
                   <div className="flex flex-col items-center p-2 bg-gray-50 rounded-md">
                     <Users className="h-4 w-4 text-blue-500 mb-1" />
                     <span className="text-xs text-gray-500">Students</span>
@@ -84,12 +83,6 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
                     <FileText className="h-4 w-4 text-blue-500 mb-1" />
                     <span className="text-xs text-gray-500">Assignments</span>
                     <span className="font-semibold">{classItem.assignments}</span>
-                  </div>
-                  
-                  <div className="flex flex-col items-center p-2 bg-gray-50 rounded-md">
-                    <GraduationCap className="h-4 w-4 text-blue-500 mb-1" />
-                    <span className="text-xs text-gray-500">Avg Grade</span>
-                    <span className="font-semibold">{classItem.avgGrade ?? 'N/A'}</span>
                   </div>
                 </div>
               </CardContent>

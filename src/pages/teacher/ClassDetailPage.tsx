@@ -7,7 +7,7 @@ const ClassDetailPage: React.FC = () => {
   const navigate = useNavigate();
   
   const handleBack = () => {
-    navigate('/');
+    navigate('/teacher/dashboard');
   };
 
   return (

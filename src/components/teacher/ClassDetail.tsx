@@ -130,7 +130,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     code: (cls as any).class_code,
     students: stat.student_count,
     assignments: stat.assignment_count,
-    avgGrade: stat.avg_grade != null ? `${stat.avg_grade}%` : 'N/A',
   };
 
   /* map assignments -> rows, using stats already in the store */
@@ -211,11 +210,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
           <p className="text-sm text-gray-600 mb-4">
             Class Code: {classData.code}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {([
               ['Students', classData.students],
               ['Assignments', classData.assignments],
-              ['Avg Grade', classData.avgGrade],
             ] as const).map(([label, value]) => (
               <div
                 key={label}
@@ -254,9 +252,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                     {a.name}
                     <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
                       {a.submitted}/{a.totalStudents} completed
-                    </span>
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
-                      {a.inProgress} in progress
                     </span>
                   </CardTitle>
                   <p className="text-sm text-gray-500 mt-1">Due: {a.dueDate}</p>

@@ -1,32 +1,33 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import RequireAuth from '@/components/RequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Layout from '@/components/Layout'
 import Index from '@/pages/reports/Index'
-import ClassDetail from '@/components/teacher/ClassDetail'
+// import ClassDetail from '@/components/teacher/ClassDetail'
 
 // Eager load frequently visited components
-import StudentDashboard from '@/pages/student/Dashboard'
+import StudentDashboard from '@/pages/student/StudentDashboard'
 import TeacherDash from '@/components/teacher/TeacherDash'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
+import AssignmentPractice from "@/pages/student/AssignmentPractice"
 
 // Lazy load less frequently visited components
 const SignUp = lazy(() => import("@/pages/auth/SignUp"))
 const Login = lazy(() => import("@/pages/auth/Login"))
 // const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
-const StudentClassPage = lazy(() => import("@/pages/student/ClassPage"))
-const StudentAssignment = lazy(() => import("@/pages/student/AssignmentPage"))
+// const StudentClassPage = lazy(() => import("@/pages/student/legacy/ClassPage"))
+// const StudentAssignment = lazy(() => import("@/pages/student/AssignmentPage"))
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
 
 // Prefetch components after initial load
 const preloadComponents = () => {
   // Preload after initial load
   setTimeout(() => {
-    import("@/pages/teacher/legacy/ClassPage")
-    import("@/pages/student/ClassPage")
-    import("@/pages/student/AssignmentPage")
+    // import("@/pages/teacher/legacy/ClassPage")
+    // import("@/pages/student/legacy/ClassPage")
+    // import("@/pages/student/AssignmentPage")
   }, 1000)
 }
 
@@ -72,7 +73,6 @@ const EnhancedLoadingSpinner = () => (
 )
 
 export default function AppRoutes() {
-  const navigate = useNavigate();
   
   useEffect(() => {
     preloadComponents()
@@ -90,8 +90,9 @@ export default function AppRoutes() {
           {/* -------- STUDENT ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['student']} />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/class/:classId" element={<StudentClassPage />} />
-            <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} />
+            {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
+            <Route path="/student/assignment/:id/practice" element={<AssignmentPractice />} />
+            {/* <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} /> */}
             <Route path="/student/submission/:submissionId" element={<StudentSubmission />} />
           </Route>
           
