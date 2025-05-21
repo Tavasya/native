@@ -39,6 +39,11 @@ const classSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // Reset state on auth clear
+    builder.addCase('auth/clearAuth', (state) => {
+      Object.assign(state, initialState);
+    });
+
     // Create Classes
     builder
       .addCase(createClass.pending, (state) => {

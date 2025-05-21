@@ -26,7 +26,6 @@ import {
             class_id:   dto.class_id,
             created_by: dto.created_by,
             title:      dto.title,
-            prompt:     dto.prompt,
             topic:      dto.topic,
             due_date:   dto.due_date,
             questions:  dto.questions,
@@ -49,6 +48,29 @@ import {
   
       if (error) throw new Error(error.message);
       return data as Assignment[];
+    },
+  
+    async getAssignmentById(id: string): Promise<Assignment> {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*')
+        .eq('id', id)
+        .single();
+  
+      if (error) throw new Error(error.message);
+      console.log('Raw assignment data from Supabase:', data);
+      
+      // Parse the questions field if it's a string
+      if (data && typeof data.questions === 'string') {
+        try {
+          data.questions = JSON.parse(data.questions);
+        } catch (e) {
+          console.error('Failed to parse questions JSON:', e);
+          throw new Error('Invalid questions data format');
+        }
+      }
+      
+      return data as Assignment;
     },
   
     async updateAssignmentStatus(
@@ -223,7 +245,7 @@ import {
     },
   
     /* ------------------------------------------------------------------ *
-     *  getAssignmentCompletionStats (unchanged logic, but batched statuses)
+     *  getAssignmentCompletionStats (unchanged logic, but batched statuses)
      * ------------------------------------------------------------------ */
     async getAssignmentCompletionStats(assignmentId: string) {
       const { data: asn, error: asnErr } = await supabase

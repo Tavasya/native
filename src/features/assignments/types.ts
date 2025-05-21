@@ -17,7 +17,6 @@ export interface Assignment {
   class_id: string;
   created_at: string;
   title: string;
-  prompt: string;             // your “description”
   topic?: string;
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];  // now an array of the above
@@ -39,7 +38,6 @@ export interface CreateAssignmentDto {
   class_id: string;
   created_by: string;
   title: string;
-  prompt: string;
   topic?: string;
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];
@@ -76,5 +74,11 @@ export interface AssignmentState {
     completedAssignments: number;
     totalAssignments: number;
     studentCount: number;
+  };
+  practiceProgress: {
+    [assignmentId: string]: {
+      currentQuestionIndex: number;
+      completedQuestions: string[];
+    };
   };
 }

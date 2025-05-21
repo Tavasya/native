@@ -2,10 +2,10 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, Mic, MicOff, Play, Pause } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Question } from "@/features/assignments/types_practice";
+import { QuestionCard } from "@/features/assignments/types";
 
 interface QuestionContentProps {
-  currentQuestion: Question;
+  currentQuestion: QuestionCard & { isCompleted?: boolean };
   totalQuestions: number;
   timeRemaining: number;
   isRecording: boolean;
@@ -18,6 +18,7 @@ interface QuestionContentProps {
   formatTime: (seconds: number) => string;
   assignmentTitle: string;
   dueDate: string;
+  currentQuestionIndex: number;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -33,7 +34,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   completeQuestion,
   formatTime,
   assignmentTitle,
-  dueDate
+  dueDate,
+  currentQuestionIndex
 }) => {
   return (
     <div className="bg-gray-100 rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
@@ -54,27 +56,27 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
       {/* Question information */}
       <div className="flex justify-between mb-3">
         <div className="text-sm font-medium text-gray-600">
-          Question {currentQuestion.id} of {totalQuestions}
+          Question {currentQuestionIndex + 1} of {totalQuestions}
         </div>
       </div>
       
       {/* Question Content */}
       <ScrollArea className="bg-white rounded-xl p-4 sm:p-6 mb-4 flex-grow overflow-auto" style={{ maxHeight: "420px" }}>
-        {currentQuestion.type === 'cueCard' ? (
+        {currentQuestion.type === 'bulletPoints' ? (
           <div>
-            <h3 className="text-lg font-medium mb-2">Cue Card</h3>
-            <p className="text-gray-800 mb-3">{currentQuestion.content}</p>
+            <h3 className="text-lg font-medium mb-2">Question</h3>
+            <p className="text-gray-800 mb-3">{currentQuestion.question}</p>
             <p className="text-gray-700 mb-2">You should say:</p>
             <ul className="list-disc pl-5 text-gray-700 space-y-1">
-              {currentQuestion.instructions?.map((instruction, idx) => (
-                <li key={idx}>{instruction}</li>
+              {currentQuestion.bulletPoints?.map((point, idx) => (
+                <li key={idx}>{point}</li>
               ))}
             </ul>
           </div>
         ) : (
           <div>
             <h3 className="text-lg font-medium mb-2">Question</h3>
-            <p className="text-gray-800">{currentQuestion.content}</p>
+            <p className="text-gray-800">{currentQuestion.question}</p>
           </div>
         )}
       </ScrollArea>

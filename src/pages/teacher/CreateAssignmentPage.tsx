@@ -51,13 +51,11 @@ const CreateAssignmentPage: React.FC = () => {
 
   // Time limit options in minutes
   const timeLimits = [
+    { value: "0.25", label: "15 seconds" },
+    { value: "0.5", label: "30 seconds" },
     { value: "1", label: "1 minute" },
     { value: "2", label: "2 minutes" },
     { value: "3", label: "3 minutes" },
-    { value: "4", label: "4 minutes" },
-    { value: "5", label: "5 minutes" },
-    { value: "10", label: "10 minutes" },
-
   ];
 
   // Card operations
@@ -172,28 +170,32 @@ const CreateAssignmentPage: React.FC = () => {
       return;
     }
 
-    // In a real app, this would save the assignment to a database
     try {
-      await dispatch(
-        createAssignment({
-          class_id: classId!,
-          created_by: user || '',
-          title,
-          prompt: '',
-          due_date: dueDate,
-          questions: questionCards,
-          metadata: { autoSendReport: false },
-          status: 'not_started',
-        })
-      ).unwrap();
+      const assignmentData = {
+        class_id: classId!,
+        created_by: user || '',
+        title: title.trim(),
+        due_date: dueDate,
+        questions: questionCards.map(card => ({
+          ...card,
+          question: card.question.trim(),
+          bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+        })),
+        metadata: { autoSendReport: false },
+        status: 'not_started' as const
+      };
+
+      await dispatch(createAssignment(assignmentData)).unwrap();
       
       toast({ title: 'Assignment published', description: 'The assignment has been published successfully' });
       navigate(`/class/${classId}`);
     } catch (err: any) {
-      toast({ title: 'Publish failed', description: err || 'Could not create assignment' });
+      toast({ 
+        title: 'Publish failed', 
+        description: err?.message || 'Could not create assignment',
+        variant: 'destructive'
+      });
     }
-    // Navigate back to class detail page
-    navigate(`/class/${classId}`);
   };
 
   // Handle drag and drop reordering - fixed for vertical only
@@ -504,14 +506,14 @@ const CreateAssignmentPage: React.FC = () => {
                                           <SelectTrigger className="w-40">
                                             <SelectValue>
                                               {card.type === "normal"
-                                                ? "Normal Question"
-                                                : "Cue Card Question"}
+                                                ? "Standard "
+                                                : "Cue Card "}
                                             </SelectValue>
                                           </SelectTrigger>
                                           <SelectContent>
-                                            <SelectItem value="normal">Normal Question</SelectItem>
+                                            <SelectItem value="normal">Standard</SelectItem>
                                             <SelectItem value="bulletPoints">
-                                              Cue Card Question
+                                              Cue Card
                                             </SelectItem>
                                           </SelectContent>
                                         </Select>

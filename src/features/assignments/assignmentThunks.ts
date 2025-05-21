@@ -41,6 +41,21 @@ export const fetchAssignmentByClass = createAsyncThunk<
   }
 );
 
+export const fetchAssignmentById = createAsyncThunk<
+  Awaited<ReturnType<typeof assignmentService.getAssignmentById>>,
+  string,
+  { rejectValue: string }
+>(
+  "assignments/fetchAssignmentById",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await assignmentService.getAssignmentById(id);
+    } catch (err) {
+      return rejectWithValue((err as Error).message);
+    }
+  }
+);
+
 // Delete an assignment
 export const deleteAssignment = createAsyncThunk<
   void,

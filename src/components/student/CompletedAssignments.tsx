@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ChevronDown } from "lucide-react";
@@ -10,7 +9,6 @@ interface CompletedAssignment {
   title: string;
   grade: string;
   completedDate: string;
-  isUnread?: boolean;
 }
 
 interface CompletedAssignmentsGroup {
@@ -20,14 +18,6 @@ interface CompletedAssignmentsGroup {
 
 // Sample completed assignments data
 const completedAssignmentsGroups: CompletedAssignmentsGroup[] = [
-  {
-    title: "Unread Reports",
-    assignments: [
-      { id: '1', title: 'IELTS Writing Task 1', grade: '7.0', completedDate: '05/03/2025', isUnread: true },
-      { id: '2', title: 'IELTS Reading Section', grade: '6.5', completedDate: '04/28/2025', isUnread: true },
-      { id: '3', title: 'IELTS Speaking Practice', grade: '7.5', completedDate: '04/27/2025', isUnread: true },
-    ]
-  },
   {
     title: "24 hrs ago",
     assignments: [
@@ -59,9 +49,6 @@ const CompletedAssignments: React.FC = () => {
     }));
   };
 
-  // Count unread reports
-  const unreadCount = completedAssignmentsGroups.find(group => group.title === "Unread Reports")?.assignments.length || 0;
-
   return (
     <div className="mb-8">
       <Card className="shadow-sm">
@@ -79,15 +66,7 @@ const CompletedAssignments: React.FC = () => {
                 <div className="flex items-center">
                   <h3 className="text-md font-medium text-gray-700">
                     {group.title}
-                    {group.title === "Unread Reports" && unreadCount > 0 && (
-                      <span className="ml-2">({unreadCount})</span>
-                    )}
                   </h3>
-                  {group.title === "Unread Reports" && unreadCount > 0 && (
-                    <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800">
-                      {unreadCount}
-                    </Badge>
-                  )}
                 </div>
                 <ChevronDown 
                   className={`h-5 w-5 text-gray-500 transition-transform ${

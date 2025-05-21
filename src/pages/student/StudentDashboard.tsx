@@ -1,11 +1,20 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import AssignmentList from '@/components/student/AssignmentList';
 import CompletedAssignments from '@/components/student/CompletedAssignments';
 import { useToast } from "@/hooks/use-toast";
+import { useAppSelector, useAppDispatch } from '@/app/hooks';
+import { fetchClasses } from '@/features/class/classThunks';
 
 const StudentDashboard: React.FC = () => {
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector(state => state.auth);
+  
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchClasses({ role: 'student', userId: user.id }));
+    }
+  }, [user, dispatch]);
   
   const handleAddClass = () => {
     // In a real app, this would open a form to join a class

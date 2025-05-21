@@ -19,13 +19,22 @@ const initialState: AssignmentState = {
   deletingAssignmentId: null,
   submissions: {},
   loadingSubmissions: false,
-  classStats: undefined
+  classStats: undefined,
+  practiceProgress: {}
 };
 
 const assignmentSlice = createSlice({
   name: "assignments",
   initialState,
-  reducers: {},
+  reducers: {
+    updatePracticeProgress: (state, action) => {
+      const { assignmentId, currentQuestionIndex, completedQuestions } = action.payload;
+      state.practiceProgress[assignmentId] = {
+        currentQuestionIndex,
+        completedQuestions
+      };
+    }
+  },
   extraReducers: (builder) => {
     builder
       // createAssignment
@@ -137,4 +146,5 @@ const assignmentSlice = createSlice({
   }
 });
 
+export const { updatePracticeProgress } = assignmentSlice.actions;
 export default assignmentSlice.reducer;
