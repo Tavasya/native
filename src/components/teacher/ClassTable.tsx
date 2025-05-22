@@ -6,6 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash2, Users, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface ClassData {
   id: string;
@@ -42,8 +48,16 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
     setIsDeleteDialogOpen(true);
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: `Class code ${text} has been copied to your clipboard`,
+    });
+  };
+
   return (
-    <>
+    <TooltipProvider>
       {classes.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border shadow-subtle">
           <p className="text-gray-500">No classes found</p>
@@ -51,41 +65,83 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {classes.map((classItem) => (
-            <Card key={classItem.id} className="overflow-hidden hover:shadow-md transition-shadow duration-200">
-              <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-500"></div>
-              <CardContent className="p-5">
-                <div className="flex justify-between items-start">
-                  <Link to={`/class/${classItem.id}`} className="hover:underline">
-                    <h3 className="font-semibold text-lg text-gray-800 mb-2">{classItem.name}</h3>
-                  </Link>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-gray-500 hover:text-red-600 hover:bg-red-50 -mt-1 -mr-2"
-                    onClick={() => openDeleteDialog(classItem.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <Badge variant="outline" className="font-mono bg-gray-100 text-gray-800 mb-3">
-                  {classItem.code}
-                </Badge>
-                
-                <div className="grid grid-cols-2 gap-2 mt-4">
-                  <div className="flex flex-col items-center p-2 bg-gray-50 rounded-md">
-                    <Users className="h-4 w-4 text-blue-500 mb-1" />
-                    <span className="text-xs text-gray-500">Students</span>
-                    <span className="font-semibold">{classItem.students}</span>
+            <Card 
+              key={classItem.id} 
+              className="overflow-hidden hover:shadow-md transition-shadow duration-200 rounded-md cursor-pointer relative"
+            >
+              <Link to={`/class/${classItem.id}`} className="block">
+                <CardContent className="p-5 pb-16">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg text-gray-800">{classItem.name}</h3>
+                        <div className="flex items-center gap-3 text-gray-500">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                <span className="text-sm">{classItem.students}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Students enrolled</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1">
+                                <FileText className="h-4 w-4" />
+                                <span className="text-sm">{classItem.assignments}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Total assignments</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="flex flex-col items-center p-2 bg-gray-50 rounded-md">
-                    <FileText className="h-4 w-4 text-blue-500 mb-1" />
-                    <span className="text-xs text-gray-500">Assignments</span>
-                    <span className="font-semibold">{classItem.assignments}</span>
-                  </div>
-                </div>
-              </CardContent>
+                </CardContent>
+              </Link>
+
+              {/* Class code badge moved outside Link */}
+              <div 
+                className="absolute bottom-4 left-4 z-10"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  copyToClipboard(classItem.code);
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                    >
+                      {classItem.code}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Click to copy class code</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="absolute top-4 right-4 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openDeleteDialog(classItem.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </Card>
           ))}
         </div>
@@ -109,7 +165,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 };
 

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import { useState } from 'react';
 import OverviewPage from '@/pages/reports/OverviewPage';
 import PronunciationPage from '@/pages/reports/PronunciationPage';
 import FluencyPage from '@/pages/reports/FluencyPage';

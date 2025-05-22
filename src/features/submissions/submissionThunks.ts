@@ -5,11 +5,48 @@ import {
     UpdateSubmissionDto,
     CreateSubmissionWithRecordings
 } from "./types";
-import { prepareRecordingsForSubmission } from "./audioUploadService";
+import { prepareRecordingsForSubmission, uploadAudioToStorage } from "./audioUploadService";
+import { updateRecordingUploadStatus, clearAssignmentRecordings } from "./submissionsSlice";
+
+export const uploadQuestionRecording = createAsyncThunk(
+    "submissions/uploadQuestionRecording",
+    async ({
+        blob,
+        assignmentId,
+        questionId,
+        studentId,
+        questionIndex
+    }: {
+        blob: Blob;
+        assignmentId: string;
+        questionId: string;
+        studentId: string;
+        questionIndex: string;
+    }, { dispatch }) => {
+        try {
+            const uploadedUrl = await uploadAudioToStorage(
+                blob,
+                assignmentId,
+                questionId,
+                studentId
+            );
+            
+            dispatch(updateRecordingUploadStatus({
+                assignmentId,
+                questionIndex,
+                uploadedUrl
+            }));
+            
+            return uploadedUrl;
+        } catch (error: any) {
+            throw new Error(error.message);
+        }
+    }
+);
 
 export const createSubmission = createAsyncThunk(
     "submissions/createSubmission",
-    async (data: CreateSubmissionWithRecordings, { rejectWithValue }) => {
+    async (data: CreateSubmissionWithRecordings, { rejectWithValue, dispatch }) => {
         try {
             // First upload the recordings to Supabase Storage
             const audioUrls = await prepareRecordingsForSubmission(
@@ -40,6 +77,9 @@ export const createSubmission = createAsyncThunk(
             } catch (error) {
                 console.error("Error analyzing audio:", error);
             }
+            
+            // Clear recordings after successful submission
+            dispatch(clearAssignmentRecordings(data.assignment_id));
             
             return submission;
         } catch(error: any) {

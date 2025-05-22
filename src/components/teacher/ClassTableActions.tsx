@@ -1,16 +1,13 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { PlusCircle, RefreshCw } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 
 interface ClassTableActionsProps {
   onAddClass?: () => void;
-  onRefresh?: () => void;
 }
 
 const ClassTableActions: React.FC<ClassTableActionsProps> = ({ 
-  onAddClass, 
-  onRefresh 
+  onAddClass
 }) => {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -20,12 +17,7 @@ const ClassTableActions: React.FC<ClassTableActionsProps> = ({
       </div>
       
       <div className="flex items-center space-x-3 self-end sm:self-auto">
-        <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-        
-        <Button size="sm" onClick={onAddClass}>
+        <Button size="sm" onClick={onAddClass} className="bg-[#272A69] hover:bg-[#272A69]/90">
           <PlusCircle className="h-4 w-4 mr-2" />
           Add Class
         </Button>

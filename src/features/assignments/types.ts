@@ -1,7 +1,7 @@
 // src/features/assignments/types.ts
 
 export type AssignmentStatus    = 'not_started' | 'in_progress' | 'completed';
-export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed';
+export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed' | 'pending' | 'graded' | 'rejected';
 
 export interface QuestionCard {
   id: string;

@@ -92,7 +92,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   return (
     <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col rounded-lg">
       <div className="p-5 bg-white flex flex-col h-full">
-        {isUnread && <span className="absolute top-3 right-3 h-3 w-3 bg-blue-500 rounded-full" />}
+        {isUnread && <span className="absolute top-3 right-3 h-3 w-3 bg-[#272A69] rounded-full" />}
         <h3 className="text-lg font-medium text-gray-800 mb-3">{title}</h3>
         <p className="text-sm text-gray-600 mb-2">{description}</p>
         <p className="text-xs font-medium text-gray-500 mb-4">Due: {dueDate}</p>

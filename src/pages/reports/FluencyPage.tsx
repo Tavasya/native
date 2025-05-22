@@ -1,5 +1,3 @@
-
-import React from 'react';
 import FluencyScoreCard from '@/components/FluencyScoreCard';
 import FluencyIssueCard from '@/components/FluencyIssueCard';
 import { Card } from '@/components/ui/card';

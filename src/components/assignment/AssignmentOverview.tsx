@@ -54,7 +54,7 @@ const AssignmentOverview: React.FC<AssignmentOverviewProps> = ({
           onClick={handleBeginPractice}
           className="px-6"
         >
-          Begin Assignment
+          Start Assignment
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>

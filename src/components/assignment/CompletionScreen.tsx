@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,7 @@ const CompletionScreen: React.FC<CompletionScreenProps> = ({
           <Button onClick={goToDashboard} variant="outline" className="bg-white">
             Back to Dashboard
           </Button>
-          <Button onClick={handlePracticeAgain} className="bg-blue-500 hover:bg-blue-600">
+          <Button onClick={handlePracticeAgain} className="bg-[#272A69] hover:bg-[#272A69]/90">
             Practice Again
           </Button>
         </div>

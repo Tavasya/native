@@ -22,8 +22,22 @@ const rootReducer = combineReducers({
   submissions: submissionsReducer,
 });
 
+// Create a root reducer that handles clearing all state
+const rootReducerWithReset = (state: any, action: any) => {
+  if (action.type === 'auth/clearAuth') {
+    // Reset all state to initial values
+    return {
+      auth: authReducer(undefined, action),
+      classes: classReducer(undefined, action),
+      assignments: assignmentReducer(undefined, action),
+      submissions: submissionsReducer(undefined, action),
+    };
+  }
+  return rootReducer(state, action);
+};
+
 // Create persisted reducer
-const persistedReducer = persistReducer(persistConfig, rootReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducerWithReset);
 
 // Configure store with persisted reducer
 export const store = configureStore({

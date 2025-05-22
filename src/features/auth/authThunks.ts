@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserRole, AuthUser } from './types'; 
 
 /* ---------- helpers ---------- */
-type EmailCreds      = { email: string; password: string };
+type EmailCreds      = { email: string; password: string; selectedRole?: UserRole };
 type SessionPayload  = { user: any; role: UserRole };
 type SignupCreds = {
     email: string;
@@ -133,16 +133,34 @@ export const signInWithEmail = createAsyncThunk<
 >(
   'auth/signInWithEmail',
   async (creds, { rejectWithValue }) => {
-    console.log('Starting login process...');
-    const { data, error } = await supabase.auth.signInWithPassword(creds);
+    console.log('Starting login process with:', { email: creds.email, selectedRole: creds.selectedRole });
+    
+    // First try to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: creds.email,
+      password: creds.password
+    });
     
     if (error || !data.user) {
-      console.error('Login error:', error);
-      return rejectWithValue(error?.message || 'Login failed');
+      console.error('Authentication error:', error);
+      return rejectWithValue(error?.message || 'Invalid email or password');
     }
 
     try {
+      console.log('Authentication successful, fetching user profile...');
       const profile = await fetchUserProfile(data.user.id);
+      console.log('Retrieved profile:', profile);
+      
+      // Validate that the selected role matches the user's role
+      if (creds.selectedRole && profile.role !== creds.selectedRole) {
+        console.error('Role mismatch:', { 
+          selectedRole: creds.selectedRole, 
+          actualRole: profile.role 
+        });
+        return rejectWithValue(`Invalid role selected. You are registered as a ${profile.role}.`);
+      }
+
+      console.log('Login successful with role:', profile.role);
       return { 
         user: {
           ...data.user,
@@ -152,7 +170,7 @@ export const signInWithEmail = createAsyncThunk<
       };
     } catch (err: any) {
       console.error('Profile fetch error:', err);
-      return rejectWithValue(err.message);
+      return rejectWithValue(err.message || 'Failed to fetch user profile');
     }
   }
 );

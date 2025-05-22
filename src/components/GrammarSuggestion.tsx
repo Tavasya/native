@@ -1,5 +1,3 @@
-
-import React from 'react';
 import { Button } from './ui/button';
 import { Check, X } from 'lucide-react';
 import { Card, CardContent } from './ui/card';

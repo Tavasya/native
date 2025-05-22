@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signOut } from '@/features/auth/authThunks';
+import NativeLogo from '@/lib/images/Native Logo.png';
 
 const Navbar: React.FC = () => {
   /* ------------------------------------------------------ hooks ---- */
@@ -28,28 +29,32 @@ const Navbar: React.FC = () => {
 
   /* ----------------------------------------------------- render ---- */
   return (
-    <header className="bg-white border-b border-gray-200 py-4">
+    <header className="bg-white border-b border-gray-200 py-4 relative z-50">
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
 
         {/* ----------------------------------------------------------------
-           *  LEFT — brand + nav links
+           *  LEFT — brand + nav links
            * ---------------------------------------------------------------- */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-end gap-6">
           <h1 className="text-xl font-semibold text-gray-900">
-            Native
+            <img src={NativeLogo} alt="Native" className="h-6" />
           </h1>
 
           {user && (
-            <nav className="hidden md:flex items-center gap-4 text-sm font-medium text-gray-700">
-            <Link to={`/${role}/dashboard`} className="hover:text-gray-900">
-  {role === 'teacher' ? 'Teacher' : 'Student'} Dashboard
-</Link>
+            <nav className="hidden md:flex items-center gap-4 text-sm font-bold text-[#272A69]">
+              <Link 
+                to={`/${role}/dashboard`} 
+                className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                onClick={() => setMenuOpen(false)}
+              >
+                {role === 'teacher' ? 'Teacher' : 'Student'} Dashboard
+              </Link>
             </nav>
           )}
         </div>
 
         {/* ----------------------------------------------------------------
-           *  RIGHT — avatar + dropdown
+           *  RIGHT — avatar + dropdown
            * ---------------------------------------------------------------- */}
         {user && (
           <div className="relative">
@@ -57,13 +62,13 @@ const Navbar: React.FC = () => {
               onClick={toggleMenu}
               className="flex items-center space-x-2 select-none focus:outline-none"
             >
-              <span className="hidden md:block text-sm font-medium text-gray-700">
+              <span className="hidden md:block text-sm font-medium text-[#272A69]">
                 {user.name}
               </span>
 
               <Avatar className="h-9 w-9">
                 {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-                <AvatarFallback className="bg-blue-500 text-white">
+                <AvatarFallback className="bg-[#EF5136] text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>

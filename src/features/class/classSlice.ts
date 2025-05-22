@@ -76,9 +76,10 @@ const classSlice = createSlice({
     })
     .addCase(fetchClasses.fulfilled, (state, action) => {
       state.loading = false;
-      state.classes = action.payload;
+      // Handle both teacher and student class structures
+      state.classes = Array.isArray(action.payload) ? action.payload : [];
       // Update stats to match current classes
-      const classIds = new Set(action.payload.map(cls => cls.id));
+      const classIds = new Set(state.classes.map(cls => cls.id));
       state.classStats = state.classStats.filter(stat => classIds.has(stat.id));
     })
     .addCase(fetchClasses.rejected, (state, action) => {

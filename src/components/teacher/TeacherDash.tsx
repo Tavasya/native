@@ -1,7 +1,7 @@
 // src/components/TeacherDashboard.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { fetchClasses, createClass, deleteClass } from '@/features/class/classThunks';
+import { fetchClasses, createClass, deleteClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { useToast } from '@/hooks/use-toast';
 import ClassTableActions from './ClassTableActions';
 import ClassTable, { ClassData } from './ClassTable';
@@ -9,7 +9,7 @@ import ClassTable, { ClassData } from './ClassTable';
 export default function TeacherDashboard() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
-  const { classes: classModels, classStats, loading, createClassLoading } = useAppSelector(state => state.classes);
+  const { classes: classModels, classStats, loading, createClassLoading, statsLoading } = useAppSelector(state => state.classes);
   const { toast } = useToast();
 
   // Modal state + form
@@ -19,13 +19,18 @@ export default function TeacherDashboard() {
   // Fetch on mount
   useEffect(() => {
     if (user) {
-      dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
+      Promise.all([
+        dispatch(fetchClasses({ role: 'teacher', userId: user.id })),
+        dispatch(fetchClassStatsByTeacher(user.id))
+      ]);
     }
   }, [user, dispatch]);
 
   // Helpers
   const generateCode = useCallback((len = 6) => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    // Using only characters that are clearly distinguishable in most fonts
+    // Excluded: 0, O, 1, I, l, 5, S, 8, B, Z, 2
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXY3479';
     return Array.from({ length: len }, () => chars.charAt(Math.floor(Math.random() * chars.length))).join('');
   }, []);
 
@@ -39,8 +44,11 @@ export default function TeacherDashboard() {
       toast({ title: 'Class created', description: `"${newName}" has been created.` });
       setNewName('');
       setIsModalOpen(false);
-      // refresh
-      dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
+      // refresh both data sources
+      Promise.all([
+        dispatch(fetchClasses({ role: 'teacher', userId: user.id })),
+        dispatch(fetchClassStatsByTeacher(user.id))
+      ]);
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message });
     }
@@ -53,7 +61,11 @@ export default function TeacherDashboard() {
       if (user) {
         await dispatch(deleteClass(id)).unwrap();
         toast({ title: 'Deleted', description: 'Class removed.' });
-        dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
+        // refresh both data sources
+        Promise.all([
+          dispatch(fetchClasses({ role: 'teacher', userId: user.id })),
+          dispatch(fetchClassStatsByTeacher(user.id))
+        ]);
       }
     } catch {
       toast({ title: 'Error', description: 'Could not delete.' });
@@ -75,27 +87,23 @@ export default function TeacherDashboard() {
     };
   });
 
-  // Refresh / Add Class buttons
-  const handleRefresh = () => {
-    if (user) dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
-  };
   const handleAddClick = () => setIsModalOpen(true);
+
+  if (loading || statsLoading) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <main className="flex-1 container mx-auto px-4 py-8 md:px-6">
         <ClassTableActions
           onAddClass={handleAddClick}
-          onRefresh={handleRefresh}
         />
 
-        {loading
-          ? <div className="text-center py-12 text-gray-500">Loading classes…</div>
-          : <ClassTable
-              classes={tableData}
-              onDelete={handleDelete}
-            />
-        }
+        <ClassTable
+          classes={tableData}
+          onDelete={handleDelete}
+        />
       </main>
 
       {/* Create Class Modal */}
@@ -106,30 +114,33 @@ export default function TeacherDashboard() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Class Name</label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  required
-                  disabled={createClassLoading}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                />
+                <div className="mt-1 bg-gray-50 px-4 py-3 rounded-md">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    required
+                    disabled={createClassLoading}
+                    className="w-full border-none text-base font-normal p-0 bg-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 placeholder:font-normal"
+                    placeholder="e.g. IELTS Speaking Class"
+                  />
+                </div>
               </div>
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   disabled={createClassLoading}
-                  className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#272A69] border border-transparent rounded-md hover:bg-[#272A69]/90"
                   disabled={createClassLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {createClassLoading ? 'Creating…' : 'Create'}
+                  {createClassLoading ? 'Creating...' : 'Create Class'}
                 </button>
               </div>
             </form>

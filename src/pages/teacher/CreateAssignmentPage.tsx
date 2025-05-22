@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Plus, Trash2, Volume2, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppDispatch } from '@/app/hooks';
 import { createAssignment } from '@/features/assignments/assignmentThunks';
 import { useAppSelector } from '@/app/hooks';
@@ -42,7 +40,7 @@ const CreateAssignmentPage: React.FC = () => {
       type: 'normal',
       question: '',
       speakAloud: false,
-      timeLimit: '5'
+      timeLimit: '1'
     }
   ]);
   const [activeCardId, setActiveCardId] = useState('1');
@@ -65,7 +63,7 @@ const CreateAssignmentPage: React.FC = () => {
       type,
       question: '',
       speakAloud: false,
-      timeLimit: '5'
+      timeLimit: '1'
     };
 
     if (type === 'bulletPoints') {
@@ -244,7 +242,7 @@ const CreateAssignmentPage: React.FC = () => {
 
           <Button
             onClick={handleSubmit}
-            className="bg-[#1a73e8] hover:bg-[#1557b0] text-white"
+            className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
           >
             Publish
           </Button>
@@ -254,8 +252,8 @@ const CreateAssignmentPage: React.FC = () => {
           {/* Header Card with title, description, settings */}
           <Card
             className={cn(
-              "mb-4 overflow-hidden border-0 shadow-sm rounded-lg transition-all duration-200",
-              activeHeaderCard ? "ring-2 ring-blue-500" : ""
+              "mb-4 overflow-hidden border shadow-md rounded-lg transition-all duration-200",
+              activeHeaderCard ? "ring-2 ring-[#272A69]" : ""
             )}
             onMouseDown={(e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
@@ -365,7 +363,7 @@ const CreateAssignmentPage: React.FC = () => {
                           {...provided.draggableProps}
                           className={cn(
                             "mb-4 relative rounded-lg overflow-hidden",
-                            activeCardId === card.id && "ring-2 ring-blue-500"
+                            activeCardId === card.id && "ring-2 ring-[#272A69]"
                           )}
                           onMouseDown={(e: React.MouseEvent) => {
                             const target = e.target as HTMLElement;
@@ -378,7 +376,7 @@ const CreateAssignmentPage: React.FC = () => {
                             setActiveHeaderCard(false);
                           }}
                         >
-                          <Card className="border-0 shadow-sm">
+                          <Card className="border shadow-md">
                             <div {...provided.dragHandleProps} className="flex justify-center">
                               <DragHandle />
                             </div>
@@ -623,7 +621,7 @@ const CreateAssignmentPage: React.FC = () => {
                     )}
 
                     {card.speakAloud && (
-                      <div className="flex items-center text-sm text-blue-600 mt-2">
+                      <div className="flex items-center text-sm text-[#272A69] mt-2">
                         <Volume2 className="h-4 w-4 mr-1" />
                         <span>This question will be read aloud</span>
                       </div>

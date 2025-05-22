@@ -5,7 +5,7 @@ export interface SectionFeedback {
     feedback: string
 }
 
-export type SubmissionStatus = 'pending' | 'graded' | 'rejected';
+export type SubmissionStatus = 'in_progress' | 'pending' | 'graded' | 'rejected';
 
 export interface RecordingData {
     questionId: string;  // ID of the question this recording answers
@@ -17,7 +17,7 @@ export interface CreateSubmissionWithRecordings {
     student_id: string;
     attempt?: number;
     recordings: Record<number, { blob: Blob, url: string, createdAt: Date } | null>;
-    questions: { id: string }[];  // We only need the id property
+    questions: { id: string }[];
 }
 
 //Data for supabase
@@ -30,7 +30,6 @@ export interface Submission {
     section_feedback: Record<string, SectionFeedback>;
     submitted_at: string;
     grade?: number; //overall grade
-    valid_transcript: boolean;
     recordings?: RecordingData[]; // New field for multiple recordings
 }
 
@@ -49,7 +48,6 @@ export interface UpdateSubmissionDto {
     grade?: number;
     feedback?: string;
     section_feedback?: Record<string, SectionFeedback>;
-    valid_transcript?: boolean;
 }
 
 // Redux state
@@ -58,4 +56,13 @@ export interface SubmissionsState {
     loading: boolean;
     error: string | null;
     selectedSubmission?: Submission;
+    recordings?: {
+        [assignmentId: string]: {
+            [questionIndex: string]: {
+                url: string;
+                createdAt: string;
+                uploadedUrl?: string;
+            }
+        }
+    };
 }

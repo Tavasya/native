@@ -1,5 +1,3 @@
-
-import React from 'react';
 import PronunciationMistake from '@/components/PronunciationMistake';
 import FeedbackItem from '@/components/FeedbackItem';
 import { Badge } from '@/components/ui/badge';

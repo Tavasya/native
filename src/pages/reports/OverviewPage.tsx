@@ -1,5 +1,3 @@
-
-import React from 'react';
 import ScoreCard from '@/components/ScoreCard';
 
 const OverviewPage = () => {

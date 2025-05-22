@@ -120,75 +120,88 @@ import {
     async getLatestSubmissionsByAssignment(
       assignmentId: string,
     ): Promise<StudentSubmission[]> {
-      // 1. Pull all submissions + user info for this assignment
-      const { data, error } = await supabase
-        .from('submissions')
-        .select(
-          `
-          id, assignment_id, student_id, attempt,
-          status, submitted_at, grade,
+      // 1. Get the class ID for this assignment
+      const { data: asnRow, error: asnErr } = await supabase
+        .from('assignments')
+        .select('class_id')
+        .eq('id', assignmentId)
+        .single();
+      if (asnErr) throw new Error(asnErr.message);
+  
+      // 2. Get all students in the class with their grades
+      const { data: students, error: sErr } = await supabase
+        .from('students_classes')
+        .select(`
+          student_id,
+          overall_grade,
           users!inner(id, name, email)
-        `,
-        )
+        `)
+        .eq('class_id', asnRow.class_id);
+  
+      if (sErr) throw new Error(sErr.message);
+  
+      // 3. Get all submissions for this assignment
+      const { data: submissions, error: subErr } = await supabase
+        .from('submissions')
+        .select(`
+          id, assignment_id, student_id, attempt,
+          status, submitted_at, grade
+        `)
         .eq('assignment_id', assignmentId);
   
-      if (error) throw new Error(error.message);
+      console.log('Raw submissions from DB:', submissions);
   
-      /** pick latest attempt per student */
-      const latestAttempt = new Map<string, (typeof data)[number]>();
-      data.forEach(row => {
+      if (subErr) throw new Error(subErr.message);
+  
+      // 4. Create a map of latest submissions per student
+      const latestAttempt = new Map<string, (typeof submissions)[number]>();
+      submissions?.forEach(row => {
         const prev = latestAttempt.get(row.student_id);
         if (!prev || prev.attempt < row.attempt) latestAttempt.set(row.student_id, row);
       });
   
-      // 2. Fetch overall grades for every student **in one query**
-      const studentIds = Array.from(latestAttempt.keys());
-      let gradeLookup: Record<string, number | null> = {};
+      console.log('Latest attempts map:', Object.fromEntries(latestAttempt));
   
-      if (studentIds.length) {
-        const { data: asnRow, error: asnErr } = await supabase
-          .from('assignments')
-          .select('class_id')
-          .eq('id', assignmentId)
-          .single();
-        if (asnErr) throw new Error(asnErr.message);
+      // 5. Create final output including all students
+      const result = students.map(student => {
+        const submission = latestAttempt.get(student.student_id);
+        const user = Array.isArray(student.users) ? student.users[0] : student.users;
   
-        const { data: grades, error: gErr } = await supabase
-          .from('students_classes')
-          .select('student_id, overall_grade')
-          .eq('class_id', asnRow.class_id)
-          .in('student_id', studentIds);
+        if (!submission) {
+          // Student hasn't started the assignment
+          return {
+            id: `not_started_${student.student_id}`,
+            student_id: student.student_id,
+            student_name: user?.name ?? 'Unknown',
+            student_email: user?.email ?? 'Unknown',
+            assignment_id: assignmentId,
+            attempt: 0,
+            status: 'not_started',
+            submitted_at: null,
+            grade: null,
+            overall_grade: student.overall_grade,
+          };
+        }
   
-        if (gErr) throw new Error(gErr.message);
-  
-        gradeLookup = Object.fromEntries(
-          grades.map(g => [g.student_id, g.overall_grade]),
-        );
-      }
-  
-      // 3. Shape final output
-      return Array.from(latestAttempt.values()).map(row => {
-        const user = Array.isArray(row.users) ? row.users[0] : row.users;
-        const normalised: AssignmentStatus =
-          /complet/i.test(row.status ?? '')
-            ? 'completed'
-            : /progress|start/i.test(row.status ?? '')
-              ? 'in_progress'
-              : 'not_started';
-  
+        // Student has submitted something
+        console.log('Processing submission for student:', user?.name, 'Status:', submission.status);
+        
         return {
-          id: row.id,
-          student_id: row.student_id,
+          id: submission.id,
+          student_id: submission.student_id,
           student_name: user?.name ?? 'Unknown',
           student_email: user?.email ?? 'Unknown',
-          assignment_id: row.assignment_id,
-          attempt: row.attempt,
-          status: normalised,
-          submitted_at: row.submitted_at,
-          grade: row.grade,
-          overall_grade: gradeLookup[row.student_id] ?? null,
+          assignment_id: submission.assignment_id,
+          attempt: submission.attempt,
+          status: submission.status ?? 'not_started',
+          submitted_at: submission.submitted_at,
+          grade: submission.grade,
+          overall_grade: student.overall_grade,
         };
       });
+  
+      console.log('Final processed submissions:', result);
+      return result;
     },
   
     /* ------------------------------------------------------------------ *

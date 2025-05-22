@@ -7,8 +7,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronDown, ChevronUp, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Plus, Users, FileText } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   fetchClasses,
   fetchClassStatsByTeacher,
@@ -103,11 +110,8 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     });
   }, [assignments, dispatch]);
 
-  /* Don't render anything until initial data is loaded */
   if (classLoading || assignmentsLoading) {
-    return (
-      <div className="p-8 text-center text-gray-500">Loading class details…</div>
-    );
+    return null;
   }
 
   /* ------------------------------------------------------------------ *
@@ -116,9 +120,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const cls = classModels.find((c) => c.id === classId);
   const stat = classStats.find((s) => s.id === classId);
   if (!cls || !stat) {
-    return (
-      <div className="p-8 text-center text-gray-500">Fetching details…</div>
-    );
+    return null;
   }
 
   const classData = {
@@ -131,12 +133,14 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* map assignments -> rows, using stats already in the store */
   const assignmentRows: LocalAssignment[] = assignments.map((a) => {
     const subs = submissions[a.id] || [];
+    console.log('Raw submissions for assignment:', a.title, subs);
     const comp = {
-      submitted: subs.filter(s => s.status === 'completed').length,
+      submitted: subs.filter(s => s.status === 'pending').length,
       inProgress: subs.filter(s => s.status === 'in_progress').length,
       notStarted: classData.students - subs.length,
       totalStudents: classData.students,
     };
+    console.log('Computed stats:', comp);
 
     return {
       id: a.id,
@@ -183,6 +187,14 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: `Class code ${text} has been copied to your clipboard`,
+    });
+  };
+
   /* ------------------------------------------------------------------ *
    *  JSX
    * ------------------------------------------------------------------ */
@@ -200,25 +212,58 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
       {/* Class header */}
       <Card className="bg-gray-100 mb-6">
         <CardContent className="p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            {classData.name}
-          </h1>
-          <p className="text-sm text-gray-600 mb-4">
-            Class Code: {classData.code}
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {([
-              ['Students', classData.students],
-              ['Assignments', classData.assignments],
-            ] as const).map(([label, value]) => (
-              <div
-                key={label}
-                className="bg-white p-4 rounded-lg shadow-sm text-center"
-              >
-                <p className="text-gray-500 text-sm">{label}</p>
-                <p className="text-xl font-bold">{value}</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                {classData.name}
+              </h1>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 text-gray-500">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          <span className="text-sm">{classData.students}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Students enrolled</p>
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm">{classData.assignments}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Total assignments</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                        onClick={() => copyToClipboard(classData.code)}
+                      >
+                        {classData.code}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Click to copy class code</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-            ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -240,7 +285,11 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
           submissions[a.id] || [];
 
         return (
-          <Card key={a.id} className="mb-4 shadow-sm">
+          <Card 
+            key={a.id} 
+            className="mb-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow duration-200"
+            onClick={() => toggle(a.id)}
+          >
             <CardHeader className="p-4 pb-2">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -257,7 +306,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                     variant="ghost"
                     size="sm"
                     className="text-gray-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => openDel(a.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDel(a.id);
+                    }}
                     disabled={deletingAssignmentId === a.id}
                   >
                     Delete
@@ -265,7 +317,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toggle(a.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(a.id);
+                    }}
                   >
                     {expanded.has(a.id) ? (
                       <ChevronUp className="h-4 w-4" />
@@ -308,8 +363,23 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {st.student_name}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {st.status.charAt(0).toUpperCase() + st.status.slice(1)}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {(() => {
+                                console.log('Rendering status for:', st.student_name, 'Status:', st.status);
+                                return (
+                                  <span className={`px-2 py-1 rounded-full ${
+                                    st.status === 'pending'
+                                      ? 'bg-green-100 text-green-800'
+                                      : st.status === 'in_progress'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {st.status === 'pending' ? 'Completed'
+                                      : st.status === 'in_progress' ? 'In Progress'
+                                      : 'Not Submitted'}
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {st.submitted_at
@@ -330,9 +400,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() =>
-                                  navigate(`/assignment/${a.id}/submission/${st.student_id}`)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/assignment/${a.id}/submission/${st.student_id}`);
+                                }}
                               >
                                 Review
                               </Button>

@@ -12,13 +12,11 @@ import TeacherDash from '@/components/teacher/TeacherDash'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
+import NewLogin from '@/pages/auth/NewLogin'
+import NewSignUp from '@/pages/auth/NewSignUp'
+import JoinClass from '@/pages/student/JoinClass'
 
 // Lazy load less frequently visited components
-const SignUp = lazy(() => import("@/pages/auth/SignUp"))
-const Login = lazy(() => import("@/pages/auth/Login"))
-// const TeacherClassPage = lazy(() => import("@/pages/teacher/ClassPage"))
-// const StudentClassPage = lazy(() => import("@/pages/student/legacy/ClassPage"))
-// const StudentAssignment = lazy(() => import("@/pages/student/AssignmentPage"))
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
 
 // Prefetch components after initial load
@@ -33,44 +31,10 @@ const preloadComponents = () => {
 
 // Enhanced Loading Spinner with progress bar
 const EnhancedLoadingSpinner = () => (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
-    flexDirection: 'column',
-    gap: '16px'
-  }}>
+  <div className="min-h-screen flex items-center justify-center">
     <LoadingSpinner />
-    <div style={{ 
-      width: '200px', 
-      height: '4px', 
-      backgroundColor: '#363636',
-      borderRadius: '2px',
-      overflow: 'hidden'
-    }}>
-      <div style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#4CAF50',
-        animation: 'loading 1.5s infinite linear',
-      }} />
-    </div>
-    <style>
-      {`
-        @keyframes loading {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-      `}
-    </style>
   </div>
-)
+);
 
 export default function AppRoutes() {
   
@@ -84,12 +48,13 @@ export default function AppRoutes() {
         <Route element={<Layout />}>
           {/* -------- PUBLIC -------- */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/sign-up" element={<SignUp />} />
+          <Route path="/login" element={<NewLogin />} />
+          <Route path="/sign-up" element={<NewSignUp />} />
   
           {/* -------- STUDENT ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['student']} />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/join-class" element={<JoinClass />} />
             {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
             <Route path="/student/assignment/:id/practice" element={<AssignmentPractice />} />
             {/* <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} /> */}

@@ -14,6 +14,7 @@ const initialState: SubmissionsState = {
     loading: false,
     error: null,
     selectedSubmission: undefined,
+    recordings: {}
 }
 
 const submissionsSlice = createSlice({
@@ -34,6 +35,45 @@ const submissionsSlice = createSlice({
                 state.selectedSubmission = updated;
             }
         },
+        saveRecording(state, action: PayloadAction<{
+            assignmentId: string;
+            questionIndex: string;
+            url: string;
+            createdAt: string;
+        }>) {
+            const { assignmentId, questionIndex, url, createdAt } = action.payload;
+            if (!state.recordings) state.recordings = {};
+            if (!state.recordings[assignmentId]) state.recordings[assignmentId] = {};
+            state.recordings[assignmentId][questionIndex] = { url, createdAt };
+            // Save to localStorage
+            localStorage.setItem('recordings', JSON.stringify(state.recordings));
+        },
+        updateRecordingUploadStatus(state, action: PayloadAction<{
+            assignmentId: string;
+            questionIndex: string;
+            uploadedUrl: string;
+        }>) {
+            const { assignmentId, questionIndex, uploadedUrl } = action.payload;
+            if (state.recordings?.[assignmentId]?.[questionIndex]) {
+                state.recordings[assignmentId][questionIndex].uploadedUrl = uploadedUrl;
+                // Update localStorage
+                localStorage.setItem('recordings', JSON.stringify(state.recordings));
+            }
+        },
+        loadRecordings(state) {
+            const savedRecordings = localStorage.getItem('recordings');
+            if (savedRecordings) {
+                state.recordings = JSON.parse(savedRecordings);
+            }
+        },
+        clearAssignmentRecordings(state, action: PayloadAction<string>) {
+            const assignmentId = action.payload;
+            if (state.recordings?.[assignmentId]) {
+                delete state.recordings[assignmentId];
+                // Update localStorage
+                localStorage.setItem('recordings', JSON.stringify(state.recordings));
+            }
+        }
     },
     extraReducers(builder) {
         builder
@@ -59,7 +99,13 @@ const submissionsSlice = createSlice({
         })
         .addCase(fetchSubmissionsByAssignmentAndStudent.fulfilled, (state, action) => {
             state.loading = false;
-            state.submissions = action.payload;
+            // Append new submissions while avoiding duplicates
+            const newSubmissions = action.payload;
+            const existingIds = new Set(state.submissions.map(sub => sub.id));
+            state.submissions = [
+                ...state.submissions,
+                ...newSubmissions.filter(sub => !existingIds.has(sub.id))
+            ];
         })
         .addCase(fetchSubmissionsByAssignmentAndStudent.rejected, (state, action) => {
             state.loading = false;
@@ -132,5 +178,5 @@ const submissionsSlice = createSlice({
     },
 });
 
-export const { selectSubmission, clearError, updateSubmissionFromRealtime } = submissionsSlice.actions;
+export const { selectSubmission, clearError, updateSubmissionFromRealtime, saveRecording, updateRecordingUploadStatus, loadRecordings, clearAssignmentRecordings } = submissionsSlice.actions;
 export default submissionsSlice.reducer;

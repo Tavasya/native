@@ -31,16 +31,28 @@ export const classService = {
   },
 
   async getClassesByStudent(studentId: string): Promise<Class[]> {
+    console.log('Fetching classes for student:', studentId);
+    
     const { data, error } = await supabase
       .from('students_classes')
-      .select('class_id, classes(*)') //joins class statble and student table
+      .select('class_id, classes(*)')
       .eq('student_id', studentId);
 
     if (error) {
+      console.error('Error fetching student classes:', error);
       throw new Error(error.message);
     }
 
-    return data.map((row: any) => row.classes);
+    console.log('Raw student classes data:', data);
+
+    // The data comes in the format: [{ class_id: string, classes: Class }]
+    const classes = data.map((row: any) => {
+      console.log('Processing row:', row);
+      return row.classes;
+    });
+
+    console.log('Processed classes:', classes);
+    return classes;
   },
 
   async getClassById(id: string): Promise<Class> {
@@ -81,8 +93,6 @@ export const classService = {
     }
   },
 
-
-
   async joinClass(studentId: string, class_code: string): Promise<Class> {
     //find class
     const { data: classData, error: classError } = await supabase
@@ -95,7 +105,24 @@ export const classService = {
       throw new Error('Invalid class Code');
     }
 
-    //add student to class
+    // Check if student is already enrolled
+    const { data: existingEnrollment, error: checkError } = await supabase
+      .from('students_classes')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('class_id', classData.id)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      throw new Error(checkError.message);
+    }
+
+    // If already enrolled, just return the class data
+    if (existingEnrollment) {
+      return classData;
+    }
+
+    // If not enrolled, add student to class
     const { error: joinError } = await supabase
       .from('students_classes')
       .insert([{
@@ -104,14 +131,9 @@ export const classService = {
       }]);
     
     if (joinError) {
-      if (joinError.code === '23505') {
-        throw new Error('You are already enrolled in this class');
-      }
       throw new Error(joinError.message);
     }
 
     return classData;
   },
-
-  
 }
