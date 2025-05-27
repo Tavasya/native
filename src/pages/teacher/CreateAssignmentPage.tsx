@@ -324,15 +324,7 @@ const CreateAssignmentPage: React.FC = () => {
                             value={dueDate}
                             onChange={(e) => setDueDate(e.target.value)}
                             min={new Date().toISOString().split("T")[0]}
-                            className="
-                              border
-                              rounded-md
-                              focus:outline-none
-                              focus:ring-0
-                              focus-visible:ring-0
-                              focus:ring-offset-0
-                              focus-visible:ring-offset-0
-                            "
+                            className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-36 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
                           />
                         </div>
                       </div>

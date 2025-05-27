@@ -183,7 +183,7 @@ const CompletedAssignments: React.FC = () => {
   return (
     <div className="mb-8">
       <Card className="shadow-sm">
-        <CardHeader className="bg-gray-100">
+        <CardHeader className="bg-gray-100 rounded-t-lg">
           <CardTitle className="text-lg">Completed Assignments</CardTitle>
         </CardHeader>
 
