@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const SubmissionFeedback: React.FC = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { selectedSubmission, loading, error } = useAppSelector(state => state.submissions);
   const [playingAudio, setPlayingAudio] = React.useState<string | null>(null);
@@ -17,13 +19,14 @@ const SubmissionFeedback: React.FC = () => {
 
   useEffect(() => {
     if (submissionId) {
-      console.log('Fetching submission:', submissionId);
+      console.log('SubmissionFeedback - Fetching submission:', submissionId);
+      console.log('SubmissionFeedback - Navigation state:', location.state);
       dispatch(fetchSubmissionById(submissionId));
     }
-  }, [submissionId, dispatch]);
+  }, [submissionId, dispatch, location.state]);
 
   useEffect(() => {
-    console.log('Selected submission:', selectedSubmission);
+    console.log('SubmissionFeedback - Selected submission:', selectedSubmission);
   }, [selectedSubmission]);
 
   const handlePlayPause = (audioKey: string) => {
@@ -40,6 +43,18 @@ const SubmissionFeedback: React.FC = () => {
       }
       audioElement.play();
       setPlayingAudio(audioKey);
+    }
+  };
+
+  const handleBack = () => {
+    console.log('SubmissionFeedback - Handling back navigation');
+    console.log('SubmissionFeedback - Current location state:', location.state);
+    if (location.state?.fromClassDetail) {
+      console.log('SubmissionFeedback - Going back to ClassDetail');
+      navigate(-1);
+    } else {
+      console.log('SubmissionFeedback - Going to dashboard');
+      navigate('/student/dashboard');
     }
   };
 
@@ -215,19 +230,47 @@ const SubmissionFeedback: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="container mx-auto px-4 py-8 md:px-6">
+      {/* Back button */}
+      <div className="flex justify-start mb-6">
         <Button
           variant="ghost"
-          className="flex items-center gap-2"
-          onClick={() => navigate('/student/dashboard')}
+          onClick={handleBack}
+          className="text-gray-600"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back
         </Button>
-        <h1 className="text-2xl font-bold">Submission Details</h1>
       </div>
-      
+
+      {/* Submission details */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Submission Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Assignment</h3>
+              <p className="text-gray-600">{selectedSubmission.assignment_id}</p>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Status</h3>
+              <Badge variant={selectedSubmission.status === 'graded' ? 'default' : 'secondary'}>
+                {selectedSubmission.status === 'graded' ? 'Graded' : 'Pending Review'}
+              </Badge>
+            </div>
+            {selectedSubmission.submitted_at && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Submitted</h3>
+                <p className="text-gray-600">
+                  {new Date(selectedSubmission.submitted_at).toLocaleString()}
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {selectedSubmission.status === 'graded' && selectedSubmission.section_feedback ? (
         // Show feedback for graded submissions
         (Array.isArray(selectedSubmission.section_feedback) ? selectedSubmission.section_feedback : [selectedSubmission.section_feedback]).map((feedback: any, index: number) => (

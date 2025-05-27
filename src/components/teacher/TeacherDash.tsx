@@ -75,6 +75,7 @@ export default function TeacherDashboard() {
   // Table data mapping
   const tableData: ClassData[] = classModels.map(cls => {
     const stats = classStats.find(s => s.id === cls.id);
+    console.log('TeacherDash - Class data:', { id: cls.id, name: cls.name, stats });
     return {
       id: cls.id,
       name: cls.name,
@@ -87,7 +88,10 @@ export default function TeacherDashboard() {
     };
   });
 
-  const handleAddClick = () => setIsModalOpen(true);
+  const handleAddClick = () => {
+    console.log('TeacherDash - Opening create class modal');
+    setIsModalOpen(true);
+  };
 
   if (loading || statsLoading) {
     return null;

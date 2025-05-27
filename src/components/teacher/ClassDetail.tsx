@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -64,6 +64,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* ------------------------------ hooks / state -------------------- */
   const { id: classId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { toast } = useToast();
 
@@ -80,7 +81,19 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     deletingAssignmentId,
   } = useAppSelector((s) => s.assignments);
 
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Initialize expanded state from sessionStorage
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const savedState = sessionStorage.getItem(`expanded_assignments_${classId}`);
+    console.log('ClassDetail - Loading expanded state from sessionStorage:', savedState);
+    return new Set(savedState ? JSON.parse(savedState) : []);
+  });
+
+  // Save expanded state to sessionStorage whenever it changes
+  useEffect(() => {
+    console.log('ClassDetail - Saving expanded state to sessionStorage:', Array.from(expanded));
+    sessionStorage.setItem(`expanded_assignments_${classId}`, JSON.stringify(Array.from(expanded)));
+  }, [expanded, classId]);
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDelete, setToDelete] = useState<string | null>(null);
   const fetchedAssignmentIds = useRef<Set<string>>(new Set());
@@ -91,15 +104,15 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   useEffect(() => {
     if (!user || !classId) return;
 
+    console.log('ClassDetail - Fetching data for class:', classId);
     dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
     dispatch(fetchClassStatsByTeacher(user.id));
     dispatch(fetchAssignmentByClass(classId));
-    console.log("fetching");
   }, [user, classId, dispatch]);
 
   useEffect(() => {
     if (!assignments.length) return;
-    console.log("fetching 2");
+    console.log('ClassDetail - Fetching submissions for assignments:', assignments.map(a => a.id));
 
     assignments.forEach((assignment) => {
       if (!fetchedAssignmentIds.current.has(assignment.id)) {
@@ -133,14 +146,18 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* map assignments -> rows, using stats already in the store */
   const assignmentRows: LocalAssignment[] = assignments.map((a) => {
     const subs = submissions[a.id] || [];
-    console.log('Raw submissions for assignment:', a.title, subs);
+    console.log('ClassDetail - Assignment submissions:', { 
+      assignmentId: a.id, 
+      title: a.title, 
+      submissions: subs,
+      expanded: expanded.has(a.id)
+    });
     const comp = {
       submitted: subs.filter(s => s.status === 'graded' || s.status === 'pending').length,
       inProgress: subs.filter(s => s.status === 'in_progress').length,
       notStarted: classData.students - subs.length,
       totalStudents: classData.students,
     };
-    console.log('Computed stats:', comp);
 
     return {
       id: a.id,
@@ -163,12 +180,14 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* ------------------------------------------------------------------ *
    *  UI helpers
    * ------------------------------------------------------------------ */
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    console.log('ClassDetail - Toggling assignment:', id, 'Current expanded:', Array.from(expanded));
     setExpanded((prev) => {
       const nxt = new Set(prev);
       nxt.has(id) ? nxt.delete(id) : nxt.add(id);
       return nxt;
     });
+  };
 
   const openDel = (id: string) => {
     setToDelete(id);
@@ -195,6 +214,12 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     });
   };
 
+  const handleBackToDashboard = () => {
+    console.log('ClassDetail - Going back to dashboard, clearing session storage');
+    sessionStorage.removeItem(`expanded_assignments_${classId}`);
+    onBack();
+  };
+
   /* ------------------------------------------------------------------ *
    *  JSX
    * ------------------------------------------------------------------ */
@@ -203,7 +228,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
       {/* Back */}
       <Button
         variant="ghost"
-        onClick={onBack}
+        onClick={handleBackToDashboard}
         className="mb-4 -ml-2 text-gray-600"
       >
         <ArrowLeft className="h-4 w-4 mr-2" /> Back to dashboard
@@ -404,7 +429,13 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/student/submission/${st.id}/feedback`);
+                                  console.log('ClassDetail - Navigating to submission:', st.id);
+                                  console.log('ClassDetail - Current expanded state:', Array.from(expanded));
+                                  navigate(`/student/submission/${st.id}/feedback`, { 
+                                    state: { 
+                                      fromClassDetail: true
+                                    } 
+                                  });
                                 }}
                               >
                                 Review
