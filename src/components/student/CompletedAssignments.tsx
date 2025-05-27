@@ -147,6 +147,8 @@ const CompletedAssignments: React.FC = () => {
   const handleViewSubmission = (submission: CompletedAssignment) => {
     if (submission.status === 'graded') {
       navigate(`/student/submission/${submission.id}/feedback`);
+    } else if (submission.status === 'pending') {
+      navigate(`/student/submission/${submission.id}/feedback`);
     } else {
       navigate(`/student/assignment/${submission.id}/practice`);
     }

@@ -135,7 +135,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     const subs = submissions[a.id] || [];
     console.log('Raw submissions for assignment:', a.title, subs);
     const comp = {
-      submitted: subs.filter(s => s.status === 'graded').length,
+      submitted: subs.filter(s => s.status === 'graded' || s.status === 'pending').length,
       inProgress: subs.filter(s => s.status === 'in_progress').length,
       notStarted: classData.students - subs.length,
       totalStudents: classData.students,
@@ -399,18 +399,16 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                               {st.status === 'graded' ? 'Graded' : 'Not graded'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {st.status === 'graded' && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/student/submission/${st.id}/feedback`);
-                                  }}
-                                >
-                                  Review
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/student/submission/${st.id}/feedback`);
+                                }}
+                              >
+                                Review
+                              </Button>
                             </td>
                           </tr>
                         ))}

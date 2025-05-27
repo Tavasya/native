@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { validateAudioBlob, repairWebMFile, OPTIMAL_RECORDER_OPTIONS } from '@/utils/webm-diagnostics';
 import { useToast } from "@/hooks/use-toast";
 import { submissionService } from '@/features/submissions/submissionsService';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 interface ExtendedQuestionCard extends QuestionCard {
   isCompleted?: boolean;
@@ -779,6 +781,16 @@ const AssignmentPractice: React.FC = () => {
     <div className="container mx-auto px-4 min-h-screen flex items-center -mt-16">
       <div className="max-w-6xl mx-auto w-full">
         <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2"
+              onClick={() => navigate('/student/dashboard')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+          </div>
           <div>
             <QuestionContent
               currentQuestion={currentQuestion}
