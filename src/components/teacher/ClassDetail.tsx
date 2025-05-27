@@ -273,7 +273,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
         <h2 className="text-xl font-bold">Assignments</h2>
         <Button
           onClick={() => navigate(`/class/${classId}/create-assignment`)}
-          className="bg-[#1a73e8] hover:bg-[#1557b0] text-white"
+          className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
         >
           <Plus className="h-4 w-4 mr-2" /> Create Assignment
         </Button>

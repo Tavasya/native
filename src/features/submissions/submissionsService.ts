@@ -344,52 +344,51 @@ export const submissionService = {
 
   async analyzeAudio(urls: string[], submission_id: string): Promise<AudioAnalysisResponse> {
     try {
-      validateUUID(submission_id, 'Submission ID');
-
-      if (!urls.length) {
-        throw new Error("No audio URLs provided for analysis");
-      }
-
-      console.log("Sending request to analyze audio:", { 
-        urls, 
-        submission_id,
-        count: urls.length 
+      console.log('=== AUDIO ANALYSIS DEBUG START ===');
+      console.log('Submission ID:', submission_id);
+      console.log('Number of audio URLs:', urls.length);
+      console.log('Audio URLs:', urls);
+      console.log('Sending to /analyze endpoint:', {
+        audio_urls: urls,
+        submission_url: submission_id
       });
       
-      const response = await fetch("http://localhost:8081/analyze", {
+      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
         body: JSON.stringify({ 
-          urls, 
-          submission_id,
-          count: urls.length 
+          audio_urls: urls,
+          submission_url: submission_id
         }),
       });
 
-      console.log("Received response status:", response.status);
-      
+      console.log('Analysis response status:', response.status);
+      console.log('Analysis response headers:', Object.fromEntries(response.headers.entries()));
+      const data = await response.json();
+      console.log('Analysis response data:', data);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error occurred' }));
-        console.error("API Error:", errorData);
-        throw new Error(errorData.message || `Failed to analyze audio: ${response.status} ${response.statusText}`);
+        console.error('Analysis request failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+        throw new Error(data.error || 'Failed to analyze audio');
       }
 
-      const data = await response.json();
-      console.log("Successfully analyzed audio:", data);
-      
-      return {
-        success: true,
-        data
-      };
+      console.log('=== AUDIO ANALYSIS DEBUG END ===');
+      return data;
     } catch (error) {
-      console.error("Error analyzing audio:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred"
-      };
+      console.error('=== AUDIO ANALYSIS ERROR ===');
+      console.error('Error in analyzeAudio:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
     }
   },
 

@@ -48,6 +48,14 @@ export const createSubmission = createAsyncThunk(
     "submissions/createSubmission",
     async (data: CreateSubmissionWithRecordings, { rejectWithValue, dispatch }) => {
         try {
+            console.log('=== SUBMISSION CREATION DEBUG START ===');
+            console.log('Creating submission with data:', {
+                assignment_id: data.assignment_id,
+                student_id: data.student_id,
+                recordings_count: Object.keys(data.recordings).length,
+                questions_count: data.questions.length
+            });
+
             // First upload the recordings to Supabase Storage
             const audioUrls = await prepareRecordingsForSubmission(
                 data.recordings,
@@ -55,6 +63,8 @@ export const createSubmission = createAsyncThunk(
                 data.student_id,
                 data.questions
             );
+            
+            console.log('Uploaded audio URLs:', audioUrls);
             
             // Create the submission with the recordings array
             const submissionData: CreateSubmissionDto = {
@@ -65,24 +75,33 @@ export const createSubmission = createAsyncThunk(
             };
             
             const submission = await submissionService.createSubmission(submissionData);
+            console.log('Created submission:', {
+                id: submission.id,
+                status: submission.status,
+                recordings_count: submission.recordings?.length
+            });
             
             // Send all audio URLs for analysis at once
             try {
-                console.log("Starting audio analysis for all recordings");
+                console.log('Starting audio analysis for submission:', submission.id);
                 const result = await submissionService.analyzeAudio(
                     audioUrls.map(r => r.audioUrl),
                     submission.id
                 );
-                console.log("Audio analysis result:", result);
+                console.log('Audio analysis completed:', result);
             } catch (error) {
-                console.error("Error analyzing audio:", error);
+                console.error('Error during audio analysis:', error);
+                // Don't throw here - we want to keep the submission even if analysis fails
             }
             
             // Clear recordings after successful submission
             dispatch(clearAssignmentRecordings(data.assignment_id));
             
+            console.log('=== SUBMISSION CREATION DEBUG END ===');
             return submission;
         } catch(error: any) {
+            console.error('=== SUBMISSION CREATION ERROR ===');
+            console.error('Error creating submission:', error);
             return rejectWithValue(error.message);
         }
     }

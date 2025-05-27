@@ -11,6 +11,7 @@ import { uploadQuestionRecording } from '@/features/submissions/submissionThunks
 import { supabase } from '@/integrations/supabase/client';
 import { validateAudioBlob, repairWebMFile, OPTIMAL_RECORDER_OPTIONS } from '@/utils/webm-diagnostics';
 import { useToast } from "@/hooks/use-toast";
+import { submissionService } from '@/features/submissions/submissionsService';
 
 interface ExtendedQuestionCard extends QuestionCard {
   isCompleted?: boolean;
@@ -631,7 +632,12 @@ const AssignmentPractice: React.FC = () => {
       return;
     }
 
-    console.log('Starting final submit check...');
+    console.log('=== SUBMISSION DEBUG START ===');
+    console.log('Assignment:', {
+      id: assignment.id,
+      title: assignment.title,
+      questionsCount: assignment.questions.length
+    });
     console.log('Current recordingsData:', recordingsData);
     console.log('Current sessionRecordings:', sessionRecordings);
 
@@ -650,18 +656,27 @@ const AssignmentPractice: React.FC = () => {
         throw fetchError;
       }
 
+      console.log('Existing submissions found:', existingSubmissions);
+
       const existingSubmission = existingSubmissions?.[0];
-      console.log('Existing submission:', existingSubmission);
+      console.log('Most recent existing submission:', existingSubmission);
 
       // Get all recordings from the current session
       const currentRecordings = assignment.questions.map((question, index) => {
         const recordingData = recordingsData?.[index.toString()];
         const sessionRecording = sessionRecordings[index];
         
+        console.log(`Processing recording for question ${index + 1}:`, {
+          questionId: question.id,
+          recordingData,
+          sessionRecording
+        });
+        
         // Use the most recent recording URL
         const recordingUrl = recordingData?.uploadedUrl || sessionRecording?.uploadedUrl;
         
         if (!recordingUrl) {
+          console.error(`Missing recording URL for question ${index + 1}`);
           throw new Error(`Missing recording for question ${index + 1}`);
         }
 
@@ -671,11 +686,15 @@ const AssignmentPractice: React.FC = () => {
         };
       });
 
-      console.log('Current recordings to submit:', currentRecordings);
+      console.log('Final recordings to submit:', currentRecordings);
 
       if (existingSubmission?.status === 'in_progress') {
         // Update the existing submission
-        console.log('Updating existing in-progress submission');
+        console.log('Updating existing in-progress submission:', {
+          submissionId: existingSubmission.id,
+          currentStatus: existingSubmission.status
+        });
+        
         const { error: updateError } = await supabase
           .from('submissions')
           .update({ 
@@ -689,9 +708,30 @@ const AssignmentPractice: React.FC = () => {
           console.error('Error updating submission:', updateError);
           throw updateError;
         }
+        
+        console.log('Successfully updated existing submission');
+
+        // Send recordings for analysis
+        try {
+          console.log('Starting audio analysis for updated submission:', existingSubmission.id);
+          const result = await submissionService.analyzeAudio(
+            currentRecordings.map(r => r.audioUrl),
+            existingSubmission.id
+          );
+          console.log('Audio analysis completed:', result);
+        } catch (error) {
+          console.error('Error during audio analysis:', error);
+          // Don't throw here - we want to keep the submission even if analysis fails
+        }
       } else {
         // Create a new submission only if there's no in-progress submission
-        console.log('Creating new submission');
+        console.log('Creating new submission with data:', {
+          assignment_id: id,
+          student_id: userId,
+          recordings_count: currentRecordings.length,
+          attempt: (existingSubmission?.attempt || 0) + 1
+        });
+        
         const { error: createError } = await supabase
           .from('submissions')
           .insert({
@@ -707,8 +747,11 @@ const AssignmentPractice: React.FC = () => {
           console.error('Error creating submission:', createError);
           throw createError;
         }
+        
+        console.log('Successfully created new submission');
       }
 
+      console.log('=== SUBMISSION DEBUG END ===');
       setIsCompleted(true);
       toast({
         title: "Assignment Completed!",
@@ -716,7 +759,12 @@ const AssignmentPractice: React.FC = () => {
       });
       navigate('/student/dashboard');
     } catch (error) {
+      console.error('=== SUBMISSION ERROR ===');
       console.error('Error submitting assignment:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       alert(error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.');
     }
   };

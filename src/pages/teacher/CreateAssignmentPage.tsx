@@ -304,45 +304,42 @@ const CreateAssignmentPage: React.FC = () => {
               </div>
 
               {/* Settings - Only show if header card is active */}
-              {activeHeaderCard && (
-                <div className="space-y-5 pt-3 border-t">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Due Date */}
-                    <div className="space-y-2">
-                      <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
-                      <Input
-  id="dueDate"
-  type="date"
-  value={dueDate}
-  onChange={(e) => setDueDate(e.target.value)}
-  min={new Date().toISOString().split("T")[0]}
-  className="
-    border
-    rounded-md
-    focus:outline-none
-    focus:ring-0
-    focus-visible:ring-0
-    focus:ring-offset-0
-    focus-visible:ring-offset-0
-  "
-/>
+              <AnimatePresence>
+                {activeHeaderCard && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    style={{ overflow: 'hidden' }}
+                  >
+                    <div className="space-y-5 pt-3 border-t">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Due Date */}
+                        <div className="space-y-2">
+                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
+                          <Input
+                            id="dueDate"
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                            className="
+                              border
+                              rounded-md
+                              focus:outline-none
+                              focus:ring-0
+                              focus-visible:ring-0
+                              focus:ring-offset-0
+                              focus-visible:ring-offset-0
+                            "
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Auto-send Report Toggle commented out for now
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="autoSendReport"
-                      checked={autoSendReport}
-                      onCheckedChange={setAutoSendReport}
-                    />
-                    <Label htmlFor="autoSendReport" className="text-sm font-medium cursor-pointer">
-                      Auto-send report to students
-                    </Label>
-                  </div>
-                  */}
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </CardContent>
           </Card>
 
@@ -376,180 +373,174 @@ const CreateAssignmentPage: React.FC = () => {
                             setActiveHeaderCard(false);
                           }}
                         >
-                          <Card className="border shadow-md">
+                          <Card className="border shadow-md overflow-hidden">
                             <div {...provided.dragHandleProps} className="flex justify-center">
                               <DragHandle />
                             </div>
                             <CardContent className="p-6">
-                              <AnimatePresence>
-                                <motion.div
-                                  className="space-y-4"
-                                  initial={{ height: "auto" }}
-                                  animate={{ height: "auto" }}
-                                  exit={{ height: "auto" }}
-                                  transition={{ duration: 0.2 }}
-                                >
-                                  {/* Question Input */}
-                                  <div className="space-y-2">
-                                    <div
-                                      className={cn(
-                                        "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
-                                        activeCardId === card.id ? "bg-gray-50" : "bg-transparent"
-                                      )}
-                                    >
-                                      <Input
-                                        value={card.question}
-                                        onChange={e =>
-                                          updateQuestionCard(card.id, { question: e.target.value })
-                                        }
-                                        onFocus={() => {
-                                          setActiveCardId(card.id);
-                                          setActiveHeaderCard(false);
-                                        }}
-                                        placeholder={`Question ${index + 1}`}
-                                        className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                      />
-                                    </div>
+                              <div className="space-y-4">
+                                {/* Question Input */}
+                                <div className="space-y-2">
+                                  <div
+                                    className={cn(
+                                      "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
+                                      activeCardId === card.id ? "bg-gray-50" : "bg-transparent"
+                                    )}
+                                  >
+                                    <Input
+                                      value={card.question}
+                                      onChange={e =>
+                                        updateQuestionCard(card.id, { question: e.target.value })
+                                      }
+                                      onFocus={() => {
+                                        setActiveCardId(card.id);
+                                        setActiveHeaderCard(false);
+                                      }}
+                                      placeholder={`Question ${index + 1}`}
+                                      className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                    />
                                   </div>
+                                </div>
 
-                         {/* Bullet Points */}
-{/* Bullet Points */}
-{card.type === "bulletPoints" && (
-  <div
-    className={cn(
-      "p-4 rounded-lg",
-      activeCardId === card.id ? "bg-gray-50" : ""  /* only gray when active */
-    )}
-  >
-    <h4 className="text-sm font-medium mb-3">Bullet Points</h4>
-    <div className="space-y-2">
-      {card.bulletPoints?.map((bullet, i) => (
-        <div key={i} className="flex items-center space-x-2">
-          <div className="text-gray-500 font-bold">•</div>
-          <Input
-            value={bullet}
-            onChange={e => updateBulletPoint(card.id, i, e.target.value)}
-            onMouseDown={() => {
-              setActiveCardId(card.id)
-              setActiveHeaderCard(false)
-            }}
-            placeholder="Enter bullet point text..."
-            className="
-           flex-1
-              focus:outline-none
-              focus:ring-0
-              focus:ring-transparent
-              focus:ring-offset-0
-              focus-visible:ring-0
-              focus-visible:ring-transparent
-              focus-visible:ring-offset-0
-              ring-0
-            "
-          />
-          {card.bulletPoints!.length > 1 &&
-            activeCardId === card.id && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={e => {
-                  e.stopPropagation()
-                  deleteBulletPoint(card.id, i)
-                }}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-        </div>
-      ))}
-      {activeCardId === card.id && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={e => {
-            e.stopPropagation()
-            addBulletPoint(card.id)
-          }}
-          className="mt-2 border-none focus:outline-none focus:ring-0"
-        >
-          <Plus className="h-3 w-3 mr-2" />
-          Add Bullet Point
-        </Button>
-      )}
-    </div>
-  </div>
-)}
-
-
-                                  {/* Controls */}
-                                  {activeCardId === card.id && (
-                                    <motion.div
-                                      className="flex flex-col space-y-4"
-                                      initial={{ opacity: 0 }}
-                                      animate={{ opacity: 1 }}
-                                      exit={{ opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                    >
-                                      <div className="flex items-center justify-between gap-4">
-                                        <Select
-                                          value={card.type}
-                                          onValueChange={(value: "normal" | "bulletPoints") =>
-                                            updateQuestionCard(card.id, {
-                                              type: value,
-                                              bulletPoints:
-                                                value === "bulletPoints" ? [""] : undefined,
-                                            })
-                                          }
-                                        >
-                                          <SelectTrigger className="w-40">
-                                            <SelectValue>
-                                              {card.type === "normal"
-                                                ? "Standard "
-                                                : "Cue Card "}
-                                            </SelectValue>
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="normal">Standard</SelectItem>
-                                            <SelectItem value="bulletPoints">
-                                              Cue Card
-                                            </SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <Select
-                                          value={card.timeLimit}
-                                          onValueChange={value =>
-                                            updateQuestionCard(card.id, { timeLimit: value })
-                                          }
-                                        >
-                                          <SelectTrigger className="w-32">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {timeLimits.map(t => (
-                                              <SelectItem key={t.value} value={t.value}>
-                                                {t.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      <div className="flex items-center justify-end">
+                                {/* Bullet Points */}
+                                {card.type === "bulletPoints" && (
+                                  <div
+                                    className={cn(
+                                      "p-4 rounded-lg",
+                                      activeCardId === card.id ? "bg-gray-50" : ""
+                                    )}
+                                  >
+                                    <h4 className="text-sm font-medium mb-3">Bullet Points</h4>
+                                    <div className="space-y-2">
+                                      {card.bulletPoints?.map((bullet, i) => (
+                                        <div key={i} className="flex items-center space-x-2">
+                                          <div className="text-gray-500 font-bold">•</div>
+                                          <Input
+                                            value={bullet}
+                                            onChange={e => updateBulletPoint(card.id, i, e.target.value)}
+                                            onMouseDown={() => {
+                                              setActiveCardId(card.id)
+                                              setActiveHeaderCard(false)
+                                            }}
+                                            placeholder="Enter bullet point text..."
+                                            className="
+                                              flex-1
+                                              focus:outline-none
+                                              focus:ring-0
+                                              focus:ring-transparent
+                                              focus:ring-offset-0
+                                              focus-visible:ring-0
+                                              focus-visible:ring-transparent
+                                              focus-visible:ring-offset-0
+                                              ring-0
+                                            "
+                                          />
+                                          {card.bulletPoints!.length > 1 &&
+                                            activeCardId === card.id && (
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={e => {
+                                                  e.stopPropagation()
+                                                  deleteBulletPoint(card.id, i)
+                                                }}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            )}
+                                        </div>
+                                      ))}
+                                      {activeCardId === card.id && (
                                         <Button
-                                          variant="destructive"
-                                          size="icon"
-                                          disabled={questionCards.length <= 1}
+                                          variant="outline"
+                                          size="sm"
                                           onClick={e => {
                                             e.stopPropagation()
-                                            deleteQuestionCard(card.id)
+                                            addBulletPoint(card.id)
                                           }}
+                                          className="mt-2 border-none focus:outline-none focus:ring-0"
                                         >
-                                          <Trash2 className="h-4 w-4" />
+                                          <Plus className="h-3 w-3 mr-2" />
+                                          Add Bullet Point
                                         </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Controls */}
+                                <AnimatePresence>
+                                  {activeCardId === card.id && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                                      style={{ overflow: 'hidden' }}
+                                    >
+                                      <div className="flex flex-col space-y-4 pt-4">
+                                        <div className="flex items-center justify-between gap-4">
+                                          <Select
+                                            value={card.type}
+                                            onValueChange={(value: "normal" | "bulletPoints") =>
+                                              updateQuestionCard(card.id, {
+                                                type: value,
+                                                bulletPoints:
+                                                  value === "bulletPoints" ? [""] : undefined,
+                                              })
+                                            }
+                                          >
+                                            <SelectTrigger className="w-40">
+                                              <SelectValue>
+                                                {card.type === "normal"
+                                                  ? "Standard "
+                                                  : "Cue Card "}
+                                              </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="normal">Standard</SelectItem>
+                                              <SelectItem value="bulletPoints">
+                                                Cue Card
+                                              </SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                          <Select
+                                            value={card.timeLimit}
+                                            onValueChange={value =>
+                                              updateQuestionCard(card.id, { timeLimit: value })
+                                            }
+                                          >
+                                            <SelectTrigger className="w-32">
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {timeLimits.map(t => (
+                                                <SelectItem key={t.value} value={t.value}>
+                                                  {t.label}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        <div className="flex items-center justify-end">
+                                          <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            disabled={questionCards.length <= 1}
+                                            onClick={e => {
+                                              e.stopPropagation()
+                                              deleteQuestionCard(card.id)
+                                            }}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
                                       </div>
                                     </motion.div>
                                   )}
-                                </motion.div>
-                              </AnimatePresence>
+                                </AnimatePresence>
+                              </div>
                             </CardContent>
                           </Card>
                         </div>

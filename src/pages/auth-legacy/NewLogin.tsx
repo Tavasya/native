@@ -12,12 +12,11 @@ import { UserRole } from '@/features/auth/types';
 export default function NewLogin() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error: authError, user, role } = useAppSelector(state => state.auth);
+  const { loading, error, user, role } = useAppSelector(state => state.auth);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     dispatch(clearAuth());
@@ -39,21 +38,8 @@ export default function NewLogin() {
     }));
     
     if (signInWithEmail.rejected.match(result)) {
-      const errorMessage = result.payload as string;
-      // Map common error messages to user-friendly versions
-      const friendlyError = errorMessage.includes('Invalid login credentials')
-        ? 'Invalid email or password'
-        : errorMessage.includes('Email not confirmed')
-        ? 'Please verify your email before logging in. Check your inbox for the verification link.'
-        : errorMessage.includes('Invalid role')
-        ? 'Please select the correct role for your account'
-        : errorMessage.includes('not found')
-        ? 'No account found with this email. Please sign up first.'
-        : 'Failed to sign in. Please try again.';
-      
-      console.error('Login failed:', errorMessage);
+      console.error('Login failed:', result.payload);
       dispatch(clearAuth());
-      setError(friendlyError);
     }
   };
 
@@ -65,20 +51,9 @@ export default function NewLogin() {
             <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
           </div>
 
-          {(error || authError) && (
+          {error && (
             <div className="mb-4 p-4 text-sm text-red-700 bg-red-50 rounded-lg">
-              {error || authError}
-              {error?.includes('verify your email') && (
-                <div className="mt-2">
-                  <Button
-                    onClick={() => navigate('/sign-up')}
-                    variant="outline"
-                    className="w-full mt-2 text-[#272A69] border-[#272A69] hover:bg-[#272A69] hover:text-white"
-                  >
-                    Sign up again
-                  </Button>
-                </div>
-              )}
+              {error}
             </div>
           )}
 

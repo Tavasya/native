@@ -13,6 +13,10 @@ type SignupCreds = {
     role: UserRole;
   };
 
+type EmailChangePayload = {
+  newEmail: string;
+  otp: string;
+};
 
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   console.log('Fetching user profile for ID:', id);
@@ -51,43 +55,104 @@ export const signUpWithEmail = createAsyncThunk<
   'auth/signUpWithEmail',
   async (creds, { rejectWithValue }) => {
     try {
-      // 1. Create the user in Supabase Auth
+      // First check if user exists and is verified
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', creds.email)
+        .single();
+
+      if (existingUser) {
+        if (existingUser.email_verified) {
+          return rejectWithValue('This email is already registered and verified. Please try logging in instead.');
+        } else {
+          // If user exists but isn't verified, resend verification email
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email: creds.email
+          });
+
+          if (resendError) {
+            return rejectWithValue('Failed to resend verification email. Please try again.');
+          }
+
+          return rejectWithValue('This email is already registered but not verified. We have resent the verification email. Please check your inbox.');
+        }
+      }
+
+      // Create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: creds.email,
         password: creds.password,
         options: {
           data: {
             name: creds.name || creds.email.split('@')[0],
-          }
+            role: creds.role
+          },
+          emailRedirectTo: `${window.location.origin}/auth/verify`
         }
       });
 
-      if (authError || !authData.user) {
-        return rejectWithValue(authError?.message || 'Signup failed');
+      if (authError) {
+        console.error('Auth error:', authError);
+        return rejectWithValue(authError.message || 'Signup failed');
       }
 
-      // 2. Create or update the user record with role
-      const { error: userError } = await supabase
+      if (!authData.user) {
+        return rejectWithValue('No user data returned from signup');
+      }
+
+      // Check if user record already exists with this ID
+      const { data: existingUserById, error: idCheckError } = await supabase
         .from('users')
-        .upsert({ 
-          id: authData.user.id,
-          email: authData.user.email,
-          name: creds.name || authData.user.user_metadata?.name,
-          role: creds.role
-        });
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
 
-      if (userError) {
-        console.error('User creation error:', userError);
-        return rejectWithValue(`User creation failed: ${userError.message}`);
+      if (existingUserById) {
+        // If user exists, update their information
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            email: creds.email,
+            name: creds.name || authData.user.user_metadata?.name,
+            role: creds.role,
+            email_verified: false
+          })
+          .eq('id', authData.user.id);
+
+        if (updateError) {
+          console.error('User update error:', updateError);
+          return rejectWithValue(`Failed to update user: ${updateError.message}`);
+        }
+      } else {
+        // Create new user record
+        const { error: userError } = await supabase
+          .from('users')
+          .insert({ 
+            id: authData.user.id,
+            email: authData.user.email,
+            name: creds.name || authData.user.user_metadata?.name,
+            role: creds.role,
+            email_verified: false
+          });
+
+        if (userError) {
+          console.error('User creation error:', userError);
+          return rejectWithValue(`User creation failed: ${userError.message}`);
+        }
       }
 
-      // 3. Return the new user and role
+      // Return the new user and role, but mark as unverified
+      const authUser: AuthUser = {
+        id: authData.user.id,
+        email: authData.user.email as string,
+        name: creds.name || authData.user.user_metadata?.name,
+        email_verified: false
+      };
+
       return {
-        user: {
-          id: authData.user.id,
-          email: authData.user.email as string,
-          name: creds.name || authData.user.user_metadata?.name
-        },
+        user: authUser,
         role: creds.role
       };
     } catch (err: any) {
@@ -97,8 +162,77 @@ export const signUpWithEmail = createAsyncThunk<
   }
 );
 
+/* ---------- thunk: verify email ---------- */
+export const verifyEmail = createAsyncThunk<
+  { user: AuthUser; role: UserRole },
+  { email: string; token: string },
+  { rejectValue: string }
+>(
+  'auth/verifyEmail',
+  async ({ email, token }, { rejectWithValue }) => {
+    try {
+      console.log('Starting email verification with:', { email, token });
 
+      // First, try to get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Current session:', session);
 
+      // Verify the OTP
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup'
+      });
+
+      if (error) {
+        console.error('OTP verification error:', error);
+        return rejectWithValue(error.message || 'Email verification failed');
+      }
+
+      if (!data.user) {
+        console.error('No user data returned from verification');
+        return rejectWithValue('No user data returned from verification');
+      }
+
+      console.log('OTP verification successful:', data);
+
+      // Update user record to mark email as verified
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ email_verified: true })
+        .eq('id', data.user.id);
+
+      if (updateError) {
+        console.error('User record update error:', updateError);
+        return rejectWithValue(`Failed to update user verification status: ${updateError.message}`);
+      }
+
+      console.log('User record updated successfully');
+
+      // Fetch updated profile
+      const profile = await fetchUserProfile(data.user.id);
+      console.log('Fetched user profile:', profile);
+
+      // Create AuthUser object with required fields
+      const authUser: AuthUser = {
+        id: data.user.id,
+        email: data.user.email || email,
+        name: profile.name,
+        email_verified: true
+      };
+
+      console.log('Created auth user:', authUser);
+
+      return {
+        user: authUser,
+        role: profile.role
+      };
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      return rejectWithValue(err.message || 'An unexpected error occurred during email verification');
+    }
+  }
+);
 
 /* ---------- thunk: restore session on page boot ---------- */
 export const loadSession = createAsyncThunk<
@@ -175,9 +309,191 @@ export const signInWithEmail = createAsyncThunk<
   }
 );
 
+/* ---------- thunk: initiate email change ---------- */
+export const initiateEmailChange = createAsyncThunk<
+  void,
+  string,
+  { rejectValue: string }
+>(
+  'auth/initiateEmailChange',
+  async (newEmail, { rejectWithValue }) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: newEmail
+      });
+
+      if (error) {
+        console.error('Email change initiation error:', error);
+        return rejectWithValue(error.message || 'Failed to initiate email change');
+      }
+    } catch (err: any) {
+      console.error('Email change initiation error:', err);
+      return rejectWithValue(err.message || 'An unexpected error occurred while initiating email change');
+    }
+  }
+);
+
+/* ---------- thunk: verify email change OTP ---------- */
+export const verifyEmailChange = createAsyncThunk<
+  { user: AuthUser; role: UserRole },
+  { newEmail: string; otp: string },
+  { rejectValue: string }
+>(
+  'auth/verifyEmailChange',
+  async ({ newEmail, otp }, { rejectWithValue }) => {
+    try {
+      // Verify the OTP
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: newEmail,
+        token: otp,
+        type: 'email_change'
+      });
+
+      if (error || !data.user) {
+        console.error('OTP verification error:', error);
+        return rejectWithValue(error?.message || 'Email change verification failed');
+      }
+
+      // Update user record with new email
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          email: newEmail,
+          email_verified: true 
+        })
+        .eq('id', data.user.id);
+
+      if (updateError) {
+        console.error('User record update error:', updateError);
+        return rejectWithValue(`Failed to update user record: ${updateError.message}`);
+      }
+
+      // Fetch updated profile
+      const profile = await fetchUserProfile(data.user.id);
+
+      // Create AuthUser object with required fields
+      const authUser: AuthUser = {
+        id: data.user.id,
+        email: newEmail,
+        name: profile.name,
+        email_verified: true
+      };
+
+      return {
+        user: authUser,
+        role: profile.role
+      };
+    } catch (err: any) {
+      console.error('Email change verification error:', err);
+      return rejectWithValue(err.message || 'An unexpected error occurred during email change verification');
+    }
+  }
+);
+
 /* ---------- helper: sign-out ---------- */
 export async function signOut(dispatch: any) {
   await supabase.auth.signOut();
   // raw action string = no import cycle with slice
   dispatch({ type: 'auth/clearAuth' });
 }
+
+// Save partial student data
+export const savePartialStudentData = createAsyncThunk<
+  void,
+  {
+    name?: string;
+    email?: string;
+    phone_number?: string;
+    date_of_birth?: string;
+    agreed_to_terms?: boolean;
+    role: 'student';
+  }
+>('auth/savePartialStudentData', async (data) => {
+  try {
+    if (!data.email) return;
+    // Check if user exists and is verified
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('email_verified')
+      .eq('email', data.email)
+      .single();
+    if (existingUser && existingUser.email_verified) {
+      // Do not overwrite verified users
+      console.warn('Attempted to overwrite a verified student user. Skipping update.');
+      return;
+    }
+    // Upsert by email (if user exists, update; else insert)
+    await supabase.from('users').upsert([
+      {
+        email: data.email,
+        name: data.name,
+        phone_number: data.phone_number,
+        date_of_birth: data.date_of_birth,
+        agreed_to_terms: data.agreed_to_terms,
+        role: 'student',
+      }
+    ], { onConflict: 'email' });
+  } catch (err) {
+    // Silent fail
+  }
+});
+
+// Save partial teacher data
+export const savePartialTeacherData = createAsyncThunk<
+  void,
+  {
+    user: {
+      name?: string;
+      email?: string;
+      phone_number?: string;
+      agreed_to_terms?: boolean;
+      role: 'teacher';
+    };
+    meta: {
+      active_student_count?: number | null;
+      avg_tuition_per_student?: number | null;
+      referral_source?: string;
+    };
+  }
+>('auth/savePartialTeacherData', async ({ user, meta }) => {
+  try {
+    if (!user.email) return;
+    // Check if user exists and is verified
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id, email_verified')
+      .eq('email', user.email)
+      .single();
+    if (existingUser && existingUser.email_verified) {
+      // Do not overwrite verified users
+      console.warn('Attempted to overwrite a verified teacher user. Skipping update.');
+      return;
+    }
+    // Upsert user
+    const { data: userData, error: userError } = await supabase.from('users').upsert([
+      {
+        email: user.email,
+        name: user.name,
+        phone_number: user.phone_number,
+        agreed_to_terms: user.agreed_to_terms,
+        role: 'teacher',
+      }
+    ], { onConflict: 'email' }).select();
+    const teacher_id = (userData && userData.length > 0)
+      ? userData[0].id
+      : (existingUser ? existingUser.id : null);
+    if (teacher_id) {
+      // Upsert teacher metadata
+      await supabase.from('teachers_metadata').upsert([
+        {
+          teacher_id,
+          active_student_count: meta.active_student_count,
+          avg_tuition_per_student: meta.avg_tuition_per_student,
+          referral_source: meta.referral_source,
+        }
+      ], { onConflict: 'teacher_id' });
+    }
+  } catch (err) {
+    // Silent fail
+  }
+});

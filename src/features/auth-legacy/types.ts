@@ -1,12 +1,11 @@
 // src/features/auth/types.ts
-export type UserRole = 'student' | 'teacher';
+export type UserRole = 'teacher' | 'student';
 
 export interface AuthUser {
   id: string;
   email: string;
-  name: string;
+  name?: string;
   avatarUrl?: string;
-  email_verified: boolean;
 }
 
 export interface AuthState {
@@ -14,5 +13,4 @@ export interface AuthState {
   role:   UserRole | null;
   loading: boolean;
   error:  string | null;
-  emailChangeInProgress: boolean;
 }

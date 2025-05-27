@@ -10,79 +10,32 @@ export const useSupabaseAuth = () => {
   useEffect(() => {
     // Check for existing session on mount
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        try {
-          // Get user profile data
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (error) {
-            console.warn('Profile fetch error:', error);
-            // If profile doesn't exist, use default values
-            const user: AuthUser = {
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.email?.split('@')[0] || 'User'
-            };
-            dispatch(setUser({ 
-              user,
-              role: 'student' as UserRole // Default role
-            }));
-          } else {
-            const user: AuthUser = {
-              id: session.user.id,
-              email: session.user.email || '',
-              name: profile?.name || session.user.email?.split('@')[0] || 'User'
-            };
-            dispatch(setUser({ 
-              user,
-              role: profile?.role as UserRole || 'student'
-            }));
-          }
-        } catch (err) {
-          console.error('Error fetching profile:', err);
-          // Fallback to basic user data
-          const user: AuthUser = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.email?.split('@')[0] || 'User'
-          };
-          dispatch(setUser({ 
-            user,
-            role: 'student' as UserRole
-          }));
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
+          dispatch(clearUser());
+          return;
         }
-      } else {
-        dispatch(clearUser());
-      }
-    };
-    
-    checkSession();
-    
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        
+        if (session) {
           try {
             // Get user profile data
-            const { data: profile, error } = await supabase
-              .from('profiles')
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
               .select('*')
               .eq('id', session.user.id)
               .single();
             
-            if (error) {
-              console.warn('Profile fetch error:', error);
+            if (profileError) {
+              console.warn('Profile fetch error:', profileError);
               // If profile doesn't exist, use default values
               const user: AuthUser = {
                 id: session.user.id,
                 email: session.user.email || '',
-                name: session.user.email?.split('@')[0] || 'User'
+                name: session.user.email?.split('@')[0] || 'User',
+                email_verified: session.user.email_confirmed_at !== null
               };
               dispatch(setUser({ 
                 user,
@@ -92,7 +45,8 @@ export const useSupabaseAuth = () => {
               const user: AuthUser = {
                 id: session.user.id,
                 email: session.user.email || '',
-                name: profile?.name || session.user.email?.split('@')[0] || 'User'
+                name: profile?.name || session.user.email?.split('@')[0] || 'User',
+                email_verified: session.user.email_confirmed_at !== null
               };
               dispatch(setUser({ 
                 user,
@@ -105,12 +59,79 @@ export const useSupabaseAuth = () => {
             const user: AuthUser = {
               id: session.user.id,
               email: session.user.email || '',
-              name: session.user.email?.split('@')[0] || 'User'
+              name: session.user.email?.split('@')[0] || 'User',
+              email_verified: session.user.email_confirmed_at !== null
             };
             dispatch(setUser({ 
               user,
               role: 'student' as UserRole
             }));
+          }
+        } else {
+          dispatch(clearUser());
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+        dispatch(clearUser());
+      }
+    };
+    
+    checkSession();
+    
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session);
+        
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+          if (session) {
+            try {
+              // Get user profile data
+              const { data: profile, error: profileError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (profileError) {
+                console.warn('Profile fetch error:', profileError);
+                // If profile doesn't exist, use default values
+                const user: AuthUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  name: session.user.email?.split('@')[0] || 'User',
+                  email_verified: session.user.email_confirmed_at !== null
+                };
+                dispatch(setUser({ 
+                  user,
+                  role: 'student' as UserRole // Default role
+                }));
+              } else {
+                const user: AuthUser = {
+                  id: session.user.id,
+                  email: session.user.email || '',
+                  name: profile?.name || session.user.email?.split('@')[0] || 'User',
+                  email_verified: session.user.email_confirmed_at !== null
+                };
+                dispatch(setUser({ 
+                  user,
+                  role: profile?.role as UserRole || 'student'
+                }));
+              }
+            } catch (err) {
+              console.error('Error fetching profile:', err);
+              // Fallback to basic user data
+              const user: AuthUser = {
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.email?.split('@')[0] || 'User',
+                email_verified: session.user.email_confirmed_at !== null
+              };
+              dispatch(setUser({ 
+                user,
+                role: 'student' as UserRole
+              }));
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           dispatch(clearUser());

@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmail } from '@/features/auth/authThunks';
+import { signUpWithEmail } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useNavigate, Link } from 'react-router-dom';
 import { clearAuth } from '@/features/auth/authSlice';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import NativeLogo from '@/lib/images/Native Logo.png';
 import { UserRole } from '@/features/auth/types';
+import NativeLogo from '@/lib/images/Native Logo.png';
 
-export default function NewLogin() {
+export default function NewSignUp() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error: authError, user, role } = useAppSelector(state => state.auth);
+  const { loading, error, user, role } = useAppSelector(state => state.auth);
   
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('student');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     dispatch(clearAuth());
@@ -31,29 +31,15 @@ export default function NewLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Attempting login with:', { email, password, selectedRole });
-    const result = await dispatch(signInWithEmail({ 
+    const result = await dispatch(signUpWithEmail({ 
       email, 
-      password,
-      selectedRole 
+      password, 
+      name,
+      role: selectedRole 
     }));
     
-    if (signInWithEmail.rejected.match(result)) {
-      const errorMessage = result.payload as string;
-      // Map common error messages to user-friendly versions
-      const friendlyError = errorMessage.includes('Invalid login credentials')
-        ? 'Invalid email or password'
-        : errorMessage.includes('Email not confirmed')
-        ? 'Please verify your email before logging in. Check your inbox for the verification link.'
-        : errorMessage.includes('Invalid role')
-        ? 'Please select the correct role for your account'
-        : errorMessage.includes('not found')
-        ? 'No account found with this email. Please sign up first.'
-        : 'Failed to sign in. Please try again.';
-      
-      console.error('Login failed:', errorMessage);
-      dispatch(clearAuth());
-      setError(friendlyError);
+    if (signUpWithEmail.rejected.match(result)) {
+      console.error('Signup failed:', result.payload);
     }
   };
 
@@ -65,20 +51,9 @@ export default function NewLogin() {
             <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
           </div>
 
-          {(error || authError) && (
+          {error && (
             <div className="mb-4 p-4 text-sm text-red-700 bg-red-50 rounded-lg">
-              {error || authError}
-              {error?.includes('verify your email') && (
-                <div className="mt-2">
-                  <Button
-                    onClick={() => navigate('/sign-up')}
-                    variant="outline"
-                    className="w-full mt-2 text-[#272A69] border-[#272A69] hover:bg-[#272A69] hover:text-white"
-                  >
-                    Sign up again
-                  </Button>
-                </div>
-              )}
+              {error}
             </div>
           )}
 
@@ -107,6 +82,22 @@ export default function NewLogin() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Enter your full name"
+                value={name}
+                onChange={e => {
+                  setName(e.target.value);
+                  dispatch(clearAuth());
+                }}
+                required
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
@@ -127,7 +118,7 @@ export default function NewLogin() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 value={password}
                 onChange={e => {
                   setPassword(e.target.value);
@@ -143,14 +134,14 @@ export default function NewLogin() {
               disabled={loading}
               className="w-full bg-[#272A69] hover:bg-[#272A69]/90"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Creating account...' : 'Create account'}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/sign-up" className="font-medium text-[#272A69] hover:text-[#272A69]/90">
-              Sign up
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-[#272A69] hover:text-[#272A69]/90">
+              Sign in
             </Link>
           </p>
         </div>
