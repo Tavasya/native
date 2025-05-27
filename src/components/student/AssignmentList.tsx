@@ -198,29 +198,42 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Join a Class</DialogTitle>
-                      <DialogDescription>
-                        Enter the class code provided by your teacher.
-                      </DialogDescription>
+                      <DialogTitle className="text-xl font-semibold">Join a Class</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleJoinClass}>
-                      <div className="py-4">
-                        <Label htmlFor="class-code">Class Code</Label>
-                        <Input 
-                          id="class-code" 
-                          value={joinCode} 
-                          onChange={(e) => setJoinCode(e.target.value)} 
-                          placeholder="Enter class code (e.g., XYZ123)"
-                        />
+                    <form onSubmit={handleJoinClass} className="space-y-4">
+                      <div>
+                        <Label className="block text-sm font-medium text-gray-700">Class Code</Label>
+                        <div className="mt-1 bg-gray-50 px-4 py-3 rounded-md">
+                          <Input
+                            type="text"
+                            value={joinCode}
+                            onChange={(e) => setJoinCode(e.target.value)}
+                            required
+                            className="w-full border-none text-base font-normal p-0 bg-transparent focus:outline-none focus:ring-0 focus:ring-offset-0 placeholder:font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder="Enter class code"
+                          />
+                        </div>
                         {joinError && (
                           <p className="text-red-500 text-sm mt-2">{joinError}</p>
                         )}
                       </div>
-                      <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit">Join Class</Button>
+                      <DialogFooter className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsDialogOpen(false)}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="px-4 py-2 text-sm font-medium text-white bg-[#272A69] border border-transparent rounded-md hover:bg-[#272A69]/90"
+                        >
+                          Join Class
+                        </Button>
                       </DialogFooter>
                     </form>
                   </DialogContent>

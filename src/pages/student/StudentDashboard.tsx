@@ -4,10 +4,12 @@ import AssignmentList from '@/components/student/AssignmentList';
 import CompletedAssignments from '@/components/student/CompletedAssignments';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClasses } from '@/features/class/classThunks';
+import { useToast } from "@/hooks/use-toast";
 
 const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { toast } = useToast();
   const { user } = useAppSelector(state => state.auth);
   const { classes, loading } = useAppSelector(state => state.classes);
   
@@ -29,7 +31,10 @@ const StudentDashboard: React.FC = () => {
   }, [classes, loading, navigate]);
   
   const handleAddClass = () => {
-    navigate('/student/join-class');
+    toast({
+      title: "Join a Class",
+      description: "Please use the join class button in the dialog to add a new class.",
+    });
   };
 
   if (loading) {
