@@ -43,6 +43,7 @@ const AssignmentPractice: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   const practiceProgress = useAppSelector(state => 
     id ? state.assignments.practiceProgress[id] : undefined
@@ -123,9 +124,13 @@ const AssignmentPractice: React.FC = () => {
   }, [currentQuestionIndex, assignment, recordingsData]);
 
   useEffect(() => {
-    if (timeRemaining > 0 && isRecording) {
+    if (timeRemaining > -15 && isRecording) {
       const timer = setInterval(() => {
         setTimeRemaining(prev => prev - 1);
+        // If we're about to hit -15, stop the recording
+        if (timeRemaining === -14) {
+          toggleRecording();
+        }
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -349,6 +354,7 @@ const AssignmentPractice: React.FC = () => {
           
           // Important: Stop all tracks AFTER stopping the recorder
           mediaRecorder.stream.getTracks().forEach(track => track.stop());
+          setMediaStream(null);
           
           setIsRecording(false);
           setHasRecorded(true);
@@ -371,6 +377,8 @@ const AssignmentPractice: React.FC = () => {
             autoGainControl: true
           } 
         });
+        
+        setMediaStream(stream);
         
         // Check if the preferred MIME type is supported
         const mimeType = OPTIMAL_RECORDER_OPTIONS.mimeType;
@@ -603,9 +611,11 @@ const AssignmentPractice: React.FC = () => {
   };
 
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const isNegative = time < 0;
+    const absTime = Math.abs(time);
+    const minutes = Math.floor(absTime / 60);
+    const seconds = Math.floor(absTime % 60);
+    return `${isNegative ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const completeQuestion = () => {
@@ -812,6 +822,7 @@ const AssignmentPractice: React.FC = () => {
               duration={duration}
               onTimeUpdate={handleSeek}
               isProcessing={isProcessing}
+              mediaStream={mediaStream}
             />
           </div>
           <div className="mt-4">

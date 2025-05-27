@@ -1,9 +1,16 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Clock, Play, Pause } from "lucide-react";
+import { ArrowRight, Clock, Play, Pause, RotateCcw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
 import MicIcon from "@/lib/images/mic.svg";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import AudioVisualizer from './AudioVisualizer';
 
 interface QuestionContentProps {
   currentQuestion: QuestionCard & { isCompleted?: boolean };
@@ -25,6 +32,7 @@ interface QuestionContentProps {
   duration?: number;
   onTimeUpdate?: (time: number) => void;
   isProcessing?: boolean;
+  mediaStream?: MediaStream | null;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -46,7 +54,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   currentTime = 0,
   duration = 0,
   onTimeUpdate,
-  isProcessing = false
+  isProcessing = false,
+  mediaStream = null
 }) => {
   return (
     <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
@@ -56,9 +65,17 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           <h2 className="font-semibold text-lg text-gray-800">{assignmentTitle}</h2>
           <p className="text-sm text-gray-500">Due: {dueDate}</p>
         </div>
-        <div className="flex items-center bg-gray-50 px-3 py-1 rounded-lg">
-          <Clock className="h-4 w-4 text-gray-600 mr-2" />
-          <span className={`text-sm font-medium ${timeRemaining < 0 ? 'text-red-500' : 'text-gray-600'}`}>
+        <div className="flex items-center bg-gray-50 px-3 py-1 rounded-lg shadow-md transition-all duration-300">
+          <Clock className={`h-4 w-4 mr-2 transition-colors duration-300 ${
+            timeRemaining <= 15 ? 'text-red-500' : 'text-gray-600'
+          }`} />
+          <span className={`text-sm font-medium transition-all duration-300 ${
+            timeRemaining < 0 
+              ? 'bg-red-500 text-white px-2 py-0.5 rounded' 
+              : timeRemaining <= 15 
+                ? 'text-red-500' 
+                : 'text-gray-600'
+          }`}>
             {formatTime(timeRemaining)}
           </span>
         </div>
@@ -94,6 +111,13 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
       
       {/* Recording Controls */}
       <div className="flex flex-col gap-4">
+        {/* Audio Visualizer */}
+        {isRecording && mediaStream && (
+          <div className="w-full px-4">
+            <AudioVisualizer stream={mediaStream} isRecording={isRecording} />
+          </div>
+        )}
+
         <div className="flex justify-center">
           <div className="flex space-x-4 items-center">
             {showRecordButton && (
@@ -154,37 +178,49 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         {hasRecorded && !isRecording && (
           <div className="flex justify-center">
             <div className="flex space-x-3">
-              <Button
-                onClick={playRecording}
-                variant="outline"
-                className="text-gray-700"
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2" />
-                    Processing...
-                  </div>
-                ) : isPlaying ? (
-                  <>
-                    <Pause size={16} />
-                    <span className="ml-1">Pause</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={16} />
-                    <span className="ml-1">Replay</span>
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={toggleRecording}
-                variant="outline"
-                className="text-gray-700"
-                disabled={isProcessing || isPlaying}
-              >
-                Re-record
-              </Button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={playRecording}
+                      variant="outline"
+                      className="text-gray-700"
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <div className="flex items-center">
+                          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2" />
+                          Processing...
+                        </div>
+                      ) : isPlaying ? (
+                        <Pause size={16} />
+                      ) : (
+                        <Play size={16} />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
+                    <p>{isPlaying ? "Pause" : "Replay"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={toggleRecording}
+                      variant="outline"
+                      className="text-gray-700"
+                      disabled={isProcessing || isPlaying}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
+                    <p>Retry</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         )}
