@@ -135,7 +135,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     const subs = submissions[a.id] || [];
     console.log('Raw submissions for assignment:', a.title, subs);
     const comp = {
-      submitted: subs.filter(s => s.status === 'pending').length,
+      submitted: subs.filter(s => s.status === 'graded').length,
       inProgress: subs.filter(s => s.status === 'in_progress').length,
       notStarted: classData.students - subs.length,
       totalStudents: classData.students,
@@ -281,8 +281,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
 
       {/* List */}
       {assignmentRows.map((a) => {
-        const subs: StudentSubmission[] =
-          submissions[a.id] || [];
+        const subs: StudentSubmission[] = submissions[a.id] || [];
 
         return (
           <Card 
@@ -365,18 +364,21 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               {(() => {
-                                console.log('Rendering status for:', st.student_name, 'Status:', st.status);
+                                console.log('Rendering status for:', st.student_name, 'Status:', st.status, 'Grade:', st.grade);
+                                const isCompleted = st.status === 'graded' || st.status === 'pending';
                                 return (
                                   <span className={`px-2 py-1 rounded-full ${
-                                    st.status === 'pending'
+                                    isCompleted
                                       ? 'bg-green-100 text-green-800'
                                       : st.status === 'in_progress'
                                       ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-red-100 text-red-800'
+                                      : 'bg-gray-100 text-gray-800'
                                   }`}>
-                                    {st.status === 'pending' ? 'Completed'
-                                      : st.status === 'in_progress' ? 'In Progress'
-                                      : 'Not Submitted'}
+                                    {isCompleted
+                                      ? 'Completed'
+                                      : st.status === 'in_progress'
+                                      ? 'In Progress'
+                                      : 'Not Started'}
                                   </span>
                                 );
                               })()}
@@ -394,19 +396,21 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                 : 'Not submitted'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {st.grade !== null ? `${st.grade}%` : 'Not graded'}
+                              {st.status === 'graded' ? 'Graded' : 'Not graded'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/assignment/${a.id}/submission/${st.student_id}`);
-                                }}
-                              >
-                                Review
-                              </Button>
+                              {st.status === 'graded' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/student/submission/${st.id}/feedback`);
+                                  }}
+                                >
+                                  Review
+                                </Button>
+                              )}
                             </td>
                           </tr>
                         ))}

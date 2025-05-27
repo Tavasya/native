@@ -5,12 +5,15 @@ import { Button } from "../ui/button";
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchSubmissionsByAssignmentAndStudent } from '@/features/submissions/submissionThunks';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { SubmissionStatus } from '@/features/submissions/types';
 
 interface CompletedAssignment {
   id: string;
   title: string;
   grade: string | 'Pending';
   completedDate: string;
+  status: SubmissionStatus;
 }
 
 interface CompletedAssignmentsGroup {
@@ -19,6 +22,7 @@ interface CompletedAssignmentsGroup {
 }
 
 const CompletedAssignments: React.FC = () => {
+  const navigate = useNavigate();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [groupedAssignments, setGroupedAssignments] = useState<CompletedAssignmentsGroup[]>([]);
   
@@ -70,7 +74,7 @@ const CompletedAssignments: React.FC = () => {
       { title: "1 month ago", assignments: [] }
     ];
 
-    // Filter for graded or pending submissions
+    // Filter for all relevant submission statuses
     const completedSubmissions = submissions.filter(submission => {
       console.log('Debug - Checking submission:', {
         id: submission.id,
@@ -78,14 +82,13 @@ const CompletedAssignments: React.FC = () => {
         submitted_at: submission.submitted_at,
         grade: submission.grade
       });
-      return submission.status === 'graded' || submission.status === 'pending';
+      return ['in_progress', 'pending', 'graded'].includes(submission.status);
     });
 
     console.log('Debug - Filtered completed submissions:', completedSubmissions);
 
     completedSubmissions.forEach(submission => {
       const submissionDate = new Date(submission.submitted_at);
-      // Find the corresponding assignment
       const assignment = assignments.find(a => a.id === submission.assignment_id);
       
       console.log('Debug - Processing submission:', {
@@ -101,7 +104,8 @@ const CompletedAssignments: React.FC = () => {
         grade: submission.grade !== undefined && submission.grade !== null 
           ? submission.grade.toString() 
           : 'Pending',
-        completedDate: submissionDate.toLocaleDateString()
+        completedDate: submissionDate.toLocaleDateString(),
+        status: submission.status
       };
 
       if (submissionDate >= twentyFourHoursAgo) {
@@ -138,6 +142,40 @@ const CompletedAssignments: React.FC = () => {
       ...prev,
       [title]: !prev[title]
     }));
+  };
+
+  const handleViewSubmission = (submission: CompletedAssignment) => {
+    if (submission.status === 'graded') {
+      navigate(`/student/submission/${submission.id}/feedback`);
+    } else {
+      navigate(`/student/assignment/${submission.id}/practice`);
+    }
+  };
+
+  const getStatusColor = (status: SubmissionStatus) => {
+    switch (status) {
+      case 'in_progress':
+        return 'text-blue-600';
+      case 'pending':
+        return 'text-yellow-600';
+      case 'graded':
+        return 'text-green-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  const getStatusText = (status: SubmissionStatus) => {
+    switch (status) {
+      case 'in_progress':
+        return 'In Progress';
+      case 'pending':
+        return 'Pending';
+      case 'graded':
+        return 'Graded';
+      default:
+        return status;
+    }
   };
 
   return (
@@ -180,13 +218,16 @@ const CompletedAssignments: React.FC = () => {
                           <p className="text-sm text-gray-500">Completed on {assignment.completedDate}</p>
                         </div>
                         <div className="text-right">
-                          <span className={`text-sm font-semibold ${
-                            assignment.grade === 'Pending' ? 'text-yellow-600' : 'text-green-600'
-                          }`}>
-                            {assignment.grade}
+                          <span className={`text-sm font-semibold ${getStatusColor(assignment.status)}`}>
+                            {getStatusText(assignment.status)}
                           </span>
-                          <Button variant="link" size="sm" className="block text-[#272A69]">
-                            View
+                          <Button 
+                            variant="link" 
+                            size="sm" 
+                            className="block text-[#272A69]"
+                            onClick={() => handleViewSubmission(assignment)}
+                          >
+                            {assignment.status === 'graded' ? 'View Feedback' : 'View'}
                           </Button>
                         </div>
                       </div>

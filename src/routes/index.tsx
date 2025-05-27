@@ -15,6 +15,7 @@ import AssignmentPractice from "@/pages/student/AssignmentPractice"
 import NewLogin from '@/pages/auth/NewLogin'
 import NewSignUp from '@/pages/auth/NewSignUp'
 import JoinClass from '@/pages/student/JoinClass'
+import SubmissionFeedback from '@/pages/student/SubmissionFeedback'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -56,17 +57,20 @@ export default function AppRoutes() {
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/join-class" element={<JoinClass />} />
             {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
-            <Route path="/student/assignment/:id/practice" element={<AssignmentPractice />} />
-            {/* <Route path="/student/assignment/:assignmentId" element={<StudentAssignment />} /> */}
-            <Route path="/student/submission/:submissionId" element={<StudentSubmission />} />
           </Route>
-          
           
           {/* -------- TEACHER ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
             <Route path="/class/:id" element={<ClassDetailPage />} />
             <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
+          </Route>
+
+          {/* -------- SHARED ROUTES -------- */}
+          <Route element={<RequireAuth allowedRoles={['student', 'teacher']} />}>
+            <Route path="/student/assignment/:id/practice" element={<AssignmentPractice />} />
+            <Route path="/student/submission/:submissionId" element={<StudentSubmission />} />
+            <Route path="/student/submission/:submissionId/feedback" element={<SubmissionFeedback />} />
           </Route>
 
           <Route path="/index" element={<Index />} />
