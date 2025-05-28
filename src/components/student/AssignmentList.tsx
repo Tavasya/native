@@ -259,7 +259,7 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
                   <div className="mt-auto">
                     <Button 
                       variant="outline" 
-                      className="w-full hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium rounded-lg"
+                      className="w-full hover:bg-[#272A69]/90 hover:text-white text-white border border-[#272A69] font-medium rounded-lg bg-[#272A69]"
                       onClick={() => handleViewAssignment(assignment.id)}
                     >
                       {getButtonText(assignment.status, assignmentSubmissions[assignment.id]?.isInProgress || false)}
