@@ -231,7 +231,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         <Button
           onClick={completeQuestion}
           disabled={!hasRecorded || isPlaying}
-          className="flex items-center bg-[#EF5136] hover:bg-[#EF5136]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center bg-[#272A69] hover:bg-[#272A69]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLastQuestion ? "Finish" : "Next"} 
           <ArrowRight className="ml-2 h-4 w-4" />
