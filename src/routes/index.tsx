@@ -16,6 +16,7 @@ import NewLogin from '@/pages/auth/NewLogin'
 import NewSignUp from '@/pages/auth/NewSignUp'
 import JoinClass from '@/pages/student/JoinClass'
 import SubmissionFeedback from '@/pages/student/SubmissionFeedback'
+import VerificationSuccess from '@/pages/auth/VerificationSuccess'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -51,6 +52,7 @@ export default function AppRoutes() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<NewLogin />} />
           <Route path="/sign-up" element={<NewSignUp />} />
+          <Route path="/auth/verify" element={<VerificationSuccess />} />
   
           {/* -------- STUDENT ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['student']} />}>

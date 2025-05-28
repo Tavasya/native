@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -64,7 +64,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* ------------------------------ hooks / state -------------------- */
   const { id: classId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const dispatch = useAppDispatch();
   const { toast } = useToast();
 

@@ -31,10 +31,10 @@ const QuestionNavigation: React.FC<QuestionNavigationProps> = ({
                 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12
                 flex items-center justify-center rounded-lg shadow-sm transition-colors 
                 ${index === currentQuestionIndex 
-                  ? 'bg-[#EF5136] text-white border-2 border-[#EF5136]' 
+                  ? 'bg-[#272A69] text-white border-2 border-[#272A69]' 
                   : hasRecording 
-                    ? 'bg-[#272A69] text-white border border-[#272A69] hover:bg-[#EF5136] hover:border-[#EF5136]'
-                    : 'bg-[#F7F8FB] text-[#272A69] hover:bg-[#EF5136] hover:text-white'} 
+                    ? 'bg-[#6B7280] text-white border border-[#6B7280] hover:bg-[#272A69] hover:border-[#272A69]'
+                    : 'bg-[#F7F8FB] text-[#272A69] hover:bg-[#272A69] hover:text-white'} 
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-label={`Go to question ${index + 1}`}
             >

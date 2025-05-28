@@ -13,11 +13,6 @@ type SignupCreds = {
     role: UserRole;
   };
 
-type EmailChangePayload = {
-  newEmail: string;
-  otp: string;
-};
-
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   console.log('Fetching user profile for ID:', id);
   const { data, error } = await supabase
@@ -49,14 +44,20 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
   /* ---------- thunk: signup with email ---------- */
 export const signUpWithEmail = createAsyncThunk<
   { user: AuthUser; role: UserRole },
-  SignupCreds,
+  SignupCreds & {
+    teacherMetadata?: {
+      active_student_count?: number | null;
+      avg_tuition_per_student?: number | null;
+      referral_source?: string;
+    }
+  },
   { rejectValue: string }
 >(
   'auth/signUpWithEmail',
   async (creds, { rejectWithValue }) => {
     try {
       // First check if user exists and is verified
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('*')
         .eq('email', creds.email)
@@ -89,12 +90,11 @@ export const signUpWithEmail = createAsyncThunk<
             name: creds.name || creds.email.split('@')[0],
             role: creds.role
           },
-          emailRedirectTo: `${window.location.origin}/auth/verify`
+          emailRedirectTo: `https://native-devserver.vercel.app/auth/verify`
         }
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
         return rejectWithValue(authError.message || 'Signup failed');
       }
 
@@ -103,7 +103,7 @@ export const signUpWithEmail = createAsyncThunk<
       }
 
       // Check if user record already exists with this ID
-      const { data: existingUserById, error: idCheckError } = await supabase
+      const { data: existingUserById } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
@@ -122,7 +122,6 @@ export const signUpWithEmail = createAsyncThunk<
           .eq('id', authData.user.id);
 
         if (updateError) {
-          console.error('User update error:', updateError);
           return rejectWithValue(`Failed to update user: ${updateError.message}`);
         }
       } else {
@@ -138,8 +137,23 @@ export const signUpWithEmail = createAsyncThunk<
           });
 
         if (userError) {
-          console.error('User creation error:', userError);
           return rejectWithValue(`User creation failed: ${userError.message}`);
+        }
+      }
+
+      // If this is a teacher signup, save their metadata
+      if (creds.role === 'teacher' && creds.teacherMetadata) {
+        const { error: metaError } = await supabase
+          .from('teachers_metadata')
+          .insert({
+            teacher_id: authData.user.id,
+            active_student_count: creds.teacherMetadata.active_student_count,
+            avg_tuition_per_student: creds.teacherMetadata.avg_tuition_per_student,
+            referral_source: creds.teacherMetadata.referral_source
+          });
+
+        if (metaError) {
+          return rejectWithValue(`Failed to save teacher metadata: ${metaError.message}`);
         }
       }
 
@@ -156,7 +170,6 @@ export const signUpWithEmail = createAsyncThunk<
         role: creds.role
       };
     } catch (err: any) {
-      console.error('Signup error:', err);
       return rejectWithValue(err.message || 'An unexpected error occurred during signup');
     }
   }
@@ -412,7 +425,7 @@ export const savePartialStudentData = createAsyncThunk<
   try {
     if (!data.email) return;
     // Check if user exists and is verified
-    const { data: existingUser, error: checkError } = await supabase
+    const { data: existingUser } = await supabase
       .from('users')
       .select('email_verified')
       .eq('email', data.email)
@@ -433,66 +446,6 @@ export const savePartialStudentData = createAsyncThunk<
         role: 'student',
       }
     ], { onConflict: 'email' });
-  } catch (err) {
-    // Silent fail
-  }
-});
-
-// Save partial teacher data
-export const savePartialTeacherData = createAsyncThunk<
-  void,
-  {
-    user: {
-      name?: string;
-      email?: string;
-      phone_number?: string;
-      agreed_to_terms?: boolean;
-      role: 'teacher';
-    };
-    meta: {
-      active_student_count?: number | null;
-      avg_tuition_per_student?: number | null;
-      referral_source?: string;
-    };
-  }
->('auth/savePartialTeacherData', async ({ user, meta }) => {
-  try {
-    if (!user.email) return;
-    // Check if user exists and is verified
-    const { data: existingUser, error: checkError } = await supabase
-      .from('users')
-      .select('id, email_verified')
-      .eq('email', user.email)
-      .single();
-    if (existingUser && existingUser.email_verified) {
-      // Do not overwrite verified users
-      console.warn('Attempted to overwrite a verified teacher user. Skipping update.');
-      return;
-    }
-    // Upsert user
-    const { data: userData, error: userError } = await supabase.from('users').upsert([
-      {
-        email: user.email,
-        name: user.name,
-        phone_number: user.phone_number,
-        agreed_to_terms: user.agreed_to_terms,
-        role: 'teacher',
-      }
-    ], { onConflict: 'email' }).select();
-    const teacher_id = (userData && userData.length > 0)
-      ? userData[0].id
-      : (existingUser ? existingUser.id : null);
-    if (teacher_id) {
-      // Upsert teacher metadata
-      await supabase.from('teachers_metadata').upsert([
-        {
-          teacher_id,
-          active_student_count: meta.active_student_count,
-          avg_tuition_per_student: meta.avg_tuition_per_student,
-          referral_source: meta.referral_source,
-        }
-      ], { onConflict: 'teacher_id' });
-    }
   } catch (err) {
     // Silent fail
   }
