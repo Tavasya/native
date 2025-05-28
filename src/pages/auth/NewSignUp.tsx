@@ -10,7 +10,6 @@ import { UserRole } from '@/features/auth/types';
 import NativeLogo from '@/lib/images/Native Logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import { verifyEmail } from '@/features/auth/authThunks';
-import { savePartialStudentData, savePartialTeacherData } from '@/features/auth/authThunks';
 import {
   Select,
   SelectContent,
@@ -27,7 +26,12 @@ function Modal({ open, onClose, title, children }: { open: boolean, onClose: () 
       <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
         <h2 className="text-xl font-bold mb-4">{title}</h2>
         <div className="mb-6 text-sm text-gray-700">{children}</div>
-        <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">✕</button>
+        <button 
+          onClick={onClose} 
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 cursor-pointer"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );
@@ -111,60 +115,6 @@ export default function NewSignUp() {
   const [validationError, setValidationError] = useState('');
   const [lastSavePayload, setLastSavePayload] = useState<any>(null);
 
-  // Debounced save functions
-  const debouncedSaveStudent = useRef(
-    debounce((data) => {
-      if (debugMode) {
-        console.log('[DEBUG] savePartialStudentData payload:', data);
-        setLastSavePayload(data);
-      }
-      dispatch(savePartialStudentData(data));
-    }, 600)
-  ).current;
-  const debouncedSaveTeacher = useRef(
-    debounce((data, meta) => {
-      if (debugMode) {
-        console.log('[DEBUG] savePartialTeacherData payload:', { user: data, meta });
-        setLastSavePayload({ user: data, meta });
-      }
-      dispatch(savePartialTeacherData({ user: data, meta }));
-    }, 600)
-  ).current;
-
-  // Student field handlers
-  const handleStudentFieldChange = (field: string, value: any) => {
-    const studentData = {
-      name,
-      email,
-      phone_number: studentPhone,
-      date_of_birth: studentDOB,
-      agreed_to_terms: studentPrivacyChecked && studentTermsChecked,
-      role: 'student',
-    };
-    debouncedSaveStudent({ ...studentData, [field]: value });
-  };
-
-  // Teacher field handlers
-  const handleTeacherFieldChange = (field: string, value: any) => {
-    const teacherData = {
-      name,
-      email,
-      phone_number: teacherPhone,
-      agreed_to_terms: teacherPrivacyChecked && teacherTermsChecked,
-      role: 'teacher',
-    };
-    const teacherMeta = {
-      active_student_count: teacherActiveStudents ? Number(teacherActiveStudents) : null,
-      avg_tuition_per_student: teacherAvgTuition ? Number(teacherAvgTuition) : null,
-      referral_source: teacherReferralSource,
-    };
-    if (["active_student_count", "avg_tuition_per_student", "referral_source"].includes(field)) {
-      debouncedSaveTeacher(teacherData, { ...teacherMeta, [field]: value });
-    } else {
-      debouncedSaveTeacher({ ...teacherData, [field]: value }, teacherMeta);
-    }
-  };
-
   useEffect(() => {
     // Only clear session if there's no user in Redux state
     const clearExistingSession = async () => {
@@ -182,7 +132,11 @@ export default function NewSignUp() {
 
   useEffect(() => {
     if (user && role && user.email_verified) {
-      navigate(`/${role}/join-class`);
+      if (role === 'teacher') {
+        navigate('/teacher/dashboard');
+      } else {
+        navigate('/student/join-class');
+      }
     }
   }, [user, role, navigate]);
 
@@ -235,8 +189,6 @@ export default function NewSignUp() {
       
       // If no session, try to sign in again
       if (!currentSession?.user) {
-        console.log('No session found, attempting to sign in...');
-        
         // Try to sign in with the stored credentials
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email,
@@ -249,7 +201,6 @@ export default function NewSignUp() {
         }
 
         if (!signInData.session) {
-          console.log('No session after sign in attempt');
           return;
         }
 
@@ -269,24 +220,37 @@ export default function NewSignUp() {
       }
 
       if (!profile) {
-        console.log('No profile found for user');
         return;
       }
 
-      if (profile.email_verified) {
-        console.log('Email verified, updating state...');
-        setVerificationChecked(true);
-        
-        // Update Redux state
-        dispatch(verifyEmail({
-          email: currentSession.user.email || '',
-          token: currentSession.access_token
-        }));
+      // Check if the user is actually verified in auth
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth user fetch error:', authError);
+        return;
+      }
 
-        // Navigate instead of reloading
-        navigate(`/${profile.role}/join-class`);
+      // Strict verification check - both conditions must be true
+      const isVerified = profile.email_verified && authUser?.user?.email_confirmed_at;
+      
+      if (!isVerified) {
+        return;
+      }
+
+      setVerificationChecked(true);
+      
+      // Update Redux state
+      dispatch(verifyEmail({
+        email: currentSession.user.email || '',
+        token: currentSession.access_token
+      }));
+
+      // Navigate based on role
+      if (profile.role === 'teacher') {
+        navigate('/teacher/dashboard');
       } else {
-        console.log('Email not yet verified');
+        navigate('/student/join-class');
       }
     } catch (error) {
       console.error('Error checking verification status:', error);
@@ -301,7 +265,6 @@ export default function NewSignUp() {
 
     const startPolling = () => {
       if (pollCountRef.current >= 12) {
-        console.log('Max polls reached, stopping verification check');
         return;
       }
 
@@ -392,11 +355,19 @@ export default function NewSignUp() {
       console.error('Error clearing session before signup:', err);
     }
 
+    // Create the auth account
     const result = await dispatch(signUpWithEmail({ 
       email, 
       password, 
       name,
-      role: selectedRole 
+      role: selectedRole,
+      ...(selectedRole === 'teacher' && {
+        teacherMetadata: {
+          active_student_count: parseInt(teacherActiveStudents.split('-')[0]) || null,
+          avg_tuition_per_student: parseInt(teacherAvgTuition.split('-')[0]) || null,
+          referral_source: teacherReferralSource
+        }
+      })
     }));
     
     if (signUpWithEmail.rejected.match(result)) {
@@ -460,39 +431,6 @@ export default function NewSignUp() {
     } catch (err) {
       console.error('Error resending verification:', err);
       setError('Failed to resend verification email. Please try again.');
-    }
-  };
-
-  // Manual test save for debug panel
-  const handleTestSave = () => {
-    if (selectedRole === 'student') {
-      const studentData = {
-        name,
-        email,
-        phone_number: studentPhone,
-        date_of_birth: studentDOB,
-        agreed_to_terms: studentPrivacyChecked && studentTermsChecked,
-        role: 'student' as const,
-      };
-      setLastSavePayload(studentData);
-      dispatch(savePartialStudentData(studentData));
-      if (debugMode) console.log('[DEBUG] Manual test save (student):', studentData);
-    } else {
-      const teacherData = {
-        name,
-        email,
-        phone_number: teacherPhone,
-        agreed_to_terms: teacherPrivacyChecked && teacherTermsChecked,
-        role: 'teacher' as const,
-      };
-      const teacherMeta = {
-        active_student_count: teacherActiveStudents ? Number(teacherActiveStudents) : null,
-        avg_tuition_per_student: teacherAvgTuition ? Number(teacherAvgTuition) : null,
-        referral_source: teacherReferralSource,
-      };
-      setLastSavePayload({ user: teacherData, meta: teacherMeta });
-      dispatch(savePartialTeacherData({ user: teacherData, meta: teacherMeta }));
-      if (debugMode) console.log('[DEBUG] Manual test save (teacher):', { user: teacherData, meta: teacherMeta });
     }
   };
 
@@ -569,7 +507,6 @@ export default function NewSignUp() {
               }, null, 2)}</pre></div>
               <div className="mb-1">Last Save Payload: <pre>{JSON.stringify(lastSavePayload, null, 2)}</pre></div>
               <div className="mb-1">Last Validation Error: {validationError || '(none)'}</div>
-              <button onClick={handleTestSave} className="mt-2 px-3 py-1 bg-[#272A69] text-white rounded hover:bg-[#272A69]/90">Test Save</button>
             </div>
           )}
 
@@ -632,8 +569,6 @@ export default function NewSignUp() {
                 value={name}
                 onChange={e => {
                   setName(e.target.value);
-                  if (selectedRole === 'student') handleStudentFieldChange('name', e.target.value);
-                  else handleTeacherFieldChange('name', e.target.value);
                 }}
                 required
                 className={`w-full ${!name && validationError ? 'border-red-500' : ''}`}
@@ -651,8 +586,6 @@ export default function NewSignUp() {
                 value={email}
                 onChange={e => {
                   setEmail(e.target.value);
-                  if (selectedRole === 'student') handleStudentFieldChange('email', e.target.value);
-                  else handleTeacherFieldChange('email', e.target.value);
                 }}
                 required
                 className={`w-full ${!email && validationError ? 'border-red-500' : ''}`}
@@ -691,7 +624,6 @@ export default function NewSignUp() {
                     value={studentPhone}
                     onChange={e => {
                       setStudentPhone(e.target.value);
-                      handleStudentFieldChange('phone_number', e.target.value);
                     }}
                     className={`w-full ${!studentPhone && validationError ? 'border-red-500' : ''}`}
                   />
@@ -706,7 +638,6 @@ export default function NewSignUp() {
                     value={studentDOB}
                     onChange={e => {
                       setStudentDOB(e.target.value);
-                      handleStudentFieldChange('date_of_birth', e.target.value);
                     }}
                     className={`w-full ${!studentDOB && validationError ? 'border-red-500' : ''}`}
                   />
@@ -718,13 +649,16 @@ export default function NewSignUp() {
                     checked={studentPrivacyChecked}
                     onChange={e => {
                       setStudentPrivacyChecked(e.target.checked);
-                      handleStudentFieldChange('agreed_to_terms', e.target.checked && studentTermsChecked);
                     }}
                     className={!studentPrivacyChecked && validationError ? 'border-red-500' : ''}
                   />
                   <Label htmlFor="student-privacy" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowStudentPrivacy(true)}>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowStudentPrivacy(true)}
+                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
+                    >
                       Privacy Policy
                     </button>
                   </Label>
@@ -736,13 +670,16 @@ export default function NewSignUp() {
                     checked={studentTermsChecked}
                     onChange={e => {
                       setStudentTermsChecked(e.target.checked);
-                      handleStudentFieldChange('agreed_to_terms', e.target.checked && studentPrivacyChecked);
                     }}
                     className={!studentTermsChecked && validationError ? 'border-red-500' : ''}
                   />
                   <Label htmlFor="student-terms" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowStudentTerms(true)}>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowStudentTerms(true)}
+                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
+                    >
                       Terms of Service
                     </button>
                   </Label>
@@ -765,7 +702,6 @@ export default function NewSignUp() {
                     value={teacherPhone}
                     onChange={e => {
                       setTeacherPhone(e.target.value);
-                      handleTeacherFieldChange('phone_number', e.target.value);
                     }}
                     className={`w-full ${!teacherPhone && validationError ? 'border-red-500' : ''}`}
                   />
@@ -778,7 +714,6 @@ export default function NewSignUp() {
                     value={teacherActiveStudents}
                     onValueChange={(value) => {
                       setTeacherActiveStudents(value);
-                      handleTeacherFieldChange('active_student_count', value);
                     }}
                   >
                     <SelectTrigger className={`w-full ${!teacherActiveStudents && validationError ? 'border-red-500' : ''}`}>
@@ -802,7 +737,6 @@ export default function NewSignUp() {
                     value={teacherAvgTuition}
                     onValueChange={(value) => {
                       setTeacherAvgTuition(value);
-                      handleTeacherFieldChange('avg_tuition_per_student', value);
                     }}
                   >
                     <SelectTrigger className={`w-full ${!teacherAvgTuition && validationError ? 'border-red-500' : ''}`}>
@@ -828,7 +762,6 @@ export default function NewSignUp() {
                     value={teacherReferralSource}
                     onChange={e => {
                       setTeacherReferralSource(e.target.value);
-                      handleTeacherFieldChange('referral_source', e.target.value);
                     }}
                     className="w-full"
                   />
@@ -840,13 +773,16 @@ export default function NewSignUp() {
                     checked={teacherPrivacyChecked}
                     onChange={e => {
                       setTeacherPrivacyChecked(e.target.checked);
-                      handleTeacherFieldChange('agreed_to_terms', e.target.checked && teacherTermsChecked);
                     }}
                     className={!teacherPrivacyChecked && validationError ? 'border-red-500' : ''}
                   />
                   <Label htmlFor="teacher-privacy" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowTeacherPrivacy(true)}>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowTeacherPrivacy(true)}
+                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
+                    >
                       Privacy Policy
                     </button>
                   </Label>
@@ -858,13 +794,16 @@ export default function NewSignUp() {
                     checked={teacherTermsChecked}
                     onChange={e => {
                       setTeacherTermsChecked(e.target.checked);
-                      handleTeacherFieldChange('agreed_to_terms', e.target.checked && teacherPrivacyChecked);
                     }}
                     className={!teacherTermsChecked && validationError ? 'border-red-500' : ''}
                   />
                   <Label htmlFor="teacher-terms" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowTeacherTerms(true)}>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowTeacherTerms(true)}
+                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
+                    >
                       Terms of Service
                     </button>
                   </Label>
