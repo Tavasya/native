@@ -226,7 +226,7 @@ const CreateAssignmentPage: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-[#F5F9FF]">
 
       <main className="flex-1 container mx-auto px-4 py-8">
         {/* Header with back button and publish button */}
@@ -252,7 +252,7 @@ const CreateAssignmentPage: React.FC = () => {
           {/* Header Card with title, description, settings */}
           <Card
             className={cn(
-              "mb-4 overflow-hidden border shadow-md rounded-lg transition-all duration-200",
+              "mb-4 overflow-hidden shadow-md rounded-lg transition-all duration-200 border-t-[4px] border-t-[#272A69] border-x-0 border-b-0",
               activeHeaderCard ? "ring-2 ring-[#272A69]" : ""
             )}
             onMouseDown={(e: React.MouseEvent) => {
