@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch } from '@/app/hooks';
 import { verifyEmail } from '@/features/auth/authThunks';
@@ -10,7 +10,6 @@ export default function EmailVerification() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const [isVerifying, setIsVerifying] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -53,13 +52,11 @@ export default function EmailVerification() {
           if (profileError) {
             console.error('Profile fetch error:', profileError);
             setError('Failed to fetch user profile. Please try again.');
-            setIsVerifying(false);
             return;
           }
 
           if (!profile) {
             setError('User profile not found. Please try signing up again.');
-            setIsVerifying(false);
             return;
           }
 
@@ -78,7 +75,6 @@ export default function EmailVerification() {
           if (updateError) {
             console.error('Update error:', updateError);
             setError('Failed to update verification status. Please try again.');
-            setIsVerifying(false);
             return;
           }
 
@@ -93,7 +89,6 @@ export default function EmailVerification() {
         // If no session, proceed with token verification
         if (!token || type !== 'signup') {
           setError('Invalid verification link');
-          setIsVerifying(false);
           return;
         }
 
@@ -103,11 +98,9 @@ export default function EmailVerification() {
         if (userError || !user) {
           if (userError?.message?.includes('expired') || userError?.message?.includes('invalid')) {
             setError('Verification link has expired. Please request a new verification email.');
-            setIsVerifying(false);
             return;
           }
           setError('Failed to verify user');
-          setIsVerifying(false);
           return;
         }
 
@@ -119,7 +112,6 @@ export default function EmailVerification() {
 
         if (updateError) {
           setError('Failed to update verification status');
-          setIsVerifying(false);
           return;
         }
 
@@ -132,7 +124,6 @@ export default function EmailVerification() {
 
         if (profileError) {
           setError('Failed to fetch user profile');
-          setIsVerifying(false);
           return;
         }
 
@@ -149,7 +140,6 @@ export default function EmailVerification() {
           } else {
             setError(errorMessage);
           }
-          setIsVerifying(false);
           return;
         }
 
@@ -167,7 +157,6 @@ export default function EmailVerification() {
           setTimeout(handleVerification, 2000);
         } else {
           setError('An unexpected error occurred. Please try again later.');
-          setIsVerifying(false);
         }
       }
     };
@@ -177,7 +166,6 @@ export default function EmailVerification() {
 
   const handleRetry = () => {
     setError(null);
-    setIsVerifying(true);
     setRetryCount(0);
     window.location.reload();
   };

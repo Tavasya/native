@@ -13,11 +13,6 @@ type SignupCreds = {
     role: UserRole;
   };
 
-type EmailChangePayload = {
-  newEmail: string;
-  otp: string;
-};
-
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   console.log('Fetching user profile for ID:', id);
   const { data, error } = await supabase
@@ -56,7 +51,7 @@ export const signUpWithEmail = createAsyncThunk<
   async (creds, { rejectWithValue }) => {
     try {
       // First check if user exists and is verified
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('*')
         .eq('email', creds.email)
@@ -89,7 +84,7 @@ export const signUpWithEmail = createAsyncThunk<
             name: creds.name || creds.email.split('@')[0],
             role: creds.role
           },
-          emailRedirectTo: `${window.location.origin}/auth/verify`
+          emailRedirectTo: `https://native-devserver.vercel.app/auth/verify`
         }
       });
 
@@ -103,7 +98,7 @@ export const signUpWithEmail = createAsyncThunk<
       }
 
       // Check if user record already exists with this ID
-      const { data: existingUserById, error: idCheckError } = await supabase
+      const { data: existingUserById } = await supabase
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
@@ -412,7 +407,7 @@ export const savePartialStudentData = createAsyncThunk<
   try {
     if (!data.email) return;
     // Check if user exists and is verified
-    const { data: existingUser, error: checkError } = await supabase
+    const { data: existingUser } = await supabase
       .from('users')
       .select('email_verified')
       .eq('email', data.email)
@@ -459,7 +454,7 @@ export const savePartialTeacherData = createAsyncThunk<
   try {
     if (!user.email) return;
     // Check if user exists and is verified
-    const { data: existingUser, error: checkError } = await supabase
+    const { data: existingUser } = await supabase
       .from('users')
       .select('id, email_verified')
       .eq('email', user.email)
@@ -470,7 +465,7 @@ export const savePartialTeacherData = createAsyncThunk<
       return;
     }
     // Upsert user
-    const { data: userData, error: userError } = await supabase.from('users').upsert([
+    const { data: userData } = await supabase.from('users').upsert([
       {
         email: user.email,
         name: user.name,
