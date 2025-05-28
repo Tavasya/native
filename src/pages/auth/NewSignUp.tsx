@@ -11,6 +11,13 @@ import NativeLogo from '@/lib/images/Native Logo.png';
 import { supabase } from '@/integrations/supabase/client';
 import { verifyEmail } from '@/features/auth/authThunks';
 import { savePartialStudentData, savePartialTeacherData } from '@/features/auth/authThunks';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // --- Modal Components ---
 function Modal({ open, onClose, title, children }: { open: boolean, onClose: () => void, title: string, children: React.ReactNode }) {
@@ -615,7 +622,9 @@ export default function NewSignUp() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="flex items-center">
+                Full Name <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input
                 id="name"
                 type="text"
@@ -627,12 +636,14 @@ export default function NewSignUp() {
                   else handleTeacherFieldChange('name', e.target.value);
                 }}
                 required
-                className="w-full"
+                className={`w-full ${!name && validationError ? 'border-red-500' : ''}`}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="flex items-center">
+                Email <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -644,12 +655,14 @@ export default function NewSignUp() {
                   else handleTeacherFieldChange('email', e.target.value);
                 }}
                 required
-                className="w-full"
+                className={`w-full ${!email && validationError ? 'border-red-500' : ''}`}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="flex items-center">
+                Password <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -660,7 +673,7 @@ export default function NewSignUp() {
                   dispatch(clearAuth());
                 }}
                 required
-                className="w-full"
+                className={`w-full ${!password && validationError ? 'border-red-500' : ''}`}
               />
             </div>
 
@@ -668,7 +681,9 @@ export default function NewSignUp() {
             {selectedRole === 'student' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="student-phone">Phone Number</Label>
+                  <Label htmlFor="student-phone" className="flex items-center">
+                    Phone Number <span className="text-red-500 ml-1">*</span>
+                  </Label>
                   <Input
                     id="student-phone"
                     type="tel"
@@ -678,11 +693,13 @@ export default function NewSignUp() {
                       setStudentPhone(e.target.value);
                       handleStudentFieldChange('phone_number', e.target.value);
                     }}
-                    className="w-full"
+                    className={`w-full ${!studentPhone && validationError ? 'border-red-500' : ''}`}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="student-dob">Date of Birth</Label>
+                  <Label htmlFor="student-dob" className="flex items-center">
+                    Date of Birth <span className="text-red-500 ml-1">*</span>
+                  </Label>
                   <Input
                     id="student-dob"
                     type="date"
@@ -691,7 +708,7 @@ export default function NewSignUp() {
                       setStudentDOB(e.target.value);
                       handleStudentFieldChange('date_of_birth', e.target.value);
                     }}
-                    className="w-full"
+                    className={`w-full ${!studentDOB && validationError ? 'border-red-500' : ''}`}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
@@ -703,10 +720,11 @@ export default function NewSignUp() {
                       setStudentPrivacyChecked(e.target.checked);
                       handleStudentFieldChange('agreed_to_terms', e.target.checked && studentTermsChecked);
                     }}
+                    className={!studentPrivacyChecked && validationError ? 'border-red-500' : ''}
                   />
-                  <Label htmlFor="student-privacy" className="text-sm">
+                  <Label htmlFor="student-privacy" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69]" onClick={() => setShowStudentPrivacy(true)}>
+                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowStudentPrivacy(true)}>
                       Privacy Policy
                     </button>
                   </Label>
@@ -720,14 +738,16 @@ export default function NewSignUp() {
                       setStudentTermsChecked(e.target.checked);
                       handleStudentFieldChange('agreed_to_terms', e.target.checked && studentPrivacyChecked);
                     }}
+                    className={!studentTermsChecked && validationError ? 'border-red-500' : ''}
                   />
-                  <Label htmlFor="student-terms" className="text-sm">
+                  <Label htmlFor="student-terms" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69]" onClick={() => setShowStudentTerms(true)}>
+                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowStudentTerms(true)}>
                       Terms of Service
                     </button>
                   </Label>
                 </div>
+                <p className="text-sm text-gray-500 mt-2">* Required fields</p>
               </>
             )}
 
@@ -735,7 +755,9 @@ export default function NewSignUp() {
             {selectedRole === 'teacher' && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="teacher-phone">Phone Number</Label>
+                  <Label htmlFor="teacher-phone" className="flex items-center">
+                    Phone Number <span className="text-red-500 ml-1">*</span>
+                  </Label>
                   <Input
                     id="teacher-phone"
                     type="tel"
@@ -745,39 +767,60 @@ export default function NewSignUp() {
                       setTeacherPhone(e.target.value);
                       handleTeacherFieldChange('phone_number', e.target.value);
                     }}
-                    className="w-full"
+                    className={`w-full ${!teacherPhone && validationError ? 'border-red-500' : ''}`}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="teacher-active-students"># of Active Students</Label>
-                  <Input
-                    id="teacher-active-students"
-                    type="number"
-                    placeholder="e.g. 10"
+                  <Label htmlFor="teacher-active-students" className="flex items-center">
+                    # of Active Students <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Select
                     value={teacherActiveStudents}
-                    onChange={e => {
-                      setTeacherActiveStudents(e.target.value);
-                      handleTeacherFieldChange('active_student_count', e.target.value);
+                    onValueChange={(value) => {
+                      setTeacherActiveStudents(value);
+                      handleTeacherFieldChange('active_student_count', value);
                     }}
-                    className="w-full"
-                  />
+                  >
+                    <SelectTrigger className={`w-full ${!teacherActiveStudents && validationError ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder="Select number of students" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1-10">1-10 students</SelectItem>
+                      <SelectItem value="11-30">11-30 students</SelectItem>
+                      <SelectItem value="31-50">31-50 students</SelectItem>
+                      <SelectItem value="51-100">51-100 students</SelectItem>
+                      <SelectItem value="101-200">101-200 students</SelectItem>
+                      <SelectItem value="200+">More than 200 students</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="teacher-avg-tuition">Avg Tuition per Student</Label>
-                  <Input
-                    id="teacher-avg-tuition"
-                    type="number"
-                    placeholder="e.g. 100"
+                  <Label htmlFor="teacher-avg-tuition" className="flex items-center">
+                    Avg Tuition per Student <span className="text-red-500 ml-1">*</span>
+                  </Label>
+                  <Select
                     value={teacherAvgTuition}
-                    onChange={e => {
-                      setTeacherAvgTuition(e.target.value);
-                      handleTeacherFieldChange('avg_tuition_per_student', e.target.value);
+                    onValueChange={(value) => {
+                      setTeacherAvgTuition(value);
+                      handleTeacherFieldChange('avg_tuition_per_student', value);
                     }}
-                    className="w-full"
-                  />
+                  >
+                    <SelectTrigger className={`w-full ${!teacherAvgTuition && validationError ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder="Select tuition range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1225000-3675000">1.2M-3.7M VND (50-150 USD)</SelectItem>
+                      <SelectItem value="3675000-6125000">3.7M-6.1M VND (150-250 USD)</SelectItem>
+                      <SelectItem value="6125000-8575000">6.1M-8.6M VND (250-350 USD)</SelectItem>
+                      <SelectItem value="8575000-11025000">8.6M-11M VND (350-450 USD)</SelectItem>
+                      <SelectItem value="11025000+">11M+ VND (450+ USD)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="teacher-referral">Where did you hear from us?</Label>
+                  <Label htmlFor="teacher-referral">
+                    Where did you hear from us?
+                  </Label>
                   <Input
                     id="teacher-referral"
                     type="text"
@@ -799,10 +842,11 @@ export default function NewSignUp() {
                       setTeacherPrivacyChecked(e.target.checked);
                       handleTeacherFieldChange('agreed_to_terms', e.target.checked && teacherTermsChecked);
                     }}
+                    className={!teacherPrivacyChecked && validationError ? 'border-red-500' : ''}
                   />
-                  <Label htmlFor="teacher-privacy" className="text-sm">
+                  <Label htmlFor="teacher-privacy" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69]" onClick={() => setShowTeacherPrivacy(true)}>
+                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowTeacherPrivacy(true)}>
                       Privacy Policy
                     </button>
                   </Label>
@@ -816,14 +860,16 @@ export default function NewSignUp() {
                       setTeacherTermsChecked(e.target.checked);
                       handleTeacherFieldChange('agreed_to_terms', e.target.checked && teacherPrivacyChecked);
                     }}
+                    className={!teacherTermsChecked && validationError ? 'border-red-500' : ''}
                   />
-                  <Label htmlFor="teacher-terms" className="text-sm">
+                  <Label htmlFor="teacher-terms" className="text-sm flex items-center">
                     I agree to the{' '}
-                    <button type="button" className="underline text-[#272A69]" onClick={() => setShowTeacherTerms(true)}>
+                    <button type="button" className="underline text-[#272A69] ml-1" onClick={() => setShowTeacherTerms(true)}>
                       Terms of Service
                     </button>
                   </Label>
                 </div>
+                <p className="text-sm text-gray-500 mt-2">* Required fields</p>
               </>
             )}
 
