@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -18,7 +17,16 @@ const AssignmentOverview: React.FC<AssignmentOverviewProps> = ({
     <div className="bg-gray-100 rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
       <div className="mb-6 border-b border-gray-200 pb-3">
         <h2 className="font-semibold text-lg text-gray-800">{assignment.title}</h2>
-        <p className="text-sm text-gray-500">Due: {assignment.dueDate}</p>
+        <p className="text-sm text-gray-500">
+          Due: {new Date(assignment.dueDate).toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })}
+        </p>
       </div>
       
       {/* Overview Content */}

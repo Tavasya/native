@@ -596,20 +596,9 @@ export default function NewSignUp() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="mt-1"
-                  placeholder="Enter your email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name" className="flex items-center">
+                  Full Name <span className="text-red-500 ml-1">*</span>
+                </Label>
                 <Input
                   id="name"
                   type="text"
@@ -618,6 +607,21 @@ export default function NewSignUp() {
                   required
                   className="mt-1"
                   placeholder="Enter your full name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center">
+                  Email <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="mt-1"
+                  placeholder="Enter your email"
                 />
               </div>
 
@@ -731,6 +735,7 @@ export default function NewSignUp() {
                       onChange={e => {
                         setTeacherPhone(e.target.value);
                       }}
+                      required
                       className={`w-full ${!teacherPhone && validationError ? 'border-red-500' : ''}`}
                     />
                   </div>

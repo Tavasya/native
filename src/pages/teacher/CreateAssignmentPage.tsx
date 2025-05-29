@@ -36,6 +36,7 @@ const CreateAssignmentPage: React.FC = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   // const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('23:59'); // Default to end of day
   const [questionCards, setQuestionCards] = useState<QuestionCard[]>([
     {
       id: 'card-1',
@@ -171,11 +172,14 @@ const CreateAssignmentPage: React.FC = () => {
     }
 
     try {
+      // Combine date and time into ISO string
+      const dueDateTime = new Date(`${dueDate}T${dueTime}`);
+      
       const assignmentData = {
         class_id: classId!,
         created_by: user || '',
         title: title.trim(),
-        due_date: dueDate,
+        due_date: dueDateTime.toISOString(),
         questions: questionCards.map(card => ({
           ...card,
           question: card.question.trim(),
@@ -370,17 +374,26 @@ const CreateAssignmentPage: React.FC = () => {
                   >
                     <div className="space-y-5 pt-3 border-t">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Due Date */}
+                        {/* Due Date and Time */}
                         <div className="space-y-2">
-                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
-                          <Input
-                            id="dueDate"
-                            type="date"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                            className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-36 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
-                          />
+                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date & Time</Label>
+                          <div className="flex gap-4">
+                            <Input
+                              id="dueDate"
+                              type="date"
+                              value={dueDate}
+                              onChange={(e) => setDueDate(e.target.value)}
+                              min={new Date().toISOString().split("T")[0]}
+                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-36 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
+                            />
+                            <Input
+                              id="dueTime"
+                              type="time"
+                              value={dueTime}
+                              onChange={(e) => setDueTime(e.target.value)}
+                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-32 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>

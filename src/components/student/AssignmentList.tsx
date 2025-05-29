@@ -254,7 +254,16 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
               >
                 <div className="p-5 bg-white flex flex-col h-full">
                   <h3 className="text-lg font-medium text-gray-800 mb-3">{assignment.title}</h3>
-                  <p className="text-xs font-medium text-gray-500 mb-4">Due: {new Date(assignment.due_date).toLocaleDateString()}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-4">
+                    Due: {new Date(assignment.due_date).toLocaleString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
                   
                   <div className="mt-auto">
                     <Button 

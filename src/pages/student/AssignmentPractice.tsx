@@ -901,7 +901,14 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                   completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
                   formatTime={formatTime}
                   assignmentTitle={assignment.title}
-                  dueDate={new Date(assignment.due_date).toLocaleDateString()}
+                  dueDate={new Date(assignment.due_date).toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
                   currentQuestionIndex={currentQuestionIndex}
                   showRecordButton={!previewMode && (!hasRecorded || isRecording)}
                   currentTime={currentTime}
