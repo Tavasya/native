@@ -24,7 +24,9 @@ export interface CreateSubmissionWithRecordings {
 export interface Submission {
     id: string;
     assignment_id: string;
+    assignment_title?: string;
     student_id: string;
+    student_name?: string;
     attempt: number;
     status: SubmissionStatus;
     section_feedback: Record<string, SectionFeedback>;

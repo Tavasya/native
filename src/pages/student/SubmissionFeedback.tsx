@@ -1,13 +1,11 @@
 import { Play, ChevronDown, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
@@ -26,12 +24,43 @@ interface MistakePosition {
   index: number;
 }
 
+interface GrammarIssue {
+  original?: string;
+  correction: {
+    suggested_correction: string;
+    explanation: string;
+  };
+}
+
+interface LexicalIssue {
+  sentence?: string;
+  suggestion: {
+    suggested_phrase: string;
+    explanation: string;
+  };
+}
+
+interface WordScore {
+  word: string;
+  score: number;
+  reference_phonemes?: string;
+  timestamp?: number;
+  duration?: number;
+}
+
+interface PronunciationIssue {
+  type?: string;
+  words?: WordScore[];
+  message?: string;
+}
+
 const SubmissionFeedback = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { selectedSubmission, loading, error } = useAppSelector(state => state.submissions);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -71,21 +100,21 @@ const SubmissionFeedback = () => {
   };
 
   const renderHighlightedText = (text: string, highlightType: 'none' | 'grammar' | 'vocabulary' = 'none') => {
-    if (!currentFeedback || highlightType === 'none') return text;
+    if (!text || !currentFeedback || highlightType === 'none') return text;
 
     let mistakesToHighlight: Mistake[] = [];
     
     if (highlightType === 'grammar' && currentFeedback.grammar?.issues) {
-      mistakesToHighlight = currentFeedback.grammar.issues.map(issue => ({
-        text: issue.original,
-        explanation: issue.correction.explanation,
+      mistakesToHighlight = currentFeedback.grammar.issues.map((issue: GrammarIssue) => ({
+        text: issue.original || '',
+        explanation: issue.correction.explanation || '',
         type: 'Grammar',
         color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors'
       }));
     } else if (highlightType === 'vocabulary' && currentFeedback.lexical?.issues) {
-      mistakesToHighlight = currentFeedback.lexical.issues.map(issue => ({
-        text: issue.original,
-        explanation: issue.suggestion.explanation,
+      mistakesToHighlight = currentFeedback.lexical.issues.map((issue: LexicalIssue) => ({
+        text: issue.sentence || '',
+        explanation: issue.suggestion.explanation || '',
         type: 'Vocabulary',
         color: 'bg-blue-100 text-blue-800 border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors'
       }));
@@ -102,6 +131,7 @@ const SubmissionFeedback = () => {
     // Find all mistake positions
     const mistakePositions: MistakePosition[] = [];
     mistakesToHighlight.forEach((mistake, index) => {
+      if (!mistake.text) return; // Skip empty text
       const escapedText = mistake.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escapedText, 'i');
       const match = processedText.match(regex);
@@ -144,10 +174,10 @@ const SubmissionFeedback = () => {
         >
           {pos.mistake.text}
           {openPopover === mistakeId && (
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50 whitespace-nowrap max-w-xs">
-              <div className="font-semibold">{pos.mistake.type}</div>
-              <div className="mt-1">{pos.mistake.explanation}</div>
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-md shadow-sm border border-gray-200 z-50 w-96">
+              <div className="font-medium text-gray-900">{pos.mistake.type}</div>
+              <div className="mt-1 text-gray-600">{pos.mistake.explanation}</div>
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white"></div>
             </div>
           )}
         </span>
@@ -177,7 +207,28 @@ const SubmissionFeedback = () => {
 
   const playWordSegment = (word: any, index: number) => {
     console.log('Playing word:', word, 'at index:', index);
-    // Implement audio playback logic here
+    
+    if (audioRef.current && word.timestamp !== undefined && word.duration !== undefined) {
+      const audio = audioRef.current;
+      const startTime = word.timestamp;
+      const endTime = word.timestamp + word.duration;
+      
+      // Set the current time to the word's timestamp
+      audio.currentTime = startTime;
+      
+      // Play the audio
+      audio.play();
+      
+      // Set up a listener to pause at the end of the word
+      const handleTimeUpdate = () => {
+        if (audio.currentTime >= endTime) {
+          audio.pause();
+          audio.removeEventListener('timeupdate', handleTimeUpdate);
+        }
+      };
+      
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+    }
   };
 
   if (loading) {
@@ -242,32 +293,27 @@ const SubmissionFeedback = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">Language Assessment</h1>
-            <Button 
-              variant="ghost" 
-              onClick={handleBack}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* Back Button and Assignment Header */}
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="ghost"
+            className="flex items-center gap-2"
+            onClick={handleBack}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {location.state?.fromClassDetail ? 'Back to Class' : 'Back to Dashboard'}
+          </Button>
+        </div>
+
         {/* Assignment Header */}
         <Card className="shadow-sm border-0 bg-white">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-medium text-gray-900">
-                  Assignment {submissionInfo.assignment_id || submissionId}
+                  {submissionInfo.assignment_title || 'Assignment'}
                 </CardTitle>
                 <p className="text-sm text-gray-500 mt-1">
                   Submitted on: {new Date(submissionInfo.submitted_at || Date.now()).toLocaleDateString()}
@@ -278,7 +324,7 @@ const SubmissionFeedback = () => {
             {/* Overall Scoring */}
             <div className="mt-6">
               <p className="text-sm text-gray-600 mb-4">
-                Student {submissionInfo.student_id || 'Unknown'}
+                {submissionInfo.student_name || 'Student'}
               </p>
 
               <div className="mb-6">
@@ -329,61 +375,60 @@ const SubmissionFeedback = () => {
           <CardContent className="p-4">
             <div className="w-full">
               <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground w-full">
-                {Array.from(recordings)
-                  .sort((a, b) => (a.question_id || 0) - (b.question_id || 0))
-                  .map((recording, index) => (
-                  <button
-                    key={recording.question_id || index}
-                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 flex-1 ${
-                      selectedQuestionIndex === index 
-                        ? "bg-primary text-primary-foreground shadow-sm" 
-                        : "hover:bg-accent hover:text-accent-foreground"
-                    }`}
-                    onClick={() => setSelectedQuestionIndex(index)}
-                  >
-                    Q{recording.question_id || (index + 1)}
-                  </button>
-                ))}
+                {[...recordings]
+                  .sort((a, b) => {
+                    const aId = typeof a.question_id === 'string' ? parseInt(a.question_id) : a.question_id || 0;
+                    const bId = typeof b.question_id === 'string' ? parseInt(b.question_id) : b.question_id || 0;
+                    return aId - bId;
+                  })
+                  .map((recording, sortedIndex) => {
+                    // Find the original index of this recording in the unsorted array
+                    const originalIndex = recordings.findIndex(r => r.question_id === recording.question_id);
+                    return (
+                      <button
+                        key={recording.question_id || sortedIndex}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 flex-1 ${
+                          selectedQuestionIndex === originalIndex 
+                            ? "bg-primary text-primary-foreground shadow-sm" 
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                        onClick={() => setSelectedQuestionIndex(originalIndex)}
+                      >
+                        Q{recording.question_id || (sortedIndex + 1)}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
 
             {/* Audio Player */}
             <div className="mt-4">
-              <div className="flex items-center gap-3">
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 bg-primary text-primary-foreground hover:bg-primary/90">
-                  <Play className="h-4 w-4" />
-                </Button>
-                <div className="flex-1">
-                  <div className="w-full">
-                    <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        style={{ width: "35%" }}
-                        className="absolute left-0 top-0 h-full bg-primary rounded-full"
-                      ></div>
-                      <div
-                        className="absolute top-0 h-full w-1 bg-primary/80 rounded-full"
-                        style={{ left: "35%" }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>0:00</span>
-                      <span>1:23</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-base font-medium text-gray-900 mb-2">Audio Recording</h3>
+              <audio 
+                ref={audioRef}
+                controls 
+                className="w-full h-12"
+                src={currentQuestion.audio_url}
+                preload="metadata"
+              >
+                Your browser does not support the audio element.
+              </audio>
             </div>
 
             {/* Transcript */}
-            <div className="mt-4">
-              <h3 className="text-base font-medium text-gray-900 mb-2">Transcript</h3>
-              <div className="text-sm text-gray-600 leading-relaxed">
-                {renderHighlightedText(
-                  currentQuestion.transcript || 'No transcript available.',
-                  activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'
-                )}
-              </div>
-            </div>
+            <Card className="shadow-sm border-0 bg-white overflow-visible">
+              <CardContent className="p-4 overflow-visible">
+                <div className="mt-4">
+                  <h3 className="text-base font-medium text-gray-900 mb-2">Transcript</h3>
+                  <div className="text-sm text-gray-600 leading-relaxed overflow-visible">
+                    {renderHighlightedText(
+                      currentQuestion.transcript || 'No transcript available.',
+                      activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </CardContent>
         </Card>
 
@@ -409,7 +454,7 @@ const SubmissionFeedback = () => {
               <TabsContent value="fluency" className="mt-4">
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Fluency Feedback</h4>
-                  {currentFeedback?.fluency?.issues?.map((issue, index) => (
+                  {currentFeedback?.fluency?.issues?.map((issue: string, index: number) => (
                     <div key={index} className="bg-gray-50 p-4 rounded-lg">
                       <p className="text-sm text-gray-600">{issue}</p>
                     </div>
@@ -420,9 +465,9 @@ const SubmissionFeedback = () => {
               <TabsContent value="pronunciation" className="mt-4">
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-gray-900 mb-2">Pronunciation Analysis</h4>
-                  {currentFeedback?.pronunciation?.issues?.map((issue, index) => {
+                  {currentFeedback?.pronunciation?.issues?.map((issue: PronunciationIssue, index: number) => {
                     if (issue.type === 'word_scores' && issue.words) {
-                      const wordsToPractice = issue.words.filter(word => word.score < 80);
+                      const wordsToPractice = issue.words.filter((word: WordScore) => word.score < 80);
                       
                       if (wordsToPractice.length === 0) {
                         return (
@@ -437,7 +482,7 @@ const SubmissionFeedback = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[200px]">Word</TableHead>
-                              <TableHead className="w-[100px]">Score</TableHead>
+                              <TableHead className="w-[150px]">Phonemes</TableHead>
                               <TableHead className="w-[100px]">Audio</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -446,7 +491,9 @@ const SubmissionFeedback = () => {
                               <TableRow key={wordIndex}>
                                 <TableCell className="font-medium">{word.word}</TableCell>
                                 <TableCell>
-                                  <span className={getScoreColor(word.score)}>{word.score}</span>
+                                  <span className="text-sm font-mono text-gray-600">
+                                    {word.reference_phonemes || 'N/A'}
+                                  </span>
                                 </TableCell>
                                 <TableCell>
                                   <Button
@@ -483,11 +530,11 @@ const SubmissionFeedback = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Grammar Issues</h3>
                     
                     <div className="space-y-3">
-                      {currentFeedback?.grammar?.issues?.map((issue, index) => (
+                      {currentFeedback?.grammar?.issues?.map((issue: GrammarIssue, index: number) => (
                         <Collapsible 
                           key={index}
                           open={grammarOpen[`grammar-${index}`]} 
-                          onOpenChange={(open) => toggleGrammarOpen(`grammar-${index}`)}
+                          onOpenChange={() => toggleGrammarOpen(`grammar-${index}`)}
                         >
                           <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-2">
@@ -530,11 +577,11 @@ const SubmissionFeedback = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Vocabulary Suggestions</h3>
                     
                     <div className="space-y-3">
-                      {currentFeedback?.lexical?.issues?.map((issue, index) => (
+                      {currentFeedback?.lexical?.issues?.map((issue: LexicalIssue, index: number) => (
                         <Collapsible 
                           key={index}
                           open={vocabularyOpen[`vocab-${index}`]} 
-                          onOpenChange={(open) => toggleVocabularyOpen(`vocab-${index}`)}
+                          onOpenChange={() => toggleVocabularyOpen(`vocab-${index}`)}
                         >
                           <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-2">
@@ -547,7 +594,7 @@ const SubmissionFeedback = () => {
                               <div className="space-y-3">
                                 <div>
                                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Original</h4>
-                                  <p className="text-xs text-gray-600">{issue.original}</p>
+                                  <p className="text-xs text-gray-600">{issue.sentence}</p>
                                 </div>
                                 <div>
                                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Suggestion</h4>

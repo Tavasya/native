@@ -264,7 +264,11 @@ export const submissionService = {
 
       const { data, error } = await supabase
         .from("submissions")
-        .select('*')
+        .select(`
+          *,
+          assignments!inner(title),
+          users!inner(name)
+        `)
         .eq("id", id)
         .single();
 
@@ -280,7 +284,14 @@ export const submissionService = {
         throw new Error('Submission not found');
       }
 
-      return data;
+      // Transform the data to include assignment_title and student_name
+      const transformedData = {
+        ...data,
+        assignment_title: data.assignments?.title,
+        student_name: data.users?.name
+      };
+
+      return transformedData;
     } catch (error) {
       console.error("Error in getSubmissionById:", error);
       throw error;

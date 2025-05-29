@@ -15,10 +15,7 @@ import { submissionService } from '@/features/submissions/submissionsService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 interface ExtendedQuestionCard extends QuestionCard {
@@ -71,6 +68,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const practiceProgress = useAppSelector(state => 
     id ? state.assignments.practiceProgress[id] : undefined
@@ -686,6 +684,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       return;
     }
 
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
     console.log('=== SUBMISSION DEBUG START ===');
     console.log('Assignment:', {
       id: assignment.id,
@@ -820,6 +825,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         stack: error instanceof Error ? error.stack : undefined
       });
       alert(error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -865,61 +872,63 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const currentQuestion = assignment.questions[currentQuestionIndex];
 
   return (
-    <div className="container mx-auto px-4 min-h-screen flex items-center -mt-16">
-      <div className="max-w-6xl mx-auto w-full">
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2"
-              onClick={handleBack}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
-            </Button>
-          </div>
-          <div>
-            <TooltipProvider>
-              <QuestionContent
-                currentQuestion={currentQuestion}
-                totalQuestions={assignment.questions.length}
-                timeRemaining={timeRemaining}
-                isRecording={isRecording}
-                hasRecorded={hasRecorded}
-                isPlaying={isPlaying}
-                isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
-                toggleRecording={previewMode ? handlePreviewRecording : toggleRecording}
-                playRecording={previewMode ? handlePreviewPlayback : togglePlayPause}
-                completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
-                formatTime={formatTime}
-                assignmentTitle={assignment.title}
-                dueDate={new Date(assignment.due_date).toLocaleDateString()}
+    <div className="container mx-auto px-4 min-h-screen flex flex-col">
+      <div className="flex items-center gap-4 py-4">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={handleBack}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
+        </Button>
+      </div>
+      <div className="flex-1 flex items-center">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="flex flex-col gap-6">
+            <div>
+              <TooltipProvider>
+                <QuestionContent
+                  currentQuestion={currentQuestion}
+                  totalQuestions={assignment.questions.length}
+                  timeRemaining={timeRemaining}
+                  isRecording={isRecording}
+                  hasRecorded={hasRecorded}
+                  isPlaying={isPlaying}
+                  isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
+                  toggleRecording={previewMode ? handlePreviewRecording : toggleRecording}
+                  playRecording={previewMode ? handlePreviewPlayback : togglePlayPause}
+                  completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
+                  formatTime={formatTime}
+                  assignmentTitle={assignment.title}
+                  dueDate={new Date(assignment.due_date).toLocaleDateString()}
+                  currentQuestionIndex={currentQuestionIndex}
+                  showRecordButton={!previewMode && (!hasRecorded || isRecording)}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onTimeUpdate={handleSeek}
+                  isProcessing={isProcessing}
+                  mediaStream={mediaStream}
+                  onNextQuestion={handleNextQuestion}
+                  isPreviewMode={previewMode}
+                />
+              </TooltipProvider>
+            </div>
+            <div className="mt-4">
+              <QuestionNavigation
+                questions={assignment.questions}
                 currentQuestionIndex={currentQuestionIndex}
-                showRecordButton={!previewMode && (!hasRecorded || isRecording)}
-                currentTime={currentTime}
-                duration={duration}
-                onTimeUpdate={handleSeek}
-                isProcessing={isProcessing}
-                mediaStream={mediaStream}
-                onNextQuestion={handleNextQuestion}
-                isPreviewMode={previewMode}
+                onQuestionSelect={(index) => {
+                  if (isPlaying && audioRef.current) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
+                  }
+                  setCurrentQuestionIndex(index);
+                }}
+                recordings={recordingsData}
+                disabled={isRecording || isPlaying}
               />
-            </TooltipProvider>
-          </div>
-          <div className="mt-4">
-            <QuestionNavigation
-              questions={assignment.questions}
-              currentQuestionIndex={currentQuestionIndex}
-              onQuestionSelect={(index) => {
-                if (isPlaying && audioRef.current) {
-                  audioRef.current.pause();
-                  setIsPlaying(false);
-                }
-                setCurrentQuestionIndex(index);
-              }}
-              recordings={recordingsData}
-              disabled={isRecording || isPlaying}
-            />
+            </div>
           </div>
         </div>
       </div>
