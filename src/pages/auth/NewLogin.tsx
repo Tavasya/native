@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import NativeLogo from '@/lib/images/Native Logo.png';
-import { UserRole } from '@/features/auth/types';
 
 export default function NewLogin() {
   const dispatch = useAppDispatch();
@@ -16,7 +15,6 @@ export default function NewLogin() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,11 +29,9 @@ export default function NewLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Attempting login with:', { email, password, selectedRole });
     const result = await dispatch(signInWithEmail({ 
       email, 
-      password,
-      selectedRole 
+      password
     }));
     
     if (signInWithEmail.rejected.match(result)) {
@@ -45,13 +41,10 @@ export default function NewLogin() {
         ? 'Invalid email or password'
         : errorMessage.includes('Email not confirmed')
         ? 'Please verify your email before logging in. Check your inbox for the verification link.'
-        : errorMessage.includes('Invalid role')
-        ? 'Please select the correct role for your account'
         : errorMessage.includes('not found')
         ? 'No account found with this email. Please sign up first.'
         : 'Failed to sign in. Please try again.';
       
-      console.error('Login failed:', errorMessage);
       dispatch(clearAuth());
       setError(friendlyError);
     }
@@ -63,6 +56,8 @@ export default function NewLogin() {
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <div className="text-center mb-8">
             <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
+            <h2 className="text-2xl font-semibold text-gray-900">Welcome Back</h2>
+            <p className="mt-2 text-gray-600">Sign in to your account</p>
           </div>
 
           {(error || authError) && (
@@ -81,29 +76,6 @@ export default function NewLogin() {
               )}
             </div>
           )}
-
-          <div className="flex rounded-lg border border-gray-200 p-1 mb-6">
-            <button
-              onClick={() => setSelectedRole('student')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'student'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setSelectedRole('teacher')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'teacher'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Teacher
-            </button>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">

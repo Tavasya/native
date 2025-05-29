@@ -13,6 +13,7 @@ import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProv
 import { useAppDispatch } from '@/app/hooks';
 import { createAssignment } from '@/features/assignments/assignmentThunks';
 import { useAppSelector } from '@/app/hooks';
+import AssignmentPractice from '@/pages/student/AssignmentPractice';
 
 interface QuestionCard {
   id: string;
@@ -32,6 +33,7 @@ const CreateAssignmentPage: React.FC = () => {
   const dispatch = useAppDispatch();
   // State
   const [title, setTitle] = useState('');
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   // const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [questionCards, setQuestionCards] = useState<QuestionCard[]>([
@@ -225,6 +227,50 @@ const CreateAssignmentPage: React.FC = () => {
     </div>
   );
 
+  // Add preview handler
+  const handlePreview = () => {
+    if (!title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter an assignment title",
+      });
+      return;
+    }
+
+    if (!dueDate) {
+      toast({
+        title: "Missing due date",
+        description: "Please set a due date for the assignment",
+      });
+      return;
+    }
+
+    if (questionCards.some(q => !q.question.trim())) {
+      toast({
+        title: "Incomplete questions",
+        description: "Please make sure all questions have content",
+      });
+      return;
+    }
+
+    setIsPreviewMode(true);
+  };
+
+  if (isPreviewMode) {
+    return (
+      <AssignmentPractice 
+        previewMode={true}
+        previewData={{
+          title,
+          due_date: dueDate,
+          questions: questionCards,
+          id: 'preview'
+        }}
+        onBack={() => setIsPreviewMode(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-[#F5F9FF]">
 
@@ -240,12 +286,21 @@ const CreateAssignmentPage: React.FC = () => {
             Back to class
           </Button>
 
-          <Button
-            onClick={handleSubmit}
-            className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
-          >
-            Publish
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              variant="ghost"
+              onClick={handlePreview}
+              className="text-[#272A69] hover:text-[#272A69]/90"
+            >
+              Preview
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
+            >
+              Publish
+            </Button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto relative">
@@ -280,7 +335,7 @@ const CreateAssignmentPage: React.FC = () => {
                       setActiveCardId('');
                       setActiveHeaderCard(true);
                     }}
-                    placeholder="Untitled Assignment"
+                    placeholder="Assignment Title"
                     className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>

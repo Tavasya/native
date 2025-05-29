@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
 import { updatePracticeProgress } from '@/features/assignments/assignmentSlice';
-import { Assignment, QuestionCard } from '@/features/assignments/types';
+import { Assignment, QuestionCard, AssignmentStatus } from '@/features/assignments/types';
 import QuestionContent from '@/components/assignment/QuestionContent';
 import QuestionNavigation from '@/components/assignment/QuestionNavigation';
 import { saveRecording, loadRecordings } from '@/features/submissions/submissionsSlice';
@@ -14,6 +14,12 @@ import { useToast } from "@/hooks/use-toast";
 import { submissionService } from '@/features/submissions/submissionsService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ExtendedQuestionCard extends QuestionCard {
   isCompleted?: boolean;
@@ -23,7 +29,28 @@ interface ExtendedAssignment extends Omit<Assignment, 'questions'> {
   questions: ExtendedQuestionCard[];
 }
 
-const AssignmentPractice: React.FC = () => {
+interface PreviewData {
+  title: string;
+  due_date: string;
+  questions: QuestionCard[];
+  id: string;
+  class_id?: string;
+  created_at?: string;
+  metadata?: any;
+  status?: AssignmentStatus;
+}
+
+interface AssignmentPracticeProps {
+  previewMode?: boolean;
+  previewData?: PreviewData;
+  onBack?: () => void;
+}
+
+const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({ 
+  previewMode = false, 
+  previewData,
+  onBack 
+}) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -69,6 +96,22 @@ const AssignmentPractice: React.FC = () => {
 
   useEffect(() => {
     const loadAssignment = async () => {
+      if (previewMode && previewData) {
+        const extendedAssignment: ExtendedAssignment = {
+          ...previewData,
+          class_id: previewData.class_id || 'preview',
+          created_at: previewData.created_at || new Date().toISOString(),
+          metadata: previewData.metadata || { autoSendReport: false },
+          status: previewData.status || 'not_started' as AssignmentStatus,
+          questions: previewData.questions.map((q: QuestionCard) => ({ 
+            ...q, 
+            isCompleted: false 
+          }))
+        };
+        setAssignment(extendedAssignment);
+        return;
+      }
+
       if (id) {
         try {
           const result = await dispatch(fetchAssignmentById(id)).unwrap();
@@ -88,14 +131,13 @@ const AssignmentPractice: React.FC = () => {
           }
         } catch (error) {
           console.error('Failed to load assignment:', error);
-          // Show a more user-friendly error message
           alert('Failed to load assignment. Please check your internet connection and try again.');
         }
       }
     };
 
     loadAssignment();
-  }, [id, dispatch]);
+  }, [id, dispatch, previewMode, previewData]);
 
   useEffect(() => {
     if (assignment && id && !isCompleted) {
@@ -781,6 +823,41 @@ const AssignmentPractice: React.FC = () => {
     }
   };
 
+  const handleBack = () => {
+    if (previewMode && onBack) {
+      onBack();
+    } else {
+      navigate('/student/dashboard');
+    }
+  };
+
+  const handlePreviewRecording = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Recording is disabled in preview mode",
+    });
+  };
+
+  const handlePreviewPlayback = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Playback is disabled in preview mode",
+    });
+  };
+
+  const handlePreviewComplete = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Question completion is disabled in preview mode",
+    });
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < (assignment?.questions.length || 0) - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
   if (!assignment) {
     return <div>Loading...</div>;
   }
@@ -795,42 +872,45 @@ const AssignmentPractice: React.FC = () => {
             <Button
               variant="ghost"
               className="flex items-center gap-2"
-              onClick={() => navigate('/student/dashboard')}
+              onClick={handleBack}
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
+              {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
             </Button>
           </div>
           <div>
-            <QuestionContent
-              currentQuestion={currentQuestion}
-              totalQuestions={assignment.questions.length}
-              timeRemaining={timeRemaining}
-              isRecording={isRecording}
-              hasRecorded={hasRecorded}
-              isPlaying={isPlaying}
-              isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
-              toggleRecording={toggleRecording}
-              playRecording={togglePlayPause}
-              completeQuestion={completeQuestion}
-              formatTime={formatTime}
-              assignmentTitle={assignment.title}
-              dueDate={new Date(assignment.due_date).toLocaleDateString()}
-              currentQuestionIndex={currentQuestionIndex}
-              showRecordButton={!hasRecorded || isRecording}
-              currentTime={currentTime}
-              duration={duration}
-              onTimeUpdate={handleSeek}
-              isProcessing={isProcessing}
-              mediaStream={mediaStream}
-            />
+            <TooltipProvider>
+              <QuestionContent
+                currentQuestion={currentQuestion}
+                totalQuestions={assignment.questions.length}
+                timeRemaining={timeRemaining}
+                isRecording={isRecording}
+                hasRecorded={hasRecorded}
+                isPlaying={isPlaying}
+                isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
+                toggleRecording={previewMode ? handlePreviewRecording : toggleRecording}
+                playRecording={previewMode ? handlePreviewPlayback : togglePlayPause}
+                completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
+                formatTime={formatTime}
+                assignmentTitle={assignment.title}
+                dueDate={new Date(assignment.due_date).toLocaleDateString()}
+                currentQuestionIndex={currentQuestionIndex}
+                showRecordButton={!previewMode && (!hasRecorded || isRecording)}
+                currentTime={currentTime}
+                duration={duration}
+                onTimeUpdate={handleSeek}
+                isProcessing={isProcessing}
+                mediaStream={mediaStream}
+                onNextQuestion={handleNextQuestion}
+                isPreviewMode={previewMode}
+              />
+            </TooltipProvider>
           </div>
           <div className="mt-4">
             <QuestionNavigation
               questions={assignment.questions}
               currentQuestionIndex={currentQuestionIndex}
               onQuestionSelect={(index) => {
-                // Pause audio if playing when changing questions
                 if (isPlaying && audioRef.current) {
                   audioRef.current.pause();
                   setIsPlaying(false);
