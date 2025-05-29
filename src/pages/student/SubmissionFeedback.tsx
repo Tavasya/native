@@ -9,6 +9,9 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
+import { setTTSAudio, setLoading, selectTTSAudio, selectTTSLoading, clearTTSAudio } from '@/features/tts/ttsSlice';
+import { generateTTSAudio } from '@/features/tts/ttsService';
+import { RootState } from '@/app/store';
 
 interface Mistake {
   text: string;
@@ -46,6 +49,7 @@ interface WordScore {
   reference_phonemes?: string;
   timestamp?: number;
   duration?: number;
+  ttsAudioUrl?: string;
 }
 
 interface PronunciationIssue {
@@ -61,6 +65,8 @@ const SubmissionFeedback = () => {
   const dispatch = useAppDispatch();
   const { selectedSubmission, loading, error } = useAppSelector(state => state.submissions);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const ttsAudioCache = useAppSelector((state: RootState) => selectTTSAudio(state), () => false);
+  const ttsLoading = useAppSelector((state: RootState) => selectTTSLoading(state), () => false);
 
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -230,6 +236,46 @@ const SubmissionFeedback = () => {
       audio.addEventListener('timeupdate', handleTimeUpdate);
     }
   };
+
+  const playTTSAudio = async (word: string) => {
+    const cacheKey = `tts_${word.toLowerCase()}`;
+    
+    try {
+      // Check if we have cached audio
+      if (ttsAudioCache[cacheKey]) {
+        console.log(`[TTS Component] Using cached audio for: "${word}"`);
+        const audio = new Audio(ttsAudioCache[cacheKey].url);
+        audio.play();
+        return;
+      }
+
+      console.log(`[TTS Component] No cached audio found for: "${word}", generating new audio`);
+      // Set loading state
+      dispatch(setLoading({ key: cacheKey, loading: true }));
+      
+      // Generate new audio
+      const audioUrl = await generateTTSAudio(word);
+      
+      // Store in Redux
+      dispatch(setTTSAudio({ key: cacheKey, url: audioUrl }));
+      
+      // Play the audio
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (error) {
+      console.error('[TTS Component] Error playing TTS audio:', error);
+    } finally {
+      dispatch(setLoading({ key: cacheKey, loading: false }));
+    }
+  };
+
+  // Clean up audio URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      console.log('[TTS Component] Cleaning up audio resources');
+      dispatch(clearTTSAudio());
+    };
+  }, [dispatch]);
 
   if (loading) {
     return (
@@ -481,9 +527,10 @@ const SubmissionFeedback = () => {
                         <Table key={index}>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[200px]">Word</TableHead>
-                              <TableHead className="w-[150px]">Phonemes</TableHead>
-                              <TableHead className="w-[100px]">Audio</TableHead>
+                              <TableHead className="w-[100px]">Word</TableHead>
+                              <TableHead>IPA + Definition</TableHead>
+                              <TableHead className="text-center">Correct Audio</TableHead>
+                              <TableHead className="text-center">Student Audio</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -495,14 +542,29 @@ const SubmissionFeedback = () => {
                                     {word.reference_phonemes || 'N/A'}
                                   </span>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
-                                    className="h-8 w-8 p-0"
+                                    className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                                    onClick={() => playTTSAudio(word.word)}
+                                    disabled={ttsLoading[`tts_${word.word.toLowerCase()}`]}
+                                  >
+                                    {ttsLoading[`tts_${word.word.toLowerCase()}`] ? (
+                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    ) : (
+                                      <Play className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                                     onClick={() => playWordSegment(word, wordIndex)}
                                   >
-                                    <Play className="h-4 w-4" />
+                                    <Play className="h-3 w-3" />
                                   </Button>
                                 </TableCell>
                               </TableRow>

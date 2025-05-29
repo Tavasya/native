@@ -7,12 +7,13 @@ import classReducer from '@/features/class/classSlice'
 import assignmentReducer from '@/features/assignments/assignmentSlice'
 import submissionsReducer from '@/features/submissions/submissionsSlice'
 import assignmentTemplateReducer from '@/features/assignmentTemplates/assignmentTemplateSlice'
+import ttsReducer from '@/features/tts/ttsSlice'
 
 // Configure persist options
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth'] // Only persist auth state
+  whitelist: ['auth', 'tts'] // Persist auth and TTS state
 };
 
 // Combine reducers
@@ -22,6 +23,7 @@ const rootReducer = combineReducers({
   assignments: assignmentReducer,
   submissions: submissionsReducer,
   assignmentTemplates: assignmentTemplateReducer,
+  tts: ttsReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -34,6 +36,7 @@ const rootReducerWithReset = (state: any, action: any) => {
       assignments: assignmentReducer(undefined, action),
       submissions: submissionsReducer(undefined, action),
       assignmentTemplates: assignmentTemplateReducer(undefined, action),
+      tts: ttsReducer(undefined, action),
     };
   }
   return rootReducer(state, action);
