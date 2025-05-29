@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
-import { useAppDispatch } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { createAssignment } from '@/features/assignments/assignmentThunks';
-import { useAppSelector } from '@/app/hooks';
+import { fetchAssignmentTemplates, createAssignmentTemplate, deleteAssignmentTemplate } from '@/features/assignmentTemplates/assignmentTemplateThunks';
 import AssignmentPractice from '@/pages/student/AssignmentPractice';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import type { RootState } from '@/app/store';
+import type { AssignmentTemplate } from '@/features/assignmentTemplates/types';
 
 interface QuestionCard {
   id: string;
@@ -26,6 +29,7 @@ interface QuestionCard {
 
 const CreateAssignmentPage: React.FC = () => {
   const user = useAppSelector(state => state.auth.user?.id);
+  const { templates, loading: templatesLoading } = useAppSelector((state: RootState) => state.assignmentTemplates);
 
   const navigate = useNavigate();
   const { id: classId } = useParams<{ id: string }>();
@@ -59,6 +63,12 @@ const CreateAssignmentPage: React.FC = () => {
     { value: "3", label: "3 minutes" },
   ];
 
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchAssignmentTemplates(user));
+    }
+  }, [user, dispatch]);
+
   // Card operations
   const addQuestionCard = (type: 'normal' | 'bulletPoints' = 'normal') => {
     const newCard: QuestionCard = {
@@ -74,7 +84,7 @@ const CreateAssignmentPage: React.FC = () => {
     }
 
     setQuestionCards([...questionCards, newCard]);
-    setActiveHeaderCard(false);    
+    setActiveHeaderCard(false);
     setActiveCardId(newCard.id);
   };
 
@@ -174,7 +184,7 @@ const CreateAssignmentPage: React.FC = () => {
     try {
       // Combine date and time into ISO string
       const dueDateTime = new Date(`${dueDate}T${dueTime}`);
-      
+
       const assignmentData = {
         class_id: classId!,
         created_by: user || '',
@@ -190,12 +200,12 @@ const CreateAssignmentPage: React.FC = () => {
       };
 
       await dispatch(createAssignment(assignmentData)).unwrap();
-      
+
       toast({ title: 'Assignment published', description: 'The assignment has been published successfully' });
       navigate(`/class/${classId}`);
     } catch (err: any) {
-      toast({ 
-        title: 'Publish failed', 
+      toast({
+        title: 'Publish failed',
         description: err?.message || 'Could not create assignment',
         variant: 'destructive'
       });
@@ -260,9 +270,52 @@ const CreateAssignmentPage: React.FC = () => {
     setIsPreviewMode(true);
   };
 
+  // Add a placeholder for save as template
+  const handleSaveAsTemplate = async () => {
+    if (!title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter an assignment title",
+      });
+      return;
+    }
+
+    if (questionCards.some(q => !q.question.trim())) {
+      toast({
+        title: "Incomplete questions",
+        description: "Please make sure all questions have content",
+      });
+      return;
+    }
+
+    try {
+      const templateData = {
+        teacher_id: user!,
+        title: title.trim(),
+        questions: questionCards.map(card => ({
+          ...card,
+          question: card.question.trim(),
+          bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+        }))
+      };
+
+      await dispatch(createAssignmentTemplate(templateData)).unwrap();
+      toast({
+        title: 'Template saved',
+        description: 'This assignment has been saved as a template.'
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Save failed',
+        description: err?.message || 'Could not save template',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (isPreviewMode) {
     return (
-      <AssignmentPractice 
+      <AssignmentPractice
         previewMode={true}
         previewData={{
           title,
@@ -298,12 +351,26 @@ const CreateAssignmentPage: React.FC = () => {
             >
               Preview
             </Button>
-            <Button
-              onClick={handleSubmit}
-              className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
-            >
-              Publish
-            </Button>
+            <div className="flex">
+              <Button
+                onClick={handleSubmit}
+                className="bg-[#272A69] hover:bg-[#272A69]/90 text-white rounded-r-none border-r border-[#1f2251]"
+              >
+                Publish
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-2 rounded-l-none">
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleSaveAsTemplate}>
+                    Save as Template
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -373,9 +440,9 @@ const CreateAssignmentPage: React.FC = () => {
                     style={{ overflow: 'hidden' }}
                   >
                     <div className="space-y-5 pt-3 border-t">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Due Date and Time */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="dueDate" className="text-sm font-medium">Due Date & Time</Label>
                           <div className="flex gap-4">
                             <Input
@@ -394,6 +461,55 @@ const CreateAssignmentPage: React.FC = () => {
                               className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-32 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                             />
                           </div>
+                        </div>
+                        
+                        {/* Assignment Templates */}
+                        <div className="space-y-2 md:col-span-1">
+                          <Label className="text-sm font-medium text-gray-700">Templates</Label>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                className="w-full justify-between bg-white"
+                                disabled={templatesLoading || templates.length === 0}
+                              >
+                                {templatesLoading ? "Loading..." : 
+                                 templates.length === 0 ? "No templates" : 
+                                 "Select template"}
+                                <ChevronDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                              {templates.map((template: AssignmentTemplate) => (
+                                <div key={template.id}>
+                                  <div className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 group">
+                                    <button
+                                      type="button"
+                                      className="text-sm font-medium text-left flex-1 truncate hover:text-[#272A69] transition-colors"
+                                      onClick={() => {
+                                        setTitle(template.title);
+                                        setQuestionCards(template.questions);
+                                      }}
+                                    >
+                                      {template.title}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-2 p-1 rounded hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        dispatch(deleteAssignmentTemplate(template.id));
+                                      }}
+                                      title="Delete template"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                  {template !== templates[templates.length - 1] && <DropdownMenuSeparator />}
+                                </div>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>

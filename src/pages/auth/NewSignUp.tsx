@@ -552,7 +552,6 @@ export default function NewSignUp() {
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-lg">👨‍🎓</span>
                       <span className="font-medium">Student</span>
                     </div>
                   </button>
@@ -566,7 +565,6 @@ export default function NewSignUp() {
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-lg">👨‍🏫</span>
                       <span className="font-medium">Teacher</span>
                     </div>
                   </button>

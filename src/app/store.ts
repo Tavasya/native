@@ -6,6 +6,7 @@ import authReducer from '@/features/auth/authSlice';
 import classReducer from '@/features/class/classSlice'
 import assignmentReducer from '@/features/assignments/assignmentSlice'
 import submissionsReducer from '@/features/submissions/submissionsSlice'
+import assignmentTemplateReducer from '@/features/assignmentTemplates/assignmentTemplateSlice'
 
 // Configure persist options
 const persistConfig = {
@@ -20,6 +21,7 @@ const rootReducer = combineReducers({
   classes: classReducer,
   assignments: assignmentReducer,
   submissions: submissionsReducer,
+  assignmentTemplates: assignmentTemplateReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -31,6 +33,7 @@ const rootReducerWithReset = (state: any, action: any) => {
       classes: classReducer(undefined, action),
       assignments: assignmentReducer(undefined, action),
       submissions: submissionsReducer(undefined, action),
+      assignmentTemplates: assignmentTemplateReducer(undefined, action),
     };
   }
   return rootReducer(state, action);
