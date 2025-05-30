@@ -691,6 +691,15 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
     setIsSubmitting(true);
 
+    // Navigate to dashboard first
+    navigate('/student/dashboard');
+
+    // Show loading toast
+    const { id: toastId } = toast({
+      title: "Submitting Assignment",
+      description: "Please wait while we process your submission...",
+    });
+
     console.log('=== SUBMISSION DEBUG START ===');
     console.log('Assignment:', {
       id: assignment.id,
@@ -812,11 +821,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
       console.log('=== SUBMISSION DEBUG END ===');
       setIsCompleted(true);
+      
+      // Show completion toast
       toast({
         title: "Assignment Completed!",
         description: `You have completed "${assignment.title}"`,
       });
-      navigate('/student/dashboard');
     } catch (error) {
       console.error('=== SUBMISSION ERROR ===');
       console.error('Error submitting assignment:', error);
@@ -824,7 +834,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      alert(error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.');
+      
+      // Show error toast
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.',
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
