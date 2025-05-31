@@ -53,6 +53,7 @@ export interface SectionFeedback {
         wpm?: number;
         cohesive_device_feedback?: string;
         filler_words?: string[];
+        filler_word_count?: number;
     };
 }
 

@@ -154,7 +154,9 @@ export function SubmissionResults() {
       )}
 
       {currentSubmission.recordings && currentSubmission.recordings.map((recording, index) => {
-        const feedback = currentSubmission.section_feedback?.[recording.questionId];
+        const feedback = currentSubmission.section_feedback?.find(
+          section => section.question_id === parseInt(recording.questionId)
+        )?.section_feedback;
         const audioKey = `${currentSubmission.id}_${recording.questionId}`;
         
         return (

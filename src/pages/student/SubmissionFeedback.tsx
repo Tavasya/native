@@ -12,7 +12,6 @@ import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
 import { setTTSAudio, setLoading, selectTTSAudio, selectTTSLoading, clearTTSAudio } from '@/features/tts/ttsSlice';
 import { generateTTSAudio } from '@/features/tts/ttsService';
 import { RootState } from '@/app/store';
-import { SectionFeedback } from '@/features/submissions/types';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Mistake {
@@ -49,8 +48,8 @@ interface WordScore {
   word: string;
   accuracy_score: number;
   error_type: string;
-  offset: number;
-  duration: number;
+  offset?: number;
+  duration?: number;
   phoneme_details: {
     phoneme: string;
     accuracy_score: number;
@@ -60,13 +59,6 @@ interface WordScore {
 interface PronunciationIssue {
   type?: string;
   message?: string;
-}
-
-interface CriticalError {
-  word: string;
-  score: number;
-  timestamp: number;
-  duration: number;
 }
 
 interface QuestionFeedback {
@@ -79,6 +71,31 @@ interface QuestionFeedback {
 interface SpeedCategory {
   category: string;
   color: string;
+}
+
+interface SectionFeedback {
+  fluency?: {
+    grade: number;
+    issues: string[];
+    wpm?: number;
+    cohesive_device_feedback?: string;
+    filler_words?: string[];
+    filler_word_count?: number;
+  };
+  grammar?: {
+    grade: number;
+    issues: GrammarIssue[];
+  };
+  lexical?: {
+    grade: number;
+    issues: LexicalIssue[];
+  };
+  pronunciation?: {
+    grade: number;
+    issues: PronunciationIssue[];
+    word_details?: WordScore[];
+  };
+  feedback?: string;
 }
 
 const phonemeToIPA: { [key: string]: string } = {
@@ -146,94 +163,6 @@ const calculateOverallPronunciationScore = (wordDetails: any[]) => {
   return Math.round(averageScore);
 };
 
-const calculatePronunciationGrade = (wordDetails: any[]) => {
-  if (!wordDetails || wordDetails.length === 0) {
-    return 0;
-  }
-
-  // Method 1: Simple average
-  const simpleAverage = wordDetails.reduce((sum, word) => sum + word.accuracy_score, 0) / wordDetails.length;
-
-  // Method 2: Weighted by word importance
-  const weightedScore = wordDetails.reduce((sum, word, index) => {
-    const weight = word.word.length > 3 ? 1.2 : 1.0;
-    return sum + (word.accuracy_score * weight);
-  }, 0) / wordDetails.reduce((sum, word) => {
-    const weight = word.word.length > 3 ? 1.2 : 1.0;
-    return sum + weight;
-  }, 0);
-
-  // Method 3: Penalize very low scores more heavily
-  const penalizedScore = wordDetails.map(word => {
-    if (word.accuracy_score < 60) {
-      return word.accuracy_score * 0.8;
-    }
-    return word.accuracy_score;
-  }).reduce((sum, score) => sum + score, 0) / wordDetails.length;
-
-  // Use weighted score as it provides the best balance
-  return Math.round(weightedScore);
-};
-
-const validateAndFixPronunciationData = (sectionFeedback: any) => {
-  if (!sectionFeedback.pronunciation) {
-    return sectionFeedback;
-  }
-
-  const { pronunciation } = sectionFeedback;
-  
-  if (pronunciation.grade === 0 && pronunciation.word_details?.length > 0) {
-    pronunciation.grade = calculatePronunciationGrade(pronunciation.word_details);
-    console.log('Fixed pronunciation grade:', pronunciation.grade);
-  }
-
-  return sectionFeedback;
-};
-
-// Pronunciation filtering utilities
-const getWordsNeedingImprovement = (wordDetails: any[]) => {
-  return wordDetails.filter((word: any) => {
-    const showWord = word.accuracy_score < 90;
-    console.log('Filtering word (needs improvement):', {
-      word: word.word,
-      score: word.accuracy_score,
-      showWord,
-      error_type: word.error_type
-    });
-    return showWord;
-  });
-};
-
-const getAdaptiveWordsToShow = (wordDetails: any[]) => {
-  const scores = wordDetails.map(w => w.accuracy_score);
-  const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-  const minScore = Math.min(...scores);
-  
-  // If most words are high-scoring, show anything below average
-  // If there's a wide range, show bottom third
-  let threshold;
-  if (minScore > 85) {
-    // High-performing student: show anything below average
-    threshold = avgScore;
-  } else {
-    // Mixed performance: show bottom third
-    const sortedScores = scores.sort((a, b) => a - b);
-    threshold = sortedScores[Math.floor(sortedScores.length / 3)];
-  }
-  
-  return wordDetails.filter((word: any) => {
-    const showWord = word.accuracy_score <= threshold;
-    console.log('Adaptive filter:', {
-      word: word.word,
-      score: word.accuracy_score,
-      threshold: Math.round(threshold),
-      avgScore: Math.round(avgScore),
-      showWord
-    });
-    return showWord;
-  });
-};
-
 // Replace the adaptive filtering with simpler logic
 const getWordsToShow = (wordDetails: any[]) => {
   if (!wordDetails || wordDetails.length === 0) return [];
@@ -249,11 +178,6 @@ const getWordsToShow = (wordDetails: any[]) => {
   const sorted = [...wordDetails].sort((a, b) => a.accuracy_score - b.accuracy_score);
   const bottomCount = Math.max(1, Math.floor(sorted.length * 0.3));
   return sorted.slice(0, bottomCount);
-};
-
-// Debug version to show all words
-const getAllWordsForDebugging = (wordDetails: any[]) => {
-  return wordDetails || [];
 };
 
 const SubmissionFeedback = () => {
@@ -337,21 +261,6 @@ const SubmissionFeedback = () => {
     return currentQuestion?.section_feedback;
   }, [currentQuestion]);
 
-  // Calculate pronunciation score if not provided
-  const pronunciationScore = useMemo(() => {
-    if (!currentFeedback?.pronunciation) return 0;
-    
-    if (currentFeedback.pronunciation.grade && currentFeedback.pronunciation.grade > 0) {
-      return currentFeedback.pronunciation.grade;
-    }
-    
-    if (currentFeedback.pronunciation.word_details) {
-      return calculateOverallPronunciationScore(currentFeedback.pronunciation.word_details);
-    }
-    
-    return 0;
-  }, [currentFeedback]);
-
   // Update wordsToShow calculation
   const wordsToShow = useMemo(() => {
     if (!currentFeedback?.pronunciation?.word_details) return [];
@@ -361,9 +270,6 @@ const SubmissionFeedback = () => {
     
     // Use the simpler filter
     return getWordsToShow(currentFeedback.pronunciation.word_details);
-    
-    // Uncomment to show all words for debugging:
-    // return getAllWordsForDebugging(currentFeedback.pronunciation.word_details);
   }, [currentFeedback]);
 
   // Debug logging
@@ -877,7 +783,7 @@ const SubmissionFeedback = () => {
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-sm font-medium text-gray-900 mb-2">Filler Words</div>
                     <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
-                      {currentFeedback?.fluency?.filler_words ? `${currentFeedback.fluency.filler_words.length} filler words used` : 'No data available'}
+                      {currentFeedback?.fluency?.filler_word_count ? `${currentFeedback.fluency.filler_word_count} filler words used` : 'No data available'}
                     </div>
                   </div>
                 </div>

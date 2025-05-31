@@ -694,10 +694,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     // Navigate to dashboard first
     navigate('/student/dashboard');
 
-    // Show loading toast
-    const { id: toastId } = toast({
-      title: "Submitting Assignment",
-      description: "Please wait while we process your submission...",
+    // Show loading toast WITHOUT duration (persists until dismissed)
+    const { dismiss } = toast({
+      title: "Processing submission...",
+      description: "Please wait while we analyze your recording.",
+      // Remove duration so it stays until we manually dismiss it
     });
 
     console.log('=== SUBMISSION DEBUG START ===');
@@ -756,6 +757,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
       console.log('Final recordings to submit:', currentRecordings);
 
+      let submissionId: string;
+
       if (existingSubmission?.status === 'in_progress') {
         // Update the existing submission
         console.log('Updating existing in-progress submission:', {
@@ -778,19 +781,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         }
         
         console.log('Successfully updated existing submission');
-
-        // Send recordings for analysis
-        try {
-          console.log('Starting audio analysis for updated submission:', existingSubmission.id);
-          const result = await submissionService.analyzeAudio(
-            currentRecordings.map(r => r.audioUrl),
-            existingSubmission.id
-          );
-          console.log('Audio analysis completed:', result);
-        } catch (error) {
-          console.error('Error during audio analysis:', error);
-          // Don't throw here - we want to keep the submission even if analysis fails
-        }
+        submissionId = existingSubmission.id;
       } else {
         // Create a new submission only if there's no in-progress submission
         console.log('Creating new submission with data:', {
@@ -800,7 +791,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           attempt: (existingSubmission?.attempt || 0) + 1
         });
         
-        const { error: createError } = await supabase
+        const { data: newSubmission, error: createError } = await supabase
           .from('submissions')
           .insert({
             assignment_id: id,
@@ -809,7 +800,9 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
             recordings: currentRecordings,
             submitted_at: new Date().toISOString(),
             attempt: (existingSubmission?.attempt || 0) + 1
-          });
+          })
+          .select()
+          .single();
 
         if (createError) {
           console.error('Error creating submission:', createError);
@@ -817,16 +810,41 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         }
         
         console.log('Successfully created new submission');
+        submissionId = newSubmission.id;
+      }
+
+      // Now send recordings for analysis and wait for it to complete
+      try {
+        console.log('Starting audio analysis for submission:', submissionId);
+        const result = await submissionService.analyzeAudio(
+          currentRecordings.map(r => r.audioUrl),
+          submissionId
+        );
+        console.log('Audio analysis completed:', result);
+        
+        // Dismiss the loading toast and show success
+        dismiss();
+        toast({
+          title: "Assignment Completed!",
+          description: `You have completed "${assignment.title}" and analysis is complete.`,
+          duration: 5000,
+        });
+      } catch (analysisError) {
+        console.error('Error during audio analysis:', analysisError);
+        
+        // Dismiss loading toast and show partial success
+        dismiss();
+        toast({
+          title: "Assignment Submitted",
+          description: `"${assignment.title}" was submitted but analysis may still be processing.`,
+          duration: 5000,
+        });
+        // Don't throw here - we want to keep the submission even if analysis fails
       }
 
       console.log('=== SUBMISSION DEBUG END ===');
       setIsCompleted(true);
       
-      // Show completion toast
-      toast({
-        title: "Assignment Completed!",
-        description: `You have completed "${assignment.title}"`,
-      });
     } catch (error) {
       console.error('=== SUBMISSION ERROR ===');
       console.error('Error submitting assignment:', error);
@@ -835,11 +853,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         stack: error instanceof Error ? error.stack : undefined
       });
       
-      // Show error toast
+      // Dismiss loading toast and show error
+      dismiss();
       toast({
         title: "Submission Failed",
         description: error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.',
-        variant: "destructive"
+        variant: "destructive",
+        duration: 8000,
       });
     } finally {
       setIsSubmitting(false);
