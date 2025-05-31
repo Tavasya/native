@@ -2,7 +2,59 @@ import Submission from "@/pages/student/Submission";
 
 export interface SectionFeedback {
     grade: number;
-    feedback: string
+    feedback: string;
+    audio_url?: string;
+    transcript?: string;
+    pronunciation?: {
+        grade: number;
+        issues: {
+            type?: string;
+            message?: string;
+        }[];
+        word_details: {
+            word: string;
+            accuracy_score: number;
+            error_type: string;
+            phoneme_details: {
+                phoneme: string;
+                accuracy_score: number;
+            }[];
+        }[];
+        critical_errors: {
+            word: string;
+            score: number;
+            timestamp: number;
+            duration: number;
+        }[];
+    };
+    grammar?: {
+        grade: number;
+        issues: {
+            original?: string;
+            correction: {
+                suggested_correction: string;
+                explanation: string;
+            };
+        }[];
+    };
+    lexical?: {
+        grade: number;
+        issues: {
+            sentence?: string;
+            suggestion: {
+                suggested_phrase: string;
+                explanation: string;
+            };
+        }[];
+    };
+    fluency?: {
+        grade: number;
+        issues: string[];
+        wpm?: number;
+        cohesive_device_feedback?: string;
+        filler_words?: string[];
+        filler_word_count?: number;
+    };
 }
 
 export type SubmissionStatus = 'in_progress' | 'pending' | 'graded' | 'rejected';
@@ -24,13 +76,26 @@ export interface CreateSubmissionWithRecordings {
 export interface Submission {
     id: string;
     assignment_id: string;
+    assignment_title?: string;
     student_id: string;
+    student_name?: string;
     attempt: number;
     status: SubmissionStatus;
-    section_feedback: Record<string, SectionFeedback>;
+    section_feedback: {
+        question_id: number;
+        audio_url: string;
+        transcript: string;
+        section_feedback: SectionFeedback;
+    }[];
     submitted_at: string;
     grade?: number; //overall grade
     recordings?: RecordingData[]; // New field for multiple recordings
+    overall_assignment_score?: {
+        avg_fluency_score: number;
+        avg_grammar_score: number;
+        avg_lexical_score: number;
+        avg_pronunciation_score: number;
+    };
 }
 
 //data for backend api

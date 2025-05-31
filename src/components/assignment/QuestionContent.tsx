@@ -33,6 +33,8 @@ interface QuestionContentProps {
   onTimeUpdate?: (time: number) => void;
   isProcessing?: boolean;
   mediaStream?: MediaStream | null;
+  onNextQuestion?: () => void;
+  isPreviewMode?: boolean;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -55,7 +57,9 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   duration = 0,
   onTimeUpdate,
   isProcessing = false,
-  mediaStream = null
+  mediaStream = null,
+  onNextQuestion,
+  isPreviewMode = false
 }) => {
   return (
     <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
@@ -121,23 +125,32 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         <div className="flex justify-center">
           <div className="flex space-x-4 items-center">
             {showRecordButton && (
-              <Button
-                onClick={toggleRecording}
-                className="rounded-full w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center bg-[#272A69] hover:bg-[#272A69]/90"
-                aria-label={isRecording ? "Stop recording" : "Start recording"}
-                disabled={isPlaying}
-              >
-                <img 
-                  src={MicIcon} 
-                  alt="Microphone" 
-                  className={`w-6 h-6 transition-all duration-200 ${
-                    isRecording || isPlaying ? 'hidden' : 'opacity-100'
-                  }`}
-                />
-                {(isPlaying || isRecording) && (
-                  <div className="w-8 h-8 bg-white border-2 border-[#272A69] rounded-[7px]" />
-                )}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={toggleRecording}
+                      className="rounded-full w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center bg-[#272A69] hover:bg-[#272A69]/90"
+                      aria-label={isRecording ? "Stop recording" : "Start recording"}
+                      disabled={isPlaying}
+                    >
+                      <img 
+                        src={MicIcon} 
+                        alt="Microphone" 
+                        className={`w-6 h-6 transition-all duration-200 ${
+                          isRecording || isPlaying ? 'hidden' : 'opacity-100'
+                        }`}
+                      />
+                      {(isPlaying || isRecording) && (
+                        <div className="w-8 h-8 bg-white border-2 border-[#272A69] rounded-[7px]" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" align="center">
+                    <p>{isPreviewMode ? "Recording disabled in preview mode" : (isRecording ? "Stop recording" : "Start recording")}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
@@ -229,8 +242,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
       {/* Navigation Button */}
       <div className="flex justify-end mt-4">
         <Button
-          onClick={completeQuestion}
-          disabled={!hasRecorded || isPlaying}
+          onClick={isPreviewMode && !isLastQuestion ? onNextQuestion : completeQuestion}
+          disabled={isPreviewMode ? isLastQuestion : (!hasRecorded || isPlaying)}
           className="flex items-center bg-[#272A69] hover:bg-[#272A69]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLastQuestion ? "Finish" : "Next"} 

@@ -66,14 +66,6 @@ function TeacherTermsOfServiceModal({ open, onClose }: { open: boolean, onClose:
   );
 }
 
-// Debounce utility
-function debounce<F extends (...args: any[]) => void>(func: F, wait: number) {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<F>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
 
 export default function NewSignUp() {
   const dispatch = useAppDispatch();
@@ -91,6 +83,7 @@ export default function NewSignUp() {
   const [error, setError] = useState('');
   const [resendCount, setResendCount] = useState(0);
   const [cooldown, setCooldown] = useState(0);
+  const [currentStep, setCurrentStep] = useState(1);
   const pollCountRef = useRef(0);
   const cooldownTimerRef = useRef<NodeJS.Timeout>();
   const pollIntervalRef = useRef<NodeJS.Timeout>();
@@ -113,7 +106,6 @@ export default function NewSignUp() {
   const [showTeacherPrivacy, setShowTeacherPrivacy] = useState(false);
   const [showTeacherTerms, setShowTeacherTerms] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [lastSavePayload, setLastSavePayload] = useState<any>(null);
 
   useEffect(() => {
     // Only clear session if there's no user in Redux state
@@ -328,7 +320,6 @@ export default function NewSignUp() {
     if (!teacherPhone.trim()) return 'Phone number is required.';
     if (!teacherActiveStudents.trim()) return 'Number of active students is required.';
     if (!teacherAvgTuition.trim()) return 'Average tuition per student is required.';
-    if (!teacherReferralSource.trim()) return 'Referral source is required.';
     if (!teacherPrivacyChecked) return 'You must agree to the Privacy Policy.';
     if (!teacherTermsChecked) return 'You must agree to the Terms of Service.';
     return '';
@@ -434,6 +425,16 @@ export default function NewSignUp() {
     }
   };
 
+  const handleNextStep = () => {
+    setValidationError('');
+    setCurrentStep(2);
+  };
+
+  const handleBackStep = () => {
+    setCurrentStep(1);
+    setValidationError('');
+  };
+
   if (signupSuccess) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
@@ -500,12 +501,12 @@ export default function NewSignUp() {
           {debugMode && (
             <div className="mb-4 p-4 text-xs bg-gray-100 border border-gray-300 rounded-lg">
               <div className="font-bold mb-2">[DEBUG PANEL]</div>
+              <div className="mb-1">Current Step: {currentStep}</div>
               <div className="mb-1">Current Role: {selectedRole}</div>
               <div className="mb-1">Current Form State: <pre>{JSON.stringify({
                 name, email, studentPhone, studentDOB, studentPrivacyChecked, studentTermsChecked,
                 teacherPhone, teacherActiveStudents, teacherAvgTuition, teacherReferralSource, teacherPrivacyChecked, teacherTermsChecked
               }, null, 2)}</pre></div>
-              <div className="mb-1">Last Save Payload: <pre>{JSON.stringify(lastSavePayload, null, 2)}</pre></div>
               <div className="mb-1">Last Validation Error: {validationError || '(none)'}</div>
             </div>
           )}
@@ -534,292 +535,322 @@ export default function NewSignUp() {
             </div>
           )}
 
-          <div className="flex rounded-lg border border-gray-200 p-1 mb-6">
-            <button
-              onClick={() => setSelectedRole('student')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'student'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setSelectedRole('teacher')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'teacher'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Teacher
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="flex items-center">
-                Full Name <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Enter your full name"
-                value={name}
-                onChange={e => {
-                  setName(e.target.value);
-                }}
-                required
-                className={`w-full ${!name && validationError ? 'border-red-500' : ''}`}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center">
-                Email <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={e => {
-                  setEmail(e.target.value);
-                }}
-                required
-                className={`w-full ${!email && validationError ? 'border-red-500' : ''}`}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="flex items-center">
-                Password <span className="text-red-500 ml-1">*</span>
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={e => {
-                  setPassword(e.target.value);
-                  dispatch(clearAuth());
-                }}
-                required
-                className={`w-full ${!password && validationError ? 'border-red-500' : ''}`}
-              />
-            </div>
-
-            {/* Student Fields */}
-            {selectedRole === 'student' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="student-phone" className="flex items-center">
-                    Phone Number <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Input
-                    id="student-phone"
-                    type="tel"
-                    placeholder="Enter your phone number"
-                    value={studentPhone}
-                    onChange={e => {
-                      setStudentPhone(e.target.value);
-                    }}
-                    className={`w-full ${!studentPhone && validationError ? 'border-red-500' : ''}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="student-dob" className="flex items-center">
-                    Date of Birth <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Input
-                    id="student-dob"
-                    type="date"
-                    value={studentDOB}
-                    onChange={e => {
-                      setStudentDOB(e.target.value);
-                    }}
-                    className={`w-full ${!studentDOB && validationError ? 'border-red-500' : ''}`}
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="student-privacy"
-                    type="checkbox"
-                    checked={studentPrivacyChecked}
-                    onChange={e => {
-                      setStudentPrivacyChecked(e.target.checked);
-                    }}
-                    className={!studentPrivacyChecked && validationError ? 'border-red-500' : ''}
-                  />
-                  <Label htmlFor="student-privacy" className="text-sm flex items-center">
-                    I agree to the{' '}
-                    <button 
-                      type="button" 
-                      onClick={() => setShowStudentPrivacy(true)}
-                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
-                    >
-                      Privacy Policy
-                    </button>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="student-terms"
-                    type="checkbox"
-                    checked={studentTermsChecked}
-                    onChange={e => {
-                      setStudentTermsChecked(e.target.checked);
-                    }}
-                    className={!studentTermsChecked && validationError ? 'border-red-500' : ''}
-                  />
-                  <Label htmlFor="student-terms" className="text-sm flex items-center">
-                    I agree to the{' '}
-                    <button 
-                      type="button" 
-                      onClick={() => setShowStudentTerms(true)}
-                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
-                    >
-                      Terms of Service
-                    </button>
-                  </Label>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">* Required fields</p>
-              </>
-            )}
-
-            {/* Teacher Fields */}
-            {selectedRole === 'teacher' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="teacher-phone" className="flex items-center">
-                    Phone Number <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Input
-                    id="teacher-phone"
-                    type="tel"
-                    placeholder="Enter your phone number"
-                    value={teacherPhone}
-                    onChange={e => {
-                      setTeacherPhone(e.target.value);
-                    }}
-                    className={`w-full ${!teacherPhone && validationError ? 'border-red-500' : ''}`}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="teacher-active-students" className="flex items-center">
-                    # of Active Students <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Select
-                    value={teacherActiveStudents}
-                    onValueChange={(value) => {
-                      setTeacherActiveStudents(value);
-                    }}
+          {currentStep === 1 ? (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <Label className="text-sm text-gray-600">
+                  I am a...
+                </Label>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('student')}
+                    className={`flex-1 py-3 px-4 rounded-lg border transition-all ${
+                      selectedRole === 'student'
+                        ? 'border-[#272A69] bg-[#272A69] text-white'
+                        : 'border-gray-200 hover:border-[#272A69]'
+                    }`}
                   >
-                    <SelectTrigger className={`w-full ${!teacherActiveStudents && validationError ? 'border-red-500' : ''}`}>
-                      <SelectValue placeholder="Select number of students" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1-10">1-10 students</SelectItem>
-                      <SelectItem value="11-30">11-30 students</SelectItem>
-                      <SelectItem value="31-50">31-50 students</SelectItem>
-                      <SelectItem value="51-100">51-100 students</SelectItem>
-                      <SelectItem value="101-200">101-200 students</SelectItem>
-                      <SelectItem value="200+">More than 200 students</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="teacher-avg-tuition" className="flex items-center">
-                    Avg Tuition per Student <span className="text-red-500 ml-1">*</span>
-                  </Label>
-                  <Select
-                    value={teacherAvgTuition}
-                    onValueChange={(value) => {
-                      setTeacherAvgTuition(value);
-                    }}
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="font-medium">Student</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('teacher')}
+                    className={`flex-1 py-3 px-4 rounded-lg border transition-all ${
+                      selectedRole === 'teacher'
+                        ? 'border-[#272A69] bg-[#272A69] text-white'
+                        : 'border-gray-200 hover:border-[#272A69]'
+                    }`}
                   >
-                    <SelectTrigger className={`w-full ${!teacherAvgTuition && validationError ? 'border-red-500' : ''}`}>
-                      <SelectValue placeholder="Select tuition range" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1225000-3675000">1.2M-3.7M VND (50-150 USD)</SelectItem>
-                      <SelectItem value="3675000-6125000">3.7M-6.1M VND (150-250 USD)</SelectItem>
-                      <SelectItem value="6125000-8575000">6.1M-8.6M VND (250-350 USD)</SelectItem>
-                      <SelectItem value="8575000-11025000">8.6M-11M VND (350-450 USD)</SelectItem>
-                      <SelectItem value="11025000+">11M+ VND (450+ USD)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="font-medium">Teacher</span>
+                    </div>
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="teacher-referral">
-                    Where did you hear from us?
-                  </Label>
-                  <Input
-                    id="teacher-referral"
-                    type="text"
-                    placeholder="e.g. Google, Friend, etc."
-                    value={teacherReferralSource}
-                    onChange={e => {
-                      setTeacherReferralSource(e.target.value);
-                    }}
-                    className="w-full"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="teacher-privacy"
-                    type="checkbox"
-                    checked={teacherPrivacyChecked}
-                    onChange={e => {
-                      setTeacherPrivacyChecked(e.target.checked);
-                    }}
-                    className={!teacherPrivacyChecked && validationError ? 'border-red-500' : ''}
-                  />
-                  <Label htmlFor="teacher-privacy" className="text-sm flex items-center">
-                    I agree to the{' '}
-                    <button 
-                      type="button" 
-                      onClick={() => setShowTeacherPrivacy(true)}
-                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
-                    >
-                      Privacy Policy
-                    </button>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    id="teacher-terms"
-                    type="checkbox"
-                    checked={teacherTermsChecked}
-                    onChange={e => {
-                      setTeacherTermsChecked(e.target.checked);
-                    }}
-                    className={!teacherTermsChecked && validationError ? 'border-red-500' : ''}
-                  />
-                  <Label htmlFor="teacher-terms" className="text-sm flex items-center">
-                    I agree to the{' '}
-                    <button 
-                      type="button" 
-                      onClick={() => setShowTeacherTerms(true)}
-                      className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
-                    >
-                      Terms of Service
-                    </button>
-                  </Label>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">* Required fields</p>
-              </>
-            )}
+              </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#272A69] hover:bg-[#272A69]/90"
-            >
-              {loading ? 'Creating account...' : 'Create account'}
-            </Button>
-          </form>
+              <Button
+                onClick={handleNextStep}
+                className="w-full bg-[#272A69] hover:bg-[#272A69]/90"
+              >
+                Continue
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="flex items-center justify-between mb-6">
+                <button
+                  type="button"
+                  onClick={handleBackStep}
+                  className="text-[#272A69] hover:text-[#272A69]/90"
+                >
+                  ← Back
+                </button>
+                <div className="text-sm text-gray-500">
+                  Step 2 of 2
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="name" className="flex items-center">
+                  Full Name <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="mt-1"
+                  placeholder="Enter your full name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center">
+                  Email <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="mt-1"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center">
+                  Password <span className="text-red-500 ml-1">*</span>
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={e => {
+                    setPassword(e.target.value);
+                    dispatch(clearAuth());
+                  }}
+                  required
+                  className={`w-full ${!password && validationError ? 'border-red-500' : ''}`}
+                />
+              </div>
+
+              {/* Student Fields */}
+              {selectedRole === 'student' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="student-phone" className="flex items-center">
+                      Phone Number <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Input
+                      id="student-phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={studentPhone}
+                      onChange={e => {
+                        setStudentPhone(e.target.value);
+                      }}
+                      className={`w-full ${!studentPhone && validationError ? 'border-red-500' : ''}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="student-dob" className="flex items-center">
+                      Date of Birth <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Input
+                      id="student-dob"
+                      type="date"
+                      value={studentDOB}
+                      onChange={e => {
+                        setStudentDOB(e.target.value);
+                      }}
+                      className={`w-full ${!studentDOB && validationError ? 'border-red-500' : ''}`}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="student-privacy"
+                      type="checkbox"
+                      checked={studentPrivacyChecked}
+                      onChange={e => {
+                        setStudentPrivacyChecked(e.target.checked);
+                      }}
+                      className={!studentPrivacyChecked && validationError ? 'border-red-500' : ''}
+                    />
+                    <Label htmlFor="student-privacy" className="text-sm flex items-center">
+                      I agree to the{' '}
+                      <button 
+                        type="button" 
+                        onClick={() => setShowStudentPrivacy(true)}
+                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
+                      >
+                        Privacy Policy
+                      </button>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="student-terms"
+                      type="checkbox"
+                      checked={studentTermsChecked}
+                      onChange={e => {
+                        setStudentTermsChecked(e.target.checked);
+                      }}
+                      className={!studentTermsChecked && validationError ? 'border-red-500' : ''}
+                    />
+                    <Label htmlFor="student-terms" className="text-sm flex items-center">
+                      I agree to the{' '}
+                      <button 
+                        type="button" 
+                        onClick={() => setShowStudentTerms(true)}
+                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
+                      >
+                        Terms of Service
+                      </button>
+                    </Label>
+                  </div>
+                </>
+              )}
+
+              {/* Teacher Fields */}
+              {selectedRole === 'teacher' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="teacher-phone" className="flex items-center">
+                      Phone Number <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Input
+                      id="teacher-phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={teacherPhone}
+                      onChange={e => {
+                        setTeacherPhone(e.target.value);
+                      }}
+                      required
+                      className={`w-full ${!teacherPhone && validationError ? 'border-red-500' : ''}`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="teacher-active-students" className="flex items-center">
+                      # of Active Students <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Select
+                      value={teacherActiveStudents}
+                      onValueChange={(value) => {
+                        setTeacherActiveStudents(value);
+                      }}
+                    >
+                      <SelectTrigger className={`w-full ${!teacherActiveStudents && validationError ? 'border-red-500' : ''}`}>
+                        <SelectValue placeholder="Select number of students" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1-10">1-10 students</SelectItem>
+                        <SelectItem value="11-30">11-30 students</SelectItem>
+                        <SelectItem value="31-50">31-50 students</SelectItem>
+                        <SelectItem value="51-100">51-100 students</SelectItem>
+                        <SelectItem value="101-200">101-200 students</SelectItem>
+                        <SelectItem value="200+">More than 200 students</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="teacher-avg-tuition" className="flex items-center">
+                      Average Monthly Tuition Fee per Student <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Select
+                      value={teacherAvgTuition}
+                      onValueChange={(value) => {
+                        setTeacherAvgTuition(value);
+                      }}
+                    >
+                      <SelectTrigger className={`w-full ${!teacherAvgTuition && validationError ? 'border-red-500' : ''}`}>
+                        <SelectValue placeholder="Select tuition range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="800000">Under $30 (&lt; 800k VND)</SelectItem>
+                        <SelectItem value="800000-1500000">$30 - $55 (800k - 1.5mil VND)</SelectItem>
+                        <SelectItem value="1500000-2000000">$56 - $77 (1.5mil - 2mil VND)</SelectItem>
+                        <SelectItem value="2000000-3000000">$78 - $115 (2mil - 3mil VND)</SelectItem>
+                        <SelectItem value="3000000+">$115+ (3+ mil VND)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="teacher-referral">
+                      Where did you hear from us?
+                    </Label>
+                    <Input
+                      id="teacher-referral"
+                      type="text"
+                      placeholder="e.g. Google, Friend, etc."
+                      value={teacherReferralSource}
+                      onChange={e => {
+                        setTeacherReferralSource(e.target.value);
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="teacher-privacy"
+                      type="checkbox"
+                      checked={teacherPrivacyChecked}
+                      onChange={e => {
+                        setTeacherPrivacyChecked(e.target.checked);
+                      }}
+                      className={!teacherPrivacyChecked && validationError ? 'border-red-500' : ''}
+                    />
+                    <Label htmlFor="teacher-privacy" className="text-sm flex items-center">
+                      I agree to the{' '}
+                      <button 
+                        type="button" 
+                        onClick={() => setShowTeacherPrivacy(true)}
+                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
+                      >
+                        Privacy Policy
+                      </button>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="teacher-terms"
+                      type="checkbox"
+                      checked={teacherTermsChecked}
+                      onChange={e => {
+                        setTeacherTermsChecked(e.target.checked);
+                      }}
+                      className={!teacherTermsChecked && validationError ? 'border-red-500' : ''}
+                    />
+                    <Label htmlFor="teacher-terms" className="text-sm flex items-center">
+                      I agree to the{' '}
+                      <button 
+                        type="button" 
+                        onClick={() => setShowTeacherTerms(true)}
+                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
+                      >
+                        Terms of Service
+                      </button>
+                    </Label>
+                  </div>
+                </>
+              )}
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#272A69] hover:bg-[#272A69]/90"
+              >
+                {loading ? 'Creating account...' : 'Create account'}
+              </Button>
+            </form>
+          )}
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}

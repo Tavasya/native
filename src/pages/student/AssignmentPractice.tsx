@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
 import { updatePracticeProgress } from '@/features/assignments/assignmentSlice';
-import { Assignment, QuestionCard } from '@/features/assignments/types';
+import { Assignment, QuestionCard, AssignmentStatus } from '@/features/assignments/types';
 import QuestionContent from '@/components/assignment/QuestionContent';
 import QuestionNavigation from '@/components/assignment/QuestionNavigation';
 import { saveRecording, loadRecordings } from '@/features/submissions/submissionsSlice';
@@ -14,6 +14,9 @@ import { useToast } from "@/hooks/use-toast";
 import { submissionService } from '@/features/submissions/submissionsService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import {
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 
 interface ExtendedQuestionCard extends QuestionCard {
   isCompleted?: boolean;
@@ -23,7 +26,28 @@ interface ExtendedAssignment extends Omit<Assignment, 'questions'> {
   questions: ExtendedQuestionCard[];
 }
 
-const AssignmentPractice: React.FC = () => {
+interface PreviewData {
+  title: string;
+  due_date: string;
+  questions: QuestionCard[];
+  id: string;
+  class_id?: string;
+  created_at?: string;
+  metadata?: any;
+  status?: AssignmentStatus;
+}
+
+interface AssignmentPracticeProps {
+  previewMode?: boolean;
+  previewData?: PreviewData;
+  onBack?: () => void;
+}
+
+const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({ 
+  previewMode = false, 
+  previewData,
+  onBack 
+}) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -44,6 +68,7 @@ const AssignmentPractice: React.FC = () => {
   const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const practiceProgress = useAppSelector(state => 
     id ? state.assignments.practiceProgress[id] : undefined
@@ -69,6 +94,22 @@ const AssignmentPractice: React.FC = () => {
 
   useEffect(() => {
     const loadAssignment = async () => {
+      if (previewMode && previewData) {
+        const extendedAssignment: ExtendedAssignment = {
+          ...previewData,
+          class_id: previewData.class_id || 'preview',
+          created_at: previewData.created_at || new Date().toISOString(),
+          metadata: previewData.metadata || { autoSendReport: false },
+          status: previewData.status || 'not_started' as AssignmentStatus,
+          questions: previewData.questions.map((q: QuestionCard) => ({ 
+            ...q, 
+            isCompleted: false 
+          }))
+        };
+        setAssignment(extendedAssignment);
+        return;
+      }
+
       if (id) {
         try {
           const result = await dispatch(fetchAssignmentById(id)).unwrap();
@@ -88,14 +129,13 @@ const AssignmentPractice: React.FC = () => {
           }
         } catch (error) {
           console.error('Failed to load assignment:', error);
-          // Show a more user-friendly error message
           alert('Failed to load assignment. Please check your internet connection and try again.');
         }
       }
     };
 
     loadAssignment();
-  }, [id, dispatch]);
+  }, [id, dispatch, previewMode, previewData]);
 
   useEffect(() => {
     if (assignment && id && !isCompleted) {
@@ -644,6 +684,23 @@ const AssignmentPractice: React.FC = () => {
       return;
     }
 
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Navigate to dashboard first
+    navigate('/student/dashboard');
+
+    // Show loading toast WITHOUT duration (persists until dismissed)
+    const { dismiss } = toast({
+      title: "Processing submission...",
+      description: "Please wait while we analyze your recording.",
+      // Remove duration so it stays until we manually dismiss it
+    });
+
     console.log('=== SUBMISSION DEBUG START ===');
     console.log('Assignment:', {
       id: assignment.id,
@@ -700,6 +757,8 @@ const AssignmentPractice: React.FC = () => {
 
       console.log('Final recordings to submit:', currentRecordings);
 
+      let submissionId: string;
+
       if (existingSubmission?.status === 'in_progress') {
         // Update the existing submission
         console.log('Updating existing in-progress submission:', {
@@ -722,19 +781,7 @@ const AssignmentPractice: React.FC = () => {
         }
         
         console.log('Successfully updated existing submission');
-
-        // Send recordings for analysis
-        try {
-          console.log('Starting audio analysis for updated submission:', existingSubmission.id);
-          const result = await submissionService.analyzeAudio(
-            currentRecordings.map(r => r.audioUrl),
-            existingSubmission.id
-          );
-          console.log('Audio analysis completed:', result);
-        } catch (error) {
-          console.error('Error during audio analysis:', error);
-          // Don't throw here - we want to keep the submission even if analysis fails
-        }
+        submissionId = existingSubmission.id;
       } else {
         // Create a new submission only if there's no in-progress submission
         console.log('Creating new submission with data:', {
@@ -744,7 +791,7 @@ const AssignmentPractice: React.FC = () => {
           attempt: (existingSubmission?.attempt || 0) + 1
         });
         
-        const { error: createError } = await supabase
+        const { data: newSubmission, error: createError } = await supabase
           .from('submissions')
           .insert({
             assignment_id: id,
@@ -753,7 +800,9 @@ const AssignmentPractice: React.FC = () => {
             recordings: currentRecordings,
             submitted_at: new Date().toISOString(),
             attempt: (existingSubmission?.attempt || 0) + 1
-          });
+          })
+          .select()
+          .single();
 
         if (createError) {
           console.error('Error creating submission:', createError);
@@ -761,15 +810,41 @@ const AssignmentPractice: React.FC = () => {
         }
         
         console.log('Successfully created new submission');
+        submissionId = newSubmission.id;
+      }
+
+      // Now send recordings for analysis and wait for it to complete
+      try {
+        console.log('Starting audio analysis for submission:', submissionId);
+        const result = await submissionService.analyzeAudio(
+          currentRecordings.map(r => r.audioUrl),
+          submissionId
+        );
+        console.log('Audio analysis completed:', result);
+        
+        // Dismiss the loading toast and show success
+        dismiss();
+        toast({
+          title: "Assignment Completed!",
+          description: `You have completed "${assignment.title}" and analysis is complete.`,
+          duration: 5000,
+        });
+      } catch (analysisError) {
+        console.error('Error during audio analysis:', analysisError);
+        
+        // Dismiss loading toast and show partial success
+        dismiss();
+        toast({
+          title: "Assignment Submitted",
+          description: `"${assignment.title}" was submitted but analysis may still be processing.`,
+          duration: 5000,
+        });
+        // Don't throw here - we want to keep the submission even if analysis fails
       }
 
       console.log('=== SUBMISSION DEBUG END ===');
       setIsCompleted(true);
-      toast({
-        title: "Assignment Completed!",
-        description: `You have completed "${assignment.title}"`,
-      });
-      navigate('/student/dashboard');
+      
     } catch (error) {
       console.error('=== SUBMISSION ERROR ===');
       console.error('Error submitting assignment:', error);
@@ -777,7 +852,52 @@ const AssignmentPractice: React.FC = () => {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
-      alert(error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.');
+      
+      // Dismiss loading toast and show error
+      dismiss();
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.',
+        variant: "destructive",
+        duration: 8000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (previewMode && onBack) {
+      onBack();
+    } else {
+      navigate('/student/dashboard');
+    }
+  };
+
+  const handlePreviewRecording = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Recording is disabled in preview mode",
+    });
+  };
+
+  const handlePreviewPlayback = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Playback is disabled in preview mode",
+    });
+  };
+
+  const handlePreviewComplete = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Question completion is disabled in preview mode",
+    });
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < (assignment?.questions.length || 0) - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
     }
   };
 
@@ -788,58 +908,70 @@ const AssignmentPractice: React.FC = () => {
   const currentQuestion = assignment.questions[currentQuestionIndex];
 
   return (
-    <div className="container mx-auto px-4 min-h-screen flex items-center -mt-16">
-      <div className="max-w-6xl mx-auto w-full">
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2"
-              onClick={() => navigate('/student/dashboard')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Button>
-          </div>
-          <div>
-            <QuestionContent
-              currentQuestion={currentQuestion}
-              totalQuestions={assignment.questions.length}
-              timeRemaining={timeRemaining}
-              isRecording={isRecording}
-              hasRecorded={hasRecorded}
-              isPlaying={isPlaying}
-              isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
-              toggleRecording={toggleRecording}
-              playRecording={togglePlayPause}
-              completeQuestion={completeQuestion}
-              formatTime={formatTime}
-              assignmentTitle={assignment.title}
-              dueDate={new Date(assignment.due_date).toLocaleDateString()}
-              currentQuestionIndex={currentQuestionIndex}
-              showRecordButton={!hasRecorded || isRecording}
-              currentTime={currentTime}
-              duration={duration}
-              onTimeUpdate={handleSeek}
-              isProcessing={isProcessing}
-              mediaStream={mediaStream}
-            />
-          </div>
-          <div className="mt-4">
-            <QuestionNavigation
-              questions={assignment.questions}
-              currentQuestionIndex={currentQuestionIndex}
-              onQuestionSelect={(index) => {
-                // Pause audio if playing when changing questions
-                if (isPlaying && audioRef.current) {
-                  audioRef.current.pause();
-                  setIsPlaying(false);
-                }
-                setCurrentQuestionIndex(index);
-              }}
-              recordings={recordingsData}
-              disabled={isRecording || isPlaying}
-            />
+    <div className="container mx-auto px-4 min-h-screen flex flex-col">
+      <div className="flex items-center gap-4 py-4">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={handleBack}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
+        </Button>
+      </div>
+      <div className="flex-1 flex items-center">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="flex flex-col gap-6">
+            <div>
+              <TooltipProvider>
+                <QuestionContent
+                  currentQuestion={currentQuestion}
+                  totalQuestions={assignment.questions.length}
+                  timeRemaining={timeRemaining}
+                  isRecording={isRecording}
+                  hasRecorded={hasRecorded}
+                  isPlaying={isPlaying}
+                  isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
+                  toggleRecording={previewMode ? handlePreviewRecording : toggleRecording}
+                  playRecording={previewMode ? handlePreviewPlayback : togglePlayPause}
+                  completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
+                  formatTime={formatTime}
+                  assignmentTitle={assignment.title}
+                  dueDate={new Date(assignment.due_date).toLocaleString(undefined, {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                  currentQuestionIndex={currentQuestionIndex}
+                  showRecordButton={!previewMode && (!hasRecorded || isRecording)}
+                  currentTime={currentTime}
+                  duration={duration}
+                  onTimeUpdate={handleSeek}
+                  isProcessing={isProcessing}
+                  mediaStream={mediaStream}
+                  onNextQuestion={handleNextQuestion}
+                  isPreviewMode={previewMode}
+                />
+              </TooltipProvider>
+            </div>
+            <div className="mt-4">
+              <QuestionNavigation
+                questions={assignment.questions}
+                currentQuestionIndex={currentQuestionIndex}
+                onQuestionSelect={(index) => {
+                  if (isPlaying && audioRef.current) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
+                  }
+                  setCurrentQuestionIndex(index);
+                }}
+                recordings={recordingsData}
+                disabled={isRecording || isPlaying}
+              />
+            </div>
           </div>
         </div>
       </div>
