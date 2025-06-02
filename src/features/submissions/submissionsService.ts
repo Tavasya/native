@@ -363,7 +363,6 @@ export const submissionService = {
         audio_urls: urls,
         submission_url: submission_id
       });
-      // const response = await fetch("", {
       
       const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
@@ -379,18 +378,19 @@ export const submissionService = {
 
       console.log('Analysis response status:', response.status);
       console.log('Analysis response headers:', Object.fromEntries(response.headers.entries()));
-      const data = await response.json();
-      console.log('Analysis response data:', data);
-
+      
       if (!response.ok) {
+        const errorData = await response.json();
         console.error('Analysis request failed:', {
           status: response.status,
           statusText: response.statusText,
-          data
+          data: errorData
         });
-        throw new Error(data.error || 'Failed to analyze audio');
+        throw new Error(errorData.error || 'Failed to analyze audio');
       }
 
+      const data = await response.json();
+      console.log('Analysis response data:', data);
       console.log('=== AUDIO ANALYSIS DEBUG END ===');
       return data;
     } catch (error) {

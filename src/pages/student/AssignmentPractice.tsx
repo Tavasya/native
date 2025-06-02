@@ -820,7 +820,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           currentRecordings.map(r => r.audioUrl),
           submissionId
         );
-        console.log('Audio analysis completed:', result);
+        console.log('Audio analysis completed successfully:', result);
         
         // Dismiss the loading toast and show success
         dismiss();
@@ -831,6 +831,10 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         });
       } catch (analysisError) {
         console.error('Error during audio analysis:', analysisError);
+        console.error('Analysis error details:', {
+          message: analysisError instanceof Error ? analysisError.message : 'Unknown error',
+          stack: analysisError instanceof Error ? analysisError.stack : undefined
+        });
         
         // Dismiss loading toast and show partial success
         dismiss();
