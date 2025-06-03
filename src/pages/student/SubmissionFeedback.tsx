@@ -69,6 +69,13 @@ interface QuestionFeedback {
   audio_url: string;
   transcript: string;
   section_feedback: SectionFeedback;
+  duration_feedback?: {
+    ratio: number;
+    feedback: string;
+    time_limit_sec: number;
+    actual_duration: number;
+    question_number: string;
+  };
 }
 
 interface SpeedCategory {
@@ -97,6 +104,7 @@ interface SectionFeedback {
     grade: number;
     issues: PronunciationIssue[];
     word_details?: WordScore[];
+    critical_errors?: any[];
   };
   feedback?: string;
 }
@@ -170,15 +178,18 @@ const calculateOverallPronunciationScore = (wordDetails: any[]) => {
 const getWordsToShow = (wordDetails: any[]) => {
   if (!wordDetails || wordDetails.length === 0) return [];
   
-  // Show words with scores under 90, or if all scores are high, show bottom 30%
-  const lowScoreWords = wordDetails.filter(word => word.accuracy_score < 90);
+  // Filter out words with scores above 80 and words that are 2 letters or less
+  const filteredWords = wordDetails.filter(word => 
+    word.accuracy_score < 80 && word.word.length > 2
+  );
   
-  if (lowScoreWords.length > 0) {
-    return lowScoreWords;
+  if (filteredWords.length > 0) {
+    return filteredWords;
   }
   
-  // If no words under 90, show bottom 30%
-  const sorted = [...wordDetails].sort((a, b) => a.accuracy_score - b.accuracy_score);
+  // If no words meet the criteria, show bottom 30% of words that are longer than 2 letters
+  const validWords = wordDetails.filter(word => word.word.length > 2);
+  const sorted = [...validWords].sort((a, b) => a.accuracy_score - b.accuracy_score);
   const bottomCount = Math.max(1, Math.floor(sorted.length * 0.3));
   return sorted.slice(0, bottomCount);
 };
@@ -259,7 +270,7 @@ const SubmissionFeedback = () => {
     const sortedFeedback = [...selectedSubmission.section_feedback].sort((a, b) => 
       (a.question_id || 0) - (b.question_id || 0)
     );
-    return sortedFeedback[selectedQuestionIndex];
+    return sortedFeedback[selectedQuestionIndex] as QuestionFeedback;
   }, [selectedSubmission, selectedQuestionIndex]);
 
   // Memoize the current feedback data
@@ -813,9 +824,16 @@ const SubmissionFeedback = () => {
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-sm font-medium text-gray-900 mb-2">Speak at Length</div>
-                    <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
-                      {currentFeedback?.fluency?.wpm ? `${currentFeedback.fluency.wpm} WPM` : 'No data available'}
-                    </div>
+                    {currentQuestion?.duration_feedback && (
+                      <div className="mt-2">
+                        <div className="text-xs text-red-600">
+                          Spoke for {Math.round((currentQuestion.duration_feedback.actual_duration / currentQuestion.duration_feedback.time_limit_sec) * 100)}% of time limit
+                        </div>
+                        <div className="text-xs text-red-600 mt-1">
+                          {currentQuestion.duration_feedback.feedback}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
@@ -847,7 +865,7 @@ const SubmissionFeedback = () => {
                       <div
                         className="absolute top-0 bottom-0 w-0.5 bg-black"
                         style={{
-                          left: `${Math.min(95, (currentFeedback?.fluency?.wpm || 0) / 250 * 100)}%`
+                          left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 200 * 100))}%`
                         }}
                       ></div>
                     </div>
@@ -941,12 +959,6 @@ const SubmissionFeedback = () => {
                       </Table>
                     </div>
                   )}
-
-                  {currentFeedback?.pronunciation?.issues?.map((issue: PronunciationIssue, index: number) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-600">{issue.message}</p>
-                    </div>
-                  )) || <p className="text-sm text-gray-500">No pronunciation feedback available.</p>}
                 </div>
               </TabsContent>
 

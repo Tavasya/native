@@ -87,6 +87,6 @@
   }
   
   .page-indicator.active {
-    @apply w-4 bg-brand-blue;
+    @apply w-4 bg-brand-primary;
   }
 }

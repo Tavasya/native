@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import RequireAuth from '@/components/RequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Layout from '@/components/Layout'
-import Index from '@/pages/reports/Index'
+import Index from '@/pages/landing-page/Index'
 import FlowEditor from '@/dropdown/Index'
 // import ClassDetail from '@/components/teacher/ClassDetail'
 
@@ -48,9 +48,12 @@ export default function AppRoutes() {
   return ( 
     <Suspense fallback={<EnhancedLoadingSpinner />}>
       <Routes>
+        {/* Landing page route outside of Layout */}
+        <Route path="/" element={<Navigate to="/landing-page" replace />} />
+        <Route path="/landing-page" element={<Index />} />
+        
         <Route element={<Layout />}>
           {/* -------- PUBLIC -------- */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<NewLogin />} />
           <Route path="/sign-up" element={<NewSignUp />} />
           <Route path="/auth/verify" element={<VerificationSuccess />} />
