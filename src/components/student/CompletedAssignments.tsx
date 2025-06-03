@@ -45,9 +45,7 @@ const CompletedAssignments: React.FC = () => {
   }, [dispatch, assignments]);
 
   const handleViewSubmission = (submission: CompletedAssignment) => {
-    if (submission.status === 'graded') {
-      navigate(`/student/submission/${submission.id}/feedback`);
-    } else if (submission.status === 'pending') {
+    if (['graded', 'pending', 'awaiting_review'].includes(submission.status)) {
       navigate(`/student/submission/${submission.id}/feedback`);
     } else {
       navigate(`/student/assignment/${submission.id}/practice`);
@@ -58,6 +56,8 @@ const CompletedAssignments: React.FC = () => {
     switch (status) {
       case 'pending':
         return 'text-yellow-600';
+      case 'awaiting_review':
+        return 'text-orange-600';
       case 'graded':
         return 'text-green-600';
       default:
@@ -69,6 +69,8 @@ const CompletedAssignments: React.FC = () => {
     switch (status) {
       case 'pending':
         return 'Pending';
+      case 'awaiting_review':
+        return 'Awaiting Review';
       case 'graded':
         return 'Graded';
       default:
@@ -78,7 +80,7 @@ const CompletedAssignments: React.FC = () => {
 
   // Filter and sort submissions
   const completedSubmissions = submissions
-    .filter(submission => ['pending', 'graded'].includes(submission.status))
+    .filter(submission => ['pending', 'awaiting_review', 'graded'].includes(submission.status))
     .map(submission => {
       const assignment = assignments.find(a => a.id === submission.assignment_id);
       return {
@@ -97,7 +99,8 @@ const CompletedAssignments: React.FC = () => {
         graded: 0,
         pending: 1,
         in_progress: 2,
-        rejected: 3
+        rejected: 3,
+        awaiting_review: 4
       };
       return statusPriority[a.status] - statusPriority[b.status];
     });

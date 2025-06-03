@@ -1,7 +1,7 @@
 // src/features/assignments/types.ts
 
 export type AssignmentStatus    = 'not_started' | 'in_progress' | 'completed';
-export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed' | 'pending' | 'graded' | 'rejected';
+export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed' | 'pending' | 'graded' | 'rejected' | 'awaiting_review';
 
 export interface QuestionCard {
   id: string;
@@ -21,7 +21,6 @@ export interface Assignment {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];  // now an array of the above
   metadata: {
-    autoSendReport: boolean;
     [key: string]: any;       // for future flags
   };
   status: AssignmentStatus;
@@ -42,7 +41,6 @@ export interface CreateAssignmentDto {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];
   metadata?: {
-    autoSendReport: boolean;
     [key: string]: any;
   };
   status?: AssignmentStatus;

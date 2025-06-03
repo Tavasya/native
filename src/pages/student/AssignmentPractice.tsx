@@ -1,30 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+// 📁 src/components/assignment/AssignmentPractice.tsx (MAIN REFACTORED COMPONENT)
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
-import { updatePracticeProgress } from '@/features/assignments/assignmentSlice';
-import { Assignment, QuestionCard, AssignmentStatus } from '@/features/assignments/types';
+import { supabase } from '@/integrations/supabase/client';
+import { QuestionCard, AssignmentStatus } from '@/features/assignments/types';
 import QuestionContent from '@/components/assignment/QuestionContent';
 import QuestionNavigation from '@/components/assignment/QuestionNavigation';
-import { saveRecording, loadRecordings } from '@/features/submissions/submissionsSlice';
-import { uploadQuestionRecording } from '@/features/submissions/submissionThunks';
-import { supabase } from '@/integrations/supabase/client';
-import { validateAudioBlob, repairWebMFile, OPTIMAL_RECORDER_OPTIONS } from '@/utils/webm-diagnostics';
 import { useToast } from "@/hooks/use-toast";
-import { submissionService } from '@/features/submissions/submissionsService';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
-interface ExtendedQuestionCard extends QuestionCard {
-  isCompleted?: boolean;
-}
-
-interface ExtendedAssignment extends Omit<Assignment, 'questions'> {
-  questions: ExtendedQuestionCard[];
-}
+// Custom Hooks
+import { useAssignmentData } from '@/hooks/assignment/useAssignmentData';
+import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
+import { useAudioPlayback } from '@/hooks/assignment/useAudioPlayback';
+import { useQuestionTimer } from '@/hooks/assignment/useQuestionTimer';
+import { useRecordingSession } from '@/hooks/assignment/useRecordingSession';
+import { useQuestionNavigation } from '@/hooks/assignment/useQuestionNavigation';
+import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 
 interface PreviewData {
   title: string;
@@ -50,38 +43,113 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
-  const [assignment, setAssignment] = useState<ExtendedAssignment | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [hasRecorded, setHasRecorded] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [sessionRecordings, setSessionRecordings] = useState<{ [index: string]: { url: string; createdAt: string; uploadedUrl: string } }>({});
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // User authentication
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isCompleted] = useState(false);
 
-  const practiceProgress = useAppSelector(state => 
-    id ? state.assignments.practiceProgress[id] : undefined
-  );
+  // Load assignment data
+  const { assignment, loading, error, markQuestionCompleted } = useAssignmentData({
+    id,
+    previewMode,
+    previewData
+  });
 
-  const recordingsData = useAppSelector(state => 
-    id ? state.submissions.recordings?.[id] : undefined
-  );
+  // Question navigation
+  const {
+    currentQuestionIndex,
+    isLastQuestion,
+    goToQuestion,
+    goToNextQuestion
+  } = useQuestionNavigation({
+    assignmentId: id || 'preview',
+    totalQuestions: assignment?.questions.length || 0,
+    isCompleted,
+    completedQuestions: assignment?.questions.filter(q => q.isCompleted).map(q => q.id) || []
+  });
 
-  useEffect(() => {
-    dispatch(loadRecordings());
-  }, [dispatch]);
+  // Recording session management
+  const {
+    sessionRecordings,
+    recordingsData,
+    loadExistingSubmission,
+    saveNewRecording,
+    hasRecordingForQuestion,
+    getRecordingForQuestion
+  } = useRecordingSession({
+    assignmentId: id || 'preview',
+    userId,
+    assignment,
+    toast
+  });
 
+  // Question timer
+  const currentQuestion = assignment?.questions[currentQuestionIndex];
+  const timeLimit = currentQuestion ? Number(currentQuestion.timeLimit) * 60 : 0;
+  
+  const { timeRemaining, formatTime } = useQuestionTimer({
+    timeLimit,
+    isRecording: false, // Will be updated by recording hook
+    onTimeUp: () => {} // Will be handled by recording hook
+  });
+
+  // Audio recording
+  const {
+    isRecording,
+    mediaStream,
+    isProcessing,
+    toggleRecording: baseToggleRecording
+  } = useAudioRecording({
+    onRecordingComplete: async (audioBlob) => {
+      try {
+        await saveNewRecording(currentQuestionIndex, audioBlob);
+        setHasRecorded(true);
+      } catch (error) {
+        toast({
+          title: "Recording Error",
+          description: "Failed to save recording. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Recording Error",
+        description: error,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Audio playback
+  const {
+    isPlaying,
+    togglePlayPause,
+    pauseAudio
+  } = useAudioPlayback({
+    onError: (error) => {
+      toast({
+        title: "Playback Error",
+        description: error,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Submission management
+  const { handleFinalSubmit } = useSubmissionManager({
+    assignment,
+    assignmentId: id || 'preview',
+    userId,
+    sessionRecordings,
+    recordingsData: (recordingsData || {}) as Record<string, { uploadedUrl: string }>
+  });
+
+  // Local state for recording status
+  const [hasRecorded, setHasRecorded] = useState(false);
+
+  // Get user ID on mount
   useEffect(() => {
     const getUserId = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -92,784 +160,96 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     getUserId();
   }, []);
 
+  // Load existing submissions
   useEffect(() => {
-    const loadAssignment = async () => {
-      if (previewMode && previewData) {
-        const extendedAssignment: ExtendedAssignment = {
-          ...previewData,
-          class_id: previewData.class_id || 'preview',
-          created_at: previewData.created_at || new Date().toISOString(),
-          metadata: previewData.metadata || { autoSendReport: false },
-          status: previewData.status || 'not_started' as AssignmentStatus,
-          questions: previewData.questions.map((q: QuestionCard) => ({ 
-            ...q, 
-            isCompleted: false 
-          }))
-        };
-        setAssignment(extendedAssignment);
-        return;
-      }
+    loadExistingSubmission();
+  }, [loadExistingSubmission]);
 
-      if (id) {
-        try {
-          const result = await dispatch(fetchAssignmentById(id)).unwrap();
-          console.log('Assignment data:', result);
-          console.log('Questions data:', result.questions);
-          const extendedAssignment: ExtendedAssignment = {
-            ...result,
-            questions: result.questions.map((q: QuestionCard) => ({ 
-              ...q, 
-              isCompleted: practiceProgress?.completedQuestions?.includes(q.id) || false 
-            }))
-          };
-          setAssignment(extendedAssignment);
-          
-          if (practiceProgress) {
-            setCurrentQuestionIndex(practiceProgress.currentQuestionIndex);
-          }
-        } catch (error) {
-          console.error('Failed to load assignment:', error);
-          alert('Failed to load assignment. Please check your internet connection and try again.');
-        }
-      }
-    };
-
-    loadAssignment();
-  }, [id, dispatch, previewMode, previewData]);
-
-  useEffect(() => {
-    if (assignment && id && !isCompleted) {
-      dispatch(updatePracticeProgress({
-        assignmentId: id,
-        currentQuestionIndex,
-        completedQuestions: assignment.questions
-          .filter(q => q.isCompleted)
-          .map(q => q.id)
-      }));
-    }
-  }, [assignment, currentQuestionIndex, id, dispatch, isCompleted]);
-
+  // Update hasRecorded when question changes
   useEffect(() => {
     if (assignment) {
-      const currentQuestion = assignment.questions[currentQuestionIndex];
-      setTimeRemaining(Number(currentQuestion.timeLimit) * 60 || 0);
+      setHasRecorded(hasRecordingForQuestion(currentQuestionIndex));
       
-      // Check if current question has a recording
-      const hasRecording = recordingsData?.[currentQuestionIndex.toString()]?.url != null;
-      setHasRecorded(hasRecording);
-      
-      setIsRecording(false);
-      setIsPlaying(false);
-    }
-  }, [currentQuestionIndex, assignment, recordingsData]);
-
-  useEffect(() => {
-    if (timeRemaining > -15 && isRecording) {
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => prev - 1);
-        // If we're about to hit -15, stop the recording
-        if (timeRemaining === -14) {
-          toggleRecording();
-        }
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [timeRemaining, isRecording]);
-
-  const getStoragePath = (fullUrl: string) => {
-    try {
-      const url = new URL(fullUrl);
-      // Extract the path after /storage/v1/object/public/
-      const pathMatch = url.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
-      if (!pathMatch) return fullUrl;
-      
-      // Remove any duplicate 'recordings' folders from the path
-      const path = pathMatch[1].replace(/recordings\/recordings\//, 'recordings/');
-      return path;
-    } catch (e) {
-      console.error('Error parsing URL:', e);
-      return fullUrl;
-    }
-  };
-
-  useEffect(() => {
-    const loadExistingSubmission = async () => {
-      if (!id || !userId || !assignment) return;
-
-      console.log('Loading existing submission...');
-
-      try {
-        const { data: existingSubmissions, error } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('assignment_id', id)
-          .eq('student_id', userId)
-          .order('submitted_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error('Error loading existing submission:', error);
-          return;
-        }
-
-        console.log('Found existing submissions:', existingSubmissions);
-
-        if (existingSubmissions?.[0]) {
-          const submission = existingSubmissions[0];
-          const recordings = Array.isArray(submission.recordings) 
-            ? submission.recordings 
-            : JSON.parse(submission.recordings);
-
-          // Update session recordings with the correct format
-          recordings.forEach((recording: any) => {
-            if (recording && recording.questionId && recording.audioUrl) {
-              const questionIndex = assignment.questions.findIndex(q => q.id === recording.questionId);
-              if (questionIndex !== -1) {
-                // Check if we already have a cached URL
-                const cacheKey = `${id}-${questionIndex}`;
-                if (audioUrlCache[cacheKey]) {
-                  setSessionRecordings(prev => ({
-                    ...prev,
-                    [questionIndex]: {
-                      url: audioUrlCache[cacheKey],
-                      createdAt: submission.submitted_at,
-                      uploadedUrl: recording.audioUrl
-                    }
-                  }));
-                } else {
-                  // Get the storage path from the full URL
-                  const storagePath = getStoragePath(recording.audioUrl);
-                  console.log('Storage path:', storagePath); // Debug log
-                  
-                  // Get a signed URL for the audio file
-                  supabase.storage
-                    .from('recordings')
-                    .createSignedUrl(storagePath, 3600) // URL valid for 1 hour
-                    .then(({ data: signedUrl }) => {
-                      if (signedUrl) {
-                        console.log('Got signed URL:', signedUrl.signedUrl); // Debug log
-                        // Cache the URL
-                        setAudioUrlCache(prev => ({
-                          ...prev,
-                          [cacheKey]: signedUrl.signedUrl
-                        }));
-                        
-                        setSessionRecordings(prev => ({
-                          ...prev,
-                          [questionIndex]: {
-                            url: signedUrl.signedUrl,
-                            createdAt: submission.submitted_at,
-                            uploadedUrl: recording.audioUrl
-                          }
-                        }));
-                      }
-                    })
-                    .catch(error => {
-                      console.error('Error getting signed URL:', error);
-                      console.log('Falling back to public URL:', recording.audioUrl); // Debug log
-                      // Fallback to using the public URL if signed URL fails
-                      setSessionRecordings(prev => ({
-                        ...prev,
-                        [questionIndex]: {
-                          url: recording.audioUrl,
-                          createdAt: submission.submitted_at,
-                          uploadedUrl: recording.audioUrl
-                        }
-                      }));
-                    });
-                }
-              }
-            }
-          });
-
-          // Check if current question has a recording
-          const hasCurrentQuestionRecording = recordings.some(
-            (r: any) => r.questionId === assignment.questions[currentQuestionIndex]?.id
-          );
-          setHasRecorded(hasCurrentQuestionRecording);
-        }
-      } catch (error) {
-        console.error('Error processing submission:', error);
-      }
-    };
-
-    loadExistingSubmission();
-  }, [id, userId, assignment]);
-
-  // Add a separate effect to update hasRecorded when currentQuestionIndex changes
-  useEffect(() => {
-    if (!assignment) return;
-    
-    const hasSessionRecording = sessionRecordings[currentQuestionIndex]?.url != null;
-    const hasReduxRecording = recordingsData?.[currentQuestionIndex.toString()]?.url != null;
-    setHasRecorded(hasSessionRecording || hasReduxRecording);
-  }, [currentQuestionIndex, assignment, sessionRecordings, recordingsData]);
-
-  const handleRecordingUpdate = async (existingSubmission: any, questionId: string, uploadedUrl: string) => {
-    if (!assignment) return;
-
-    try {
-      // Update existing submission using RPC
-      const { data: updatedSubmission, error: updateError } = await supabase
-        .rpc('update_recording', {
-          p_submission_id: existingSubmission.id,
-          p_question_id: questionId,
-          p_audio_url: uploadedUrl
-        });
-
-      if (updateError) {
-        console.error('Error updating submission:', updateError);
-        throw updateError;
-      }
-
-      console.log('Updated submission:', updatedSubmission);
-
-      // Ensure status is in_progress
-      if (updatedSubmission?.status !== 'in_progress') {
-        const { error: statusError } = await supabase
-          .from('submissions')
-          .update({ status: 'in_progress' })
-          .eq('id', existingSubmission.id);
-
-        if (statusError) {
-          console.error('Error updating submission status:', statusError);
-        }
-      }
-
-      if (updatedSubmission?.recordings) {
-        // Create a map of question IDs to their indices
-        const questionIdToIndex = new Map(
-          assignment.questions.map((q, index) => [q.id, index])
-        );
-
-        // Update Redux state with the new recordings
-        const recordings = Array.isArray(updatedSubmission.recordings) 
-          ? updatedSubmission.recordings 
-          : JSON.parse(updatedSubmission.recordings);
-
-        recordings.forEach((recording: any) => {
-          if (recording && recording.questionId && recording.audioUrl) {
-            const questionIndex = questionIdToIndex.get(recording.questionId);
-            if (questionIndex !== undefined) {
-              dispatch(saveRecording({
-                assignmentId: id!,
-                questionIndex: questionIndex.toString(),
-                url: recording.audioUrl,
-                createdAt: new Date().toISOString()
-              }));
-            }
-          }
-        });
-
-        // Set hasRecorded if this recording is for the current question
-        if (questionId === assignment.questions[currentQuestionIndex]?.id) {
-          setHasRecorded(true);
-        }
-      }
-    } catch (error) {
-      console.error('Error in handleRecordingUpdate:', error);
-      throw error;
-    }
-  };
-
-  const toggleRecording = async () => {
-    if (!userId) {
-      alert('Please sign in to record audio');
-      return;
-    }
-
-    if (isRecording) {
-      // Stop recording
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        try {
-          setIsProcessing(true);
-          // First, request data - crucial to ensure we get the final chunk
-          mediaRecorder.requestData();
-          
-          // Wait a short time to ensure the data is processed
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-          // Stop the recording
-          mediaRecorder.stop();
-          
-          // Important: Stop all tracks AFTER stopping the recorder
-          mediaRecorder.stream.getTracks().forEach(track => track.stop());
-          setMediaStream(null);
-          
-          setIsRecording(false);
-          setHasRecorded(true);
-          // Reset audio state
-          setIsPlaying(false);
-          setCurrentTime(0);
-          setDuration(0);
-        } catch (error) {
-          console.error('Error stopping recording:', error);
-          alert('Error stopping recording. Please try again.');
-          setIsProcessing(false);
-        }
-      }
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          } 
-        });
-        
-        setMediaStream(stream);
-        
-        // Check if the preferred MIME type is supported
-        const mimeType = OPTIMAL_RECORDER_OPTIONS.mimeType;
-        const isSupported = MediaRecorder.isTypeSupported(mimeType);
-        
-        console.log(`MIME type ${mimeType} supported: ${isSupported}`);
-        
-        // Create MediaRecorder with optimal options
-        const recorder = new MediaRecorder(stream, {
-          mimeType: isSupported ? mimeType : 'audio/webm',
-          audioBitsPerSecond: OPTIMAL_RECORDER_OPTIONS.audioBitsPerSecond
-        });
-        
-        const chunks: Blob[] = [];
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            chunks.push(e.data);
-            console.log(`Received data chunk: ${e.data.size} bytes`);
-          }
-        };
-
-        recorder.onstop = async () => {
-          try {
-            console.log(`Recording stopped. Total chunks: ${chunks.length}`);
-            
-            const audioBlob = new Blob(chunks, { 
-              type: isSupported ? mimeType : 'audio/webm' 
-            });
-            
-            if (audioBlob.size === 0) {
-              throw new Error('Recording failed: Empty audio data');
-            }
-            
-            const validation = await validateAudioBlob(audioBlob);
-            console.log('WebM validation result:', validation);
-            
-            let finalBlob = audioBlob;
-            
-            if (!validation.valid) {
-              console.log('Invalid WebM structure detected, attempting repair');
-              const repairResult = await repairWebMFile(audioBlob);
-              
-              if (repairResult.fixed) {
-                console.log('WebM repair successful');
-                finalBlob = repairResult.blob;
-              } else {
-                console.error('WebM repair failed:', repairResult.details);
-                throw new Error('Failed to create valid WebM recording. Please try again.');
-              }
-            }
-
-            const audioUrl = URL.createObjectURL(finalBlob);
-            
-            // Create a temporary audio element to get the duration
-            const tempAudio = new Audio(audioUrl);
-            tempAudio.onloadedmetadata = () => {
-              setDuration(tempAudio.duration);
-              setIsProcessing(false);
-            };
-            tempAudio.onerror = () => {
-              console.error('Error loading audio metadata');
-              setIsProcessing(false);
-            };
-            
-            // Update session recordings immediately
-            setSessionRecordings(prev => ({
-              ...prev,
-              [currentQuestionIndex]: {
-                url: audioUrl,
-                createdAt: new Date().toISOString(),
-                uploadedUrl: audioUrl
-              }
-            }));
-
-            // Save to Redux
-            dispatch(saveRecording({
-              assignmentId: id!,
-              questionIndex: currentQuestionIndex.toString(),
-              url: audioUrl,
-              createdAt: new Date().toISOString()
-            }));
-
-            // Upload to Supabase
-            if (assignment) {
-              const questionId = assignment.questions[currentQuestionIndex].id;
-              const uploadedUrl = await dispatch(uploadQuestionRecording({
-                blob: finalBlob,
-                assignmentId: id!,
-                questionId,
-                studentId: userId,
-                questionIndex: currentQuestionIndex.toString()
-              })).unwrap();
-
-              // Update session recordings with the uploaded URL
-              setSessionRecordings(prev => ({
-                ...prev,
-                [currentQuestionIndex]: {
-                  ...prev[currentQuestionIndex],
-                  uploadedUrl
-                }
-              }));
-
-              // Update or create submission in Supabase
-              const { data: existingSubmissions, error: fetchError } = await supabase
-                .from('submissions')
-                .select('*')
-                .eq('assignment_id', id)
-                .eq('student_id', userId)
-                .order('submitted_at', { ascending: false })
-                .limit(1);
-
-              if (fetchError) {
-                console.error('Error fetching submission:', fetchError);
-                throw fetchError;
-              }
-
-              const existingSubmission = existingSubmissions?.[0];
-
-              if (existingSubmission) {
-                await handleRecordingUpdate(existingSubmission, questionId, uploadedUrl);
-              } else {
-                // Create new submission
-                const { error: createError } = await supabase
-                  .from('submissions')
-                  .insert({
-                    assignment_id: id,
-                    student_id: userId,
-                    status: 'in_progress',
-                    submitted_at: new Date().toISOString(),
-                    recordings: [{
-                      questionId,
-                      audioUrl: uploadedUrl
-                    }]
-                  });
-
-                if (createError) {
-                  console.error('Error creating submission:', createError);
-                  throw createError;
-                }
-              }
-            }
-
-            setHasRecorded(true);
-          } catch (error) {
-            console.error('Error processing recording:', error);
-            alert('Error processing recording. Please try again.');
-          }
-        };
-
-        // Start recording with a smaller timeslice for more frequent callbacks
-        recorder.start(100); // Collect data every 100ms for more reliable chunks
-        setMediaRecorder(recorder);
-        setIsRecording(true);
-        // Reset audio state when starting new recording
-        setIsPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
-      } catch (error) {
-        console.error('Error accessing microphone:', error);
-        alert('Error accessing microphone. Please ensure you have granted microphone permissions.');
+      // Stop playback when changing questions
+      if (isPlaying) {
+        pauseAudio();
       }
     }
-  };
+  }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio]);
 
-  const togglePlayPause = () => {
-    if (!audioRef.current || isProcessing) return;
-
-    // Get the current recording
-    const sessionRecording = sessionRecordings[currentQuestionIndex.toString()];
-    const reduxRecording = recordingsData?.[currentQuestionIndex.toString()];
-    const recording = sessionRecording || reduxRecording;
-
-    if (!recording?.url) {
-      alert('No recording available for this question');
-      return;
-    }
-
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      try {
-        // Set the source if it's not already set
-        if (audioRef.current.src !== recording.url) {
-          audioRef.current.src = recording.url;
-        }
-        
-        // Ensure the audio is loaded before playing
-        audioRef.current.load();
-        
-        const playPromise = audioRef.current.play();
-        
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              setIsPlaying(true);
-              audioRef.current!.onended = () => {
-                setIsPlaying(false);
-                setCurrentTime(0);
-              };
-            })
-            .catch((error) => {
-              console.error('Error playing recording:', error);
-              alert('Error playing recording. Please try again.');
-              setIsPlaying(false);
-            });
-        }
-      } catch (error) {
-        console.error('Error setting up audio playback:', error);
-        alert('Error playing recording. Please try again.');
-        setIsPlaying(false);
-      }
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const newTime = audioRef.current.currentTime;
-      setCurrentTime(newTime);
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleSeek = (time: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  };
-
-  const formatTime = (time: number) => {
-    const isNegative = time < 0;
-    const absTime = Math.abs(time);
-    const minutes = Math.floor(absTime / 60);
-    const seconds = Math.floor(absTime % 60);
-    return `${isNegative ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const completeQuestion = () => {
-    if (!assignment) return;
-
-    setAssignment(prev => {
-      if (!prev) return null;
-      const updatedQuestions = [...prev.questions];
-      updatedQuestions[currentQuestionIndex] = {
-        ...updatedQuestions[currentQuestionIndex],
-        isCompleted: true
-      };
-      return { ...prev, questions: updatedQuestions };
-    });
-
-    if (currentQuestionIndex < assignment.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-      handleFinalSubmit();
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    if (!assignment || !id || !userId) {
-      alert('Please sign in to submit your assignment');
-      return;
-    }
-
-    // Prevent double submission
-    if (isSubmitting) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Navigate to dashboard first
-    navigate('/student/dashboard');
-
-    // Show loading toast WITHOUT duration (persists until dismissed)
-    const { dismiss } = toast({
-      title: "Processing submission...",
-      description: "Please wait while we analyze your recording.",
-      // Remove duration so it stays until we manually dismiss it
-    });
-
-    console.log('=== SUBMISSION DEBUG START ===');
-    console.log('Assignment:', {
-      id: assignment.id,
-      title: assignment.title,
-      questionsCount: assignment.questions.length
-    });
-    console.log('Current recordingsData:', recordingsData);
-    console.log('Current sessionRecordings:', sessionRecordings);
-
-    try {
-      // First, check for any existing submission
-      const { data: existingSubmissions, error: fetchError } = await supabase
-        .from('submissions')
-        .select('*')
-        .eq('assignment_id', id)
-        .eq('student_id', userId)
-        .order('submitted_at', { ascending: false })
-        .limit(1);
-
-      if (fetchError) {
-        console.error('Error fetching existing submissions:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('Existing submissions found:', existingSubmissions);
-
-      const existingSubmission = existingSubmissions?.[0];
-      console.log('Most recent existing submission:', existingSubmission);
-
-      // Get all recordings from the current session
-      const currentRecordings = assignment.questions.map((question, index) => {
-        const recordingData = recordingsData?.[index.toString()];
-        const sessionRecording = sessionRecordings[index];
-        
-        console.log(`Processing recording for question ${index + 1}:`, {
-          questionId: question.id,
-          recordingData,
-          sessionRecording
-        });
-        
-        // Use the most recent recording URL
-        const recordingUrl = recordingData?.uploadedUrl || sessionRecording?.uploadedUrl;
-        
-        if (!recordingUrl) {
-          console.error(`Missing recording URL for question ${index + 1}`);
-          throw new Error(`Missing recording for question ${index + 1}`);
-        }
-
-        return {
-          questionId: question.id,
-          audioUrl: recordingUrl
-        };
-      });
-
-      console.log('Final recordings to submit:', currentRecordings);
-
-      let submissionId: string;
-
-      if (existingSubmission?.status === 'in_progress') {
-        // Update the existing submission
-        console.log('Updating existing in-progress submission:', {
-          submissionId: existingSubmission.id,
-          currentStatus: existingSubmission.status
-        });
-        
-        const { error: updateError } = await supabase
-          .from('submissions')
-          .update({ 
-            status: 'pending',
-            recordings: currentRecordings,
-            submitted_at: new Date().toISOString()
-          })
-          .eq('id', existingSubmission.id);
-
-        if (updateError) {
-          console.error('Error updating submission:', updateError);
-          throw updateError;
-        }
-        
-        console.log('Successfully updated existing submission');
-        submissionId = existingSubmission.id;
-      } else {
-        // Create a new submission only if there's no in-progress submission
-        console.log('Creating new submission with data:', {
-          assignment_id: id,
-          student_id: userId,
-          recordings_count: currentRecordings.length,
-          attempt: (existingSubmission?.attempt || 0) + 1
-        });
-        
-        const { data: newSubmission, error: createError } = await supabase
-          .from('submissions')
-          .insert({
-            assignment_id: id,
-            student_id: userId,
-            status: 'pending',
-            recordings: currentRecordings,
-            submitted_at: new Date().toISOString(),
-            attempt: (existingSubmission?.attempt || 0) + 1
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating submission:', createError);
-          throw createError;
-        }
-        
-        console.log('Successfully created new submission');
-        submissionId = newSubmission.id;
-      }
-
-      // Now send recordings for analysis and wait for it to complete
-      try {
-        console.log('Starting audio analysis for submission:', submissionId);
-        const result = await submissionService.analyzeAudio(
-          currentRecordings.map(r => r.audioUrl),
-          submissionId
-        );
-        console.log('Audio analysis completed successfully:', result);
-        
-        // Dismiss the loading toast and show success
-        dismiss();
-        toast({
-          title: "Assignment Completed!",
-          description: `You have completed "${assignment.title}" and analysis is complete.`,
-          duration: 5000,
-        });
-      } catch (analysisError) {
-        console.error('Error during audio analysis:', analysisError);
-        console.error('Analysis error details:', {
-          message: analysisError instanceof Error ? analysisError.message : 'Unknown error',
-          stack: analysisError instanceof Error ? analysisError.stack : undefined
-        });
-        
-        // Dismiss loading toast and show partial success
-        dismiss();
-        toast({
-          title: "Assignment Submitted",
-          description: `"${assignment.title}" was submitted but analysis may still be processing.`,
-          duration: 5000,
-        });
-        // Don't throw here - we want to keep the submission even if analysis fails
-      }
-
-      console.log('=== SUBMISSION DEBUG END ===');
-      setIsCompleted(true);
-      
-    } catch (error) {
-      console.error('=== SUBMISSION ERROR ===');
-      console.error('Error submitting assignment:', error);
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      // Dismiss loading toast and show error
-      dismiss();
+  // Enhanced toggle recording with timer handling
+  const toggleRecording = () => {
+    if (previewMode) {
       toast({
-        title: "Submission Failed",
-        description: error instanceof Error ? error.message : 'Failed to submit assignment. Please try again.',
-        variant: "destructive",
-        duration: 8000,
+        title: "Preview Mode",
+        description: "Recording is disabled in preview mode",
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
+    }
+    baseToggleRecording();
+  };
+
+  // Enhanced play recording
+  const playRecording = () => {
+    if (previewMode) {
+      toast({
+        title: "Preview Mode", 
+        description: "Playback is disabled in preview mode",
+      });
+      return;
+    }
+
+    const recording = getRecordingForQuestion(currentQuestionIndex);
+    console.log('🔍 Full recording object:', recording);
+    console.log('🔗 Complete URL length:', recording?.url?.length);
+    console.log('🔗 Complete URL:', recording?.url);
+    
+    if (recording?.url) {
+      // Check if URL is complete
+      if (!recording.url.includes('token=')) {
+        console.error('❌ URL appears incomplete - missing token');
+        toast({
+          title: "Invalid Recording URL",
+          description: "The recording URL is incomplete",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('✅ URL appears complete, attempting to play');
+      togglePlayPause(recording.url);
+    } else {
+      console.log('❌ No recording URL found');
+      toast({
+        title: "No Recording",
+        description: "No recording available for this question",
+        variant: "destructive",
+      });
     }
   };
 
+  // Complete question handler
+  const completeQuestion = () => {
+    if (previewMode) {
+      toast({
+        title: "Preview Mode",
+        description: "Question completion is disabled in preview mode",
+      });
+      return;
+    }
+
+    if (!hasRecorded) return;
+
+    markQuestionCompleted(currentQuestionIndex);
+
+    if (isLastQuestion) {
+      handleFinalSubmit();
+    } else {
+      goToNextQuestion();
+    }
+  };
+
+  // Handle back navigation
   const handleBack = () => {
     if (previewMode && onBack) {
       onBack();
@@ -878,38 +258,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     }
   };
 
-  const handlePreviewRecording = () => {
-    toast({
-      title: "Preview Mode",
-      description: "Recording is disabled in preview mode",
-    });
-  };
+  // Loading and error states
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!assignment) return <div>Assignment not found</div>;
 
-  const handlePreviewPlayback = () => {
-    toast({
-      title: "Preview Mode",
-      description: "Playback is disabled in preview mode",
-    });
-  };
-
-  const handlePreviewComplete = () => {
-    toast({
-      title: "Preview Mode",
-      description: "Question completion is disabled in preview mode",
-    });
-  };
-
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < (assignment?.questions.length || 0) - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    }
-  };
-
-  if (!assignment) {
-    return <div>Loading...</div>;
-  }
-
-  const currentQuestion = assignment.questions[currentQuestionIndex];
+  const showRecordButton = !previewMode && (!hasRecorded || isRecording);
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
@@ -923,55 +277,51 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
         </Button>
       </div>
+      
       <div className="flex-1 flex items-center">
         <div className="max-w-6xl mx-auto w-full">
           <div className="flex flex-col gap-6">
             <div>
               <TooltipProvider>
-                <QuestionContent
-                  currentQuestion={currentQuestion}
-                  totalQuestions={assignment.questions.length}
-                  timeRemaining={timeRemaining}
-                  isRecording={isRecording}
-                  hasRecorded={hasRecorded}
-                  isPlaying={isPlaying}
-                  isLastQuestion={currentQuestionIndex === assignment.questions.length - 1}
-                  toggleRecording={previewMode ? handlePreviewRecording : toggleRecording}
-                  playRecording={previewMode ? handlePreviewPlayback : togglePlayPause}
-                  completeQuestion={previewMode ? handlePreviewComplete : completeQuestion}
-                  formatTime={formatTime}
-                  assignmentTitle={assignment.title}
-                  dueDate={new Date(assignment.due_date).toLocaleString(undefined, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
-                  currentQuestionIndex={currentQuestionIndex}
-                  showRecordButton={!previewMode && (!hasRecorded || isRecording)}
-                  currentTime={currentTime}
-                  duration={duration}
-                  onTimeUpdate={handleSeek}
-                  isProcessing={isProcessing}
-                  mediaStream={mediaStream}
-                  onNextQuestion={handleNextQuestion}
-                  isPreviewMode={previewMode}
-                />
+                {currentQuestion && (
+                  <QuestionContent
+                    currentQuestion={currentQuestion}
+                    totalQuestions={assignment.questions.length}
+                    timeRemaining={timeRemaining}
+                    isRecording={isRecording}
+                    hasRecorded={hasRecorded}
+                    isPlaying={isPlaying}
+                    isLastQuestion={isLastQuestion}
+                    toggleRecording={toggleRecording}
+                    playRecording={playRecording}
+                    completeQuestion={completeQuestion}
+                    formatTime={formatTime}
+                    assignmentTitle={assignment.title}
+                    dueDate={new Date(assignment.due_date).toLocaleString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                    currentQuestionIndex={currentQuestionIndex}
+                    showRecordButton={showRecordButton}
+                    isProcessing={isProcessing}
+                    mediaStream={mediaStream}
+                    onNextQuestion={goToNextQuestion}
+                    isPreviewMode={previewMode}
+                    getRecordingForQuestion={getRecordingForQuestion}
+                  />
+                )}
               </TooltipProvider>
             </div>
+            
             <div className="mt-4">
               <QuestionNavigation
                 questions={assignment.questions}
                 currentQuestionIndex={currentQuestionIndex}
-                onQuestionSelect={(index) => {
-                  if (isPlaying && audioRef.current) {
-                    audioRef.current.pause();
-                    setIsPlaying(false);
-                  }
-                  setCurrentQuestionIndex(index);
-                }}
+                onQuestionSelect={goToQuestion}
                 recordings={recordingsData}
                 disabled={isRecording || isPlaying}
               />
@@ -979,22 +329,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           </div>
         </div>
       </div>
-      <audio 
-        ref={audioRef} 
-        className="hidden" 
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => {
-          if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-            setIsProcessing(false);
-          }
-        }}
-        onError={(e) => {
-          console.error('Audio error:', e);
-          setIsPlaying(false);
-          setIsProcessing(false);
-        }}
-      />
     </div>
   );
 };

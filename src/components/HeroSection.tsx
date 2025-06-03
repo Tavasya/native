@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Button } from "@/components/ui/button";
 const HeroSection = () => {
   return <section className="py-16 md:py-24">

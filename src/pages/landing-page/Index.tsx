@@ -1,4 +1,3 @@
-import React from 'react';
 import NavBar from '@/components/LandingNavBar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';

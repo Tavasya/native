@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,8 @@ import { createAssignment } from '@/features/assignments/assignmentThunks';
 import { fetchAssignmentTemplates, createAssignmentTemplate, deleteAssignmentTemplate } from '@/features/assignmentTemplates/assignmentTemplateThunks';
 import AssignmentPractice from '@/pages/student/AssignmentPractice';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { RootState } from '@/app/store';
 import type { AssignmentTemplate } from '@/features/assignmentTemplates/types';
 
@@ -52,6 +54,7 @@ const CreateAssignmentPage: React.FC = () => {
   ]);
   const [activeCardId, setActiveCardId] = useState('1');
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
+  const [autoGrade, setAutoGrade] = useState(true);
   // const [showPreview, setShowPreview] = useState(false);
 
   // Time limit options in minutes
@@ -195,7 +198,7 @@ const CreateAssignmentPage: React.FC = () => {
           question: card.question.trim(),
           bulletPoints: card.bulletPoints?.map(bp => bp.trim())
         })),
-        metadata: { autoSendReport: false },
+        metadata: { autoGrade },
         status: 'not_started' as const
       };
 
@@ -296,7 +299,8 @@ const CreateAssignmentPage: React.FC = () => {
           ...card,
           question: card.question.trim(),
           bulletPoints: card.bulletPoints?.map(bp => bp.trim())
-        }))
+        })),
+        metadata: { autoGrade }
       };
 
       await dispatch(createAssignmentTemplate(templateData)).unwrap();
@@ -440,31 +444,63 @@ const CreateAssignmentPage: React.FC = () => {
                     style={{ overflow: 'hidden' }}
                   >
                     <div className="space-y-5 pt-3 border-t">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Due Date and Time */}
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date & Time</Label>
-                          <div className="flex gap-4">
-                            <Input
-                              id="dueDate"
-                              type="date"
-                              value={dueDate}
-                              onChange={(e) => setDueDate(e.target.value)}
-                              min={new Date().toISOString().split("T")[0]}
-                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-36 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Due Date */}
+                        <div className="space-y-2">
+                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
+                          <Input
+                            id="dueDate"
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                            className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-full text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
+                          />
+                        </div>
+
+                        {/* Due Time */}
+                        <div className="space-y-2">
+                          <Label htmlFor="dueTime" className="text-sm font-medium">Due Time</Label>
+                          <Input
+                            id="dueTime"
+                            type="time"
+                            value={dueTime}
+                            onChange={(e) => setDueTime(e.target.value)}
+                            className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-full text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                          />
+                        </div>
+                        
+                        {/* Auto Grade Setting */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-sm font-medium text-gray-700">Auto Grade</Label>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button type="button" className="focus:outline-none">
+                                    <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
+                                  <p className="text-sm text-gray-700">You can manually grade and review assignments after AI performs analysis.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                            <Switch
+                              id="auto-grade"
+                              checked={autoGrade}
+                              onCheckedChange={setAutoGrade}
                             />
-                            <Input
-                              id="dueTime"
-                              type="time"
-                              value={dueTime}
-                              onChange={(e) => setDueTime(e.target.value)}
-                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-32 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
-                            />
+                            <Label htmlFor="auto-grade" className="text-sm text-gray-600">
+                              {autoGrade ? "Enabled" : "Disabled"}
+                            </Label>
                           </div>
                         </div>
                         
                         {/* Assignment Templates */}
-                        <div className="space-y-2 md:col-span-1">
+                        <div className="space-y-2">
                           <Label className="text-sm font-medium text-gray-700">Templates</Label>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

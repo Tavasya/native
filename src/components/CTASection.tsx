@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Button } from "@/components/ui/button";
 const CTASection = () => {
   return <section className="py-20 bg-gradient-to-r from-brand-secondary to-brand-primary text-white">
