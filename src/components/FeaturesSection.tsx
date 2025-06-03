@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Clock, BookOpen, Users } from 'lucide-react';
+import { Check, Clock, Users } from 'lucide-react';
 interface FeatureProps {
   title: string;
   description: string;

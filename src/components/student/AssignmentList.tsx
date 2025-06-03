@@ -90,7 +90,7 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
           if (!error && data && data.length > 0) {
             const status = data[0].status;
             submissions[assignment.id] = {
-              isCompleted: ['pending', 'graded'].includes(status),
+              isCompleted: ['pending', 'graded', 'awaiting_review'].includes(status),
               isInProgress: status === 'in_progress'
             };
           } else {

@@ -300,7 +300,7 @@ export const submissionService = {
 
   
   //Update Submission
-  async updateSubmission(id: string, updates: UpdateSubmissionDto): Promise<Submission> {
+  async updateSubmission(id: string, updates: Omit<UpdateSubmissionDto, 'id'>): Promise<Submission> {
     try {
       validateUUID(id, 'Submission ID');
 

@@ -99,7 +99,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           ...previewData,
           class_id: previewData.class_id || 'preview',
           created_at: previewData.created_at || new Date().toISOString(),
-          metadata: previewData.metadata || { autoSendReport: false },
+          metadata: previewData.metadata || {},
           status: previewData.status || 'not_started' as AssignmentStatus,
           questions: previewData.questions.map((q: QuestionCard) => ({ 
             ...q, 

@@ -3,6 +3,7 @@ import Submission from "@/pages/student/Submission";
 export interface SectionFeedback {
     grade: number;
     feedback: string;
+    review_status?: ReviewStatus;
     audio_url?: string;
     transcript?: string;
     pronunciation?: {
@@ -57,7 +58,14 @@ export interface SectionFeedback {
     };
 }
 
-export type SubmissionStatus = 'in_progress' | 'pending' | 'graded' | 'rejected';
+export type SubmissionStatus = 'in_progress' | 'pending' | 'awaiting_review' | 'graded' | 'rejected';
+
+export interface ReviewStatus {
+    is_reviewed: boolean;
+    reviewed_at?: string;
+    reviewed_by?: string;
+    review_notes?: string;
+}
 
 export interface RecordingData {
     questionId: string;  // ID of the question this recording answers
@@ -113,6 +121,13 @@ export interface UpdateSubmissionDto {
     grade?: number;
     feedback?: string;
     section_feedback?: Record<string, SectionFeedback>;
+    review_status?: ReviewStatus;
+    overall_assignment_score?: {
+        avg_fluency_score: number;
+        avg_grammar_score: number;
+        avg_lexical_score: number;
+        avg_pronunciation_score: number;
+    };
 }
 
 // Redux state

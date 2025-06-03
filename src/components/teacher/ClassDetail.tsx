@@ -364,18 +364,18 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                       <thead className="bg-gray-50">
                         <tr>
                           {[
-                            'Student',
-                            'Status',
-                            'Submitted At',
-                            'Grade',
-                            'Action',
-                          ].map((h) => (
+                            { header: 'Student', width: 'w-1/4' },
+                            { header: 'Status', width: 'w-1/5' },
+                            { header: 'Submitted At', width: 'w-1/4' },
+                            { header: 'Grade', width: 'w-1/6' },
+                            { header: 'Action', width: 'w-1/6' }
+                          ].map(({ header, width }) => (
                             <th
-                              key={h}
+                              key={header}
                               scope="col"
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                              className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${width}`}
                             >
-                              {h}
+                              {header}
                             </th>
                           ))}
                         </tr>
@@ -383,17 +383,21 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {subs.map((st) => (
                           <tr key={st.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 w-1/4">
                               {st.student_name}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm w-1/5">
                               {(() => {
                                 console.log('Rendering status for:', st.student_name, 'Status:', st.status, 'Grade:', st.grade);
-                                const isCompleted = st.status === 'graded' || st.status === 'pending';
+                                const isCompleted = st.status === 'graded' || st.status === 'pending' || st.status === 'awaiting_review';
                                 return (
                                   <span className={`px-2 py-1 rounded-full ${
-                                    isCompleted
+                                    st.status === 'graded'
                                       ? 'bg-green-100 text-green-800'
+                                      : st.status === 'awaiting_review'
+                                      ? 'bg-orange-100 text-orange-800'
+                                      : st.status === 'pending'
+                                      ? 'bg-yellow-100 text-yellow-800'
                                       : st.status === 'in_progress'
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-gray-100 text-gray-800'
@@ -407,7 +411,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                 );
                               })()}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/4">
                               {st.submitted_at
                                 ? new Date(st.submitted_at).toLocaleString(undefined, {
                                     day: '2-digit',
@@ -419,10 +423,16 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                   })
                                 : 'Not submitted'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {st.status === 'graded' ? 'Graded' : 'Not graded'}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/6">
+                              {st.status === 'graded' 
+                                ? 'Graded'
+                                : st.status === 'awaiting_review'
+                                ? 'Awaiting Review'
+                                : st.status === 'pending'
+                                ? 'Pending'
+                                : 'Not graded'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/6">
                               <Button
                                 variant="ghost"
                                 size="sm"

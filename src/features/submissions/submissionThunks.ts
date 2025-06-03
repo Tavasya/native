@@ -137,7 +137,7 @@ export const fetchSubmissionById = createAsyncThunk(
 export const updateSubmission = createAsyncThunk(
     "submissions/updateSubmission",
     async(
-        { id, updates }: { id: string; updates: UpdateSubmissionDto },
+        { id, updates }: { id: string; updates: Omit<UpdateSubmissionDto, 'id'> },
         { rejectWithValue }
     ) => {
         try { 

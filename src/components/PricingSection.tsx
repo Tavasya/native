@@ -1,7 +1,10 @@
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Check } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
+
 const PricingSection = () => {
+  const navigate = useNavigate();
+
   return <section id="pricing" className="py-[30px]">
       <div className="container">
         <div className="text-center max-w-3xl mx-auto mb-16">
@@ -26,10 +29,17 @@ const PricingSection = () => {
                 </li>)}
             </ul>
 
-            <Button variant="outline" className="border-brand-primary w-full text-slate-50 bg-brand-primary">Create Free Teacher Account</Button>
+            <Button 
+              variant="outline" 
+              className="border-brand-primary w-full text-slate-50 bg-brand-primary"
+              onClick={() => navigate('/sign-up')}
+            >
+              Create Free Teacher Account
+            </Button>
           </div>
         </div>
       </div>
     </section>;
 };
+
 export default PricingSection;

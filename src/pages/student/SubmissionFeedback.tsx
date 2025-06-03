@@ -1,4 +1,4 @@
-import { Play, ChevronDown, ArrowLeft } from "lucide-react";
+import { Play, ChevronDown, ArrowLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -8,11 +8,17 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
-import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
+import { fetchSubmissionById, updateSubmission } from '@/features/submissions/submissionThunks';
 import { setTTSAudio, setLoading, selectTTSAudio, selectTTSLoading, clearTTSAudio } from '@/features/tts/ttsSlice';
 import { generateTTSAudio } from '@/features/tts/ttsService';
 import { RootState } from '@/app/store';
 import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { SectionFeedback } from '@/features/submissions/types';
+import { useToast } from "@/components/ui/use-toast";
+import PendingSubmission from '@/components/student/PendingSubmission';
 
 interface Mistake {
   text: string;
@@ -59,11 +65,6 @@ interface WordScore {
   }[];
 }
 
-interface PronunciationIssue {
-  type?: string;
-  message?: string;
-}
-
 interface QuestionFeedback {
   question_id: number;
   audio_url: string;
@@ -81,32 +82,6 @@ interface QuestionFeedback {
 interface SpeedCategory {
   category: string;
   color: string;
-}
-
-interface SectionFeedback {
-  fluency?: {
-    grade: number;
-    issues: string[];
-    wpm?: number;
-    cohesive_device_feedback?: string;
-    filler_words?: string[];
-    filler_word_count?: number;
-  };
-  grammar?: {
-    grade: number;
-    issues: GrammarIssue[];
-  };
-  lexical?: {
-    grade: number;
-    issues: LexicalIssue[];
-  };
-  pronunciation?: {
-    grade: number;
-    issues: PronunciationIssue[];
-    word_details?: WordScore[];
-    critical_errors?: any[];
-  };
-  feedback?: string;
 }
 
 const phonemeToIPA: { [key: string]: string } = {
@@ -178,20 +153,14 @@ const calculateOverallPronunciationScore = (wordDetails: any[]) => {
 const getWordsToShow = (wordDetails: any[]) => {
   if (!wordDetails || wordDetails.length === 0) return [];
   
-  // Filter out words with scores above 80 and words that are 2 letters or less
-  const filteredWords = wordDetails.filter(word => 
-    word.accuracy_score < 80 && word.word.length > 2
-  );
-  
-  if (filteredWords.length > 0) {
-    return filteredWords;
-  }
-  
-  // If no words meet the criteria, show bottom 30% of words that are longer than 2 letters
+  // First, filter out words that are 2 letters or less
   const validWords = wordDetails.filter(word => word.word.length > 2);
-  const sorted = [...validWords].sort((a, b) => a.accuracy_score - b.accuracy_score);
-  const bottomCount = Math.max(1, Math.floor(sorted.length * 0.3));
-  return sorted.slice(0, bottomCount);
+  
+  // Then filter out words with scores above 80
+  const filteredWords = validWords.filter(word => word.accuracy_score < 80);
+  
+  // Always return filtered words, even if empty
+  return filteredWords;
 };
 
 const SubmissionFeedback = () => {
@@ -199,6 +168,8 @@ const SubmissionFeedback = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const { toast } = useToast();
+  const { role } = useAppSelector((state: RootState) => state.auth);
   
   // State for average scores
   const [averageScores, setAverageScores] = useState({
@@ -207,6 +178,25 @@ const SubmissionFeedback = () => {
     avg_lexical_score: 0,
     avg_pronunciation_score: 0
   });
+
+  // Add temporary state for scores
+  const [tempScores, setTempScores] = useState(averageScores);
+
+  // Add temporary state for feedback sections
+  const [tempFeedback, setTempFeedback] = useState<SectionFeedback | null>(null);
+
+  const [isEditing, setIsEditing] = useState({
+    overall: false,
+    transcript: false,
+    fluency: false,
+    pronunciation: false,
+    grammar: false,
+    vocabulary: false,
+    teacherComment: false
+  });
+
+  // Add this state for the teacher's comment
+  const [teacherComment, setTeacherComment] = useState('');
 
   // Fetch average scores from Supabase
   useEffect(() => {
@@ -278,16 +268,33 @@ const SubmissionFeedback = () => {
     return currentQuestion?.section_feedback;
   }, [currentQuestion]);
 
+  // Update tempFeedback when currentFeedback changes
+  useEffect(() => {
+    if (currentFeedback) {
+      setTempFeedback(currentFeedback);
+      setTeacherComment(currentFeedback.feedback || '');
+    }
+  }, [currentFeedback]);
+
+  // Update tempScores when averageScores changes
+  useEffect(() => {
+    setTempScores(averageScores);
+  }, [averageScores]);
+
   // Update wordsToShow calculation
   const wordsToShow = useMemo(() => {
-    if (!currentFeedback?.pronunciation?.word_details) return [];
+    const feedbackToUse = isEditing.pronunciation ? tempFeedback : currentFeedback;
+    if (!feedbackToUse?.pronunciation?.word_details) return [];
     
     // Log all word details for debugging
-    console.log('All word details:', currentFeedback.pronunciation.word_details);
+    console.log('Calculating wordsToShow:', {
+      wordDetails: feedbackToUse.pronunciation.word_details,
+      length: feedbackToUse.pronunciation.word_details.length
+    });
     
     // Use the simpler filter
-    return getWordsToShow(currentFeedback.pronunciation.word_details);
-  }, [currentFeedback]);
+    return getWordsToShow(feedbackToUse.pronunciation.word_details);
+  }, [currentFeedback?.pronunciation?.word_details, tempFeedback?.pronunciation?.word_details, isEditing.pronunciation]);
 
   // Debug logging
   useEffect(() => {
@@ -598,6 +605,264 @@ const SubmissionFeedback = () => {
     };
   }, [dispatch]);
 
+  const handleDeleteIssue = async (section: 'pronunciation' | 'grammar' | 'lexical', index: number) => {
+    if (!selectedSubmission?.id || !tempFeedback) return;
+
+    try {
+      // Create a deep copy of the current feedback
+      const updatedFeedback = JSON.parse(JSON.stringify(tempFeedback)) as SectionFeedback;
+      
+      // Remove the issue based on the section
+      if (section === 'pronunciation' && updatedFeedback.pronunciation?.word_details) {
+        // Log the word being deleted
+        const wordToDelete = updatedFeedback.pronunciation.word_details[index];
+        console.log('Attempting to delete word:', {
+          word: wordToDelete?.word,
+          index,
+          currentLength: updatedFeedback.pronunciation.word_details.length
+        });
+
+        // Create a new array without the deleted word
+        const updatedWordDetails = updatedFeedback.pronunciation.word_details.filter((_, i) => i !== index);
+        
+        // Update the pronunciation object with the new word_details array
+        updatedFeedback.pronunciation = {
+          ...updatedFeedback.pronunciation,
+          word_details: updatedWordDetails,
+          grade: updatedFeedback.pronunciation.grade
+        };
+
+        // Log the changes for debugging
+        console.log('Deleting pronunciation word:', {
+          word: wordToDelete?.word,
+          index,
+          beforeLength: tempFeedback.pronunciation?.word_details?.length,
+          afterLength: updatedWordDetails.length,
+          updatedFeedback
+        });
+      } else if (section === 'grammar' && updatedFeedback.grammar?.issues) {
+        const updatedIssues = [...updatedFeedback.grammar.issues];
+        updatedIssues.splice(index, 1);
+        updatedFeedback.grammar = {
+          ...updatedFeedback.grammar,
+          issues: updatedIssues
+        };
+      } else if (section === 'lexical' && updatedFeedback.lexical?.issues) {
+        const updatedIssues = [...updatedFeedback.lexical.issues];
+        updatedIssues.splice(index, 1);
+        updatedFeedback.lexical = {
+          ...updatedFeedback.lexical,
+          issues: updatedIssues
+        };
+      }
+
+      // Only update the local state (tempFeedback)
+      setTempFeedback(updatedFeedback);
+      
+      // Log success
+      console.log('Successfully updated temporary state:', {
+        section,
+        index,
+        word: section === 'pronunciation' ? updatedFeedback.pronunciation?.word_details[index]?.word : undefined,
+        updatedFeedback
+      });
+    } catch (error) {
+      console.error('Error updating temporary state:', error);
+    }
+  };
+
+  const isAwaitingReview = selectedSubmission?.status === 'awaiting_review';
+
+  const handleSaveTeacherComment = async () => {
+    if (!selectedSubmission?.id || !tempFeedback) return;
+
+    try {
+      // Create a deep copy of the current feedback
+      const updatedFeedback = JSON.parse(JSON.stringify(tempFeedback)) as SectionFeedback;
+      
+      // Update the feedback field
+      updatedFeedback.feedback = teacherComment;
+
+      // Create a deep copy of the section_feedback array
+      const updatedSectionFeedback = JSON.parse(JSON.stringify(selectedSubmission.section_feedback || []));
+      const currentQuestionIndex = selectedQuestionIndex;
+      
+      if (updatedSectionFeedback[currentQuestionIndex]) {
+        updatedSectionFeedback[currentQuestionIndex] = {
+          ...updatedSectionFeedback[currentQuestionIndex],
+          section_feedback: updatedFeedback
+        };
+      }
+
+      // Dispatch the update to Supabase
+      const resultAction = await dispatch(updateSubmission({
+        id: selectedSubmission.id,
+        updates: {
+          section_feedback: updatedSectionFeedback
+        }
+      }));
+
+      if (updateSubmission.fulfilled.match(resultAction)) {
+        // Update local state
+        setTempFeedback(updatedFeedback);
+        setIsEditing(prev => ({ ...prev, teacherComment: false }));
+      } else {
+        console.error('Failed to update submission:', resultAction);
+      }
+    } catch (error) {
+      console.error('Error updating teacher comment:', error);
+    }
+  };
+
+  const EditButton = ({ section }: { section: keyof typeof isEditing }) => {
+    if (!isAwaitingReview) return null;
+    
+    const handleSave = async () => {
+      if (section === 'overall') {
+        try {
+          // Dispatch the update and wait for it to complete
+          const resultAction = await dispatch(updateSubmission({
+            id: selectedSubmission.id,
+            updates: {
+              overall_assignment_score: tempScores
+            }
+          }));
+
+          // Only update local state if the update was successful
+          if (updateSubmission.fulfilled.match(resultAction)) {
+            setAverageScores(tempScores);
+            setIsEditing(prev => ({ ...prev, [section]: false }));
+          }
+        } catch (error) {
+          console.error('Error updating overall score:', error);
+          // Revert temp scores on error
+          setTempScores(averageScores);
+        }
+      } else if (section === 'teacherComment') {
+        await handleSaveTeacherComment();
+      } else {
+        // For other sections, update the submission with tempFeedback
+        try {
+          const updatedSectionFeedback = JSON.parse(JSON.stringify(selectedSubmission.section_feedback || []));
+          const currentQuestionIndex = selectedQuestionIndex;
+          
+          if (updatedSectionFeedback[currentQuestionIndex]) {
+            updatedSectionFeedback[currentQuestionIndex] = {
+              ...updatedSectionFeedback[currentQuestionIndex],
+              section_feedback: tempFeedback
+            };
+          }
+
+          const resultAction = await dispatch(updateSubmission({
+            id: selectedSubmission.id,
+            updates: {
+              section_feedback: updatedSectionFeedback
+            }
+          }));
+
+          if (updateSubmission.fulfilled.match(resultAction)) {
+            setIsEditing(prev => ({ ...prev, [section]: false }));
+          }
+        } catch (error) {
+          console.error('Error updating section:', error);
+          // Revert tempFeedback on error
+          if (currentFeedback) {
+            setTempFeedback(currentFeedback);
+          }
+        }
+      }
+    };
+
+    const handleCancel = () => {
+      if (section === 'overall') {
+        setTempScores(averageScores);
+      } else if (section === 'teacherComment') {
+        setTeacherComment(currentFeedback?.feedback || '');
+      } else if (currentFeedback) {
+        // Revert tempFeedback to currentFeedback
+        setTempFeedback(currentFeedback);
+      }
+      setIsEditing(prev => ({ ...prev, [section]: false }));
+    };
+
+    return (
+      <div className="flex gap-2">
+        {isEditing[section] ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+            >
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(prev => ({ ...prev, [section]: true }))}
+          >
+            Edit
+          </Button>
+        )}
+      </div>
+    );
+  };
+
+  const handleSubmitAndSend = async () => {
+    if (!selectedSubmission?.id) return;
+
+    try {
+      // Update the submission status to 'graded'
+      const resultAction = await dispatch(updateSubmission({
+        id: selectedSubmission.id,
+        updates: {
+          status: 'graded'
+        }
+      }));
+
+      if (updateSubmission.fulfilled.match(resultAction)) {
+        // Show success toast
+        toast({
+          title: "Success!",
+          description: `Feedback has been sent to ${selectedSubmission.student_name || 'student'}`,
+          duration: 5000,
+        });
+
+        // Navigate back to class page
+        if (location.state?.fromClassDetail) {
+          navigate(-1);
+        } else {
+          navigate('/teacher/classes');
+        }
+      } else {
+        // Show error toast
+        toast({
+          title: "Error",
+          description: "Failed to submit feedback. Please try again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -634,11 +899,17 @@ const SubmissionFeedback = () => {
     );
   }
 
-  // FIXED: Handle the correct data structure
-  // Your data has section_feedback as an array of objects with question data
-  const recordings = Array.isArray(selectedSubmission.section_feedback) 
-    ? selectedSubmission.section_feedback 
-    : [];
+  // Show PendingSubmission component for pending or awaiting_review status ONLY for students
+  if (['pending', 'awaiting_review'].includes(selectedSubmission?.status || '') && role === 'student') {
+    return (
+      <PendingSubmission 
+        submission={selectedSubmission}
+        onBack={handleBack}
+      />
+    );
+  }
+
+  // Remove the unused recordings variable
   const submissionInfo = selectedSubmission;
 
   if (!currentQuestion) {
@@ -672,7 +943,7 @@ const SubmissionFeedback = () => {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Back Button and Assignment Header */}
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
           <Button
             variant="ghost"
             className="flex items-center gap-2"
@@ -681,6 +952,15 @@ const SubmissionFeedback = () => {
             <ArrowLeft className="h-4 w-4" />
             {location.state?.fromClassDetail ? 'Back to Class' : 'Back to Dashboard'}
           </Button>
+          {isAwaitingReview && (
+            <Button
+              variant="default"
+              className="flex items-center gap-2"
+              onClick={handleSubmitAndSend}
+            >
+              Submit & Send to {selectedSubmission?.student_name}
+            </Button>
+          )}
         </div>
 
         {/* Assignment Header */}
@@ -704,30 +984,89 @@ const SubmissionFeedback = () => {
               </p>
 
               <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Overall Assignment Scoring</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Overall Assignment Scoring</h3>
+                  <EditButton section="overall" />
+                </div>
                 <div className="grid grid-cols-4 gap-4">
                   <div className="text-center">
-                    <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_fluency_score)}`}>
-                      {averageScores.avg_fluency_score}
-                    </div>
+                    {isEditing.overall ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={tempScores.avg_fluency_score}
+                        onChange={(e) => setTempScores(prev => ({
+                          ...prev,
+                          avg_fluency_score: parseInt(e.target.value) || 0
+                        }))}
+                        className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_fluency_score)}`}
+                      />
+                    ) : (
+                      <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_fluency_score)}`}>
+                        {averageScores.avg_fluency_score}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">Fluency</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_pronunciation_score)}`}>
-                      {averageScores.avg_pronunciation_score}
-                    </div>
+                    {isEditing.overall ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={tempScores.avg_pronunciation_score}
+                        onChange={(e) => setTempScores(prev => ({
+                          ...prev,
+                          avg_pronunciation_score: parseInt(e.target.value) || 0
+                        }))}
+                        className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_pronunciation_score)}`}
+                      />
+                    ) : (
+                      <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_pronunciation_score)}`}>
+                        {averageScores.avg_pronunciation_score}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">Pronunciation</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_grammar_score)}`}>
-                      {averageScores.avg_grammar_score}
-                    </div>
+                    {isEditing.overall ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={tempScores.avg_grammar_score}
+                        onChange={(e) => setTempScores(prev => ({
+                          ...prev,
+                          avg_grammar_score: parseInt(e.target.value) || 0
+                        }))}
+                        className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_grammar_score)}`}
+                      />
+                    ) : (
+                      <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_grammar_score)}`}>
+                        {averageScores.avg_grammar_score}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">Grammar</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_lexical_score)}`}>
-                      {averageScores.avg_lexical_score}
-                    </div>
+                    {isEditing.overall ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={tempScores.avg_lexical_score}
+                        onChange={(e) => setTempScores(prev => ({
+                          ...prev,
+                          avg_lexical_score: parseInt(e.target.value) || 0
+                        }))}
+                        className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_lexical_score)}`}
+                      />
+                    ) : (
+                      <div className={`text-2xl font-bold mb-1 ${getScoreColor(averageScores.avg_lexical_score)}`}>
+                        {averageScores.avg_lexical_score}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-500">Vocabulary</div>
                   </div>
                 </div>
@@ -737,10 +1076,27 @@ const SubmissionFeedback = () => {
 
               {/* Teacher's Comment */}
               <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Teacher's Comment</h3>
-                <p className="text-sm text-gray-600">
-                  {currentFeedback?.feedback || 'No feedback available.'}
-                </p>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-900 mb-2">Teacher's Comment</h3>
+                  {isAwaitingReview && <EditButton section="teacherComment" />}
+                </div>
+                {isEditing.teacherComment ? (
+                  <div className={cn(
+                    "bg-gray-50 rounded-md transition-all duration-200",
+                    isEditing.teacherComment ? "bg-gray-50" : "bg-transparent"
+                  )}>
+                    <Textarea
+                      value={teacherComment}
+                      onChange={(e) => setTeacherComment(e.target.value)}
+                      placeholder="Enter your feedback here..."
+                      className="border-none text-base font-medium bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] px-4 py-3"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    {teacherComment || 'No feedback available.'}
+                  </p>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -787,7 +1143,9 @@ const SubmissionFeedback = () => {
             <Card className="shadow-sm border-0 bg-white overflow-visible">
               <CardContent className="p-4 overflow-visible">
                 <div className="mt-4">
-                  <h3 className="text-base font-medium text-gray-900 mb-2">Transcript</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-medium text-gray-900 mb-2">Transcript</h3>
+                  </div>
                   <div className="text-sm text-gray-600 leading-relaxed overflow-visible">
                     {renderHighlightedText(
                       currentQuestion?.transcript || 'No transcript available.',
@@ -820,141 +1178,187 @@ const SubmissionFeedback = () => {
               </TabsList>
               
               <TabsContent value="fluency" className="mt-4">
-                {/* Top Metrics Row */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <div className="text-sm font-medium text-gray-900 mb-2">Speak at Length</div>
-                    {currentQuestion?.duration_feedback && (
-                      <div className="mt-2">
-                        <div className="text-xs text-red-600">
-                          Spoke for {Math.round((currentQuestion.duration_feedback.actual_duration / currentQuestion.duration_feedback.time_limit_sec) * 100)}% of time limit
-                        </div>
-                        <div className="text-xs text-red-600 mt-1">
-                          {currentQuestion.duration_feedback.feedback}
-                        </div>
-                      </div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-medium text-gray-900">Fluency Analysis</h4>
+                    {isEditing.fluency && (
+                      <span className="text-sm text-primary font-medium">(Editing)</span>
                     )}
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
-                    <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
-                      {currentFeedback?.fluency?.cohesive_device_feedback || 'No data available'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <div className="text-sm font-medium text-gray-900 mb-2">Filler Words</div>
-                    <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
-                      {currentFeedback?.fluency?.filler_word_count ? `${currentFeedback.fluency.filler_word_count} filler words used` : 'No data available'}
-                    </div>
-                  </div>
+                  <EditButton section="fluency" />
                 </div>
-
-                {/* Speech Speed Analysis */}
-                <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Speech Speed Analysis</h4>
-
-                  <div className="relative">
-                    <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div className="absolute inset-0 flex">
-                        <div className="w-1/5 bg-[#ef5136]"></div>
-                        <div className="w-1/5 bg-[#feb622]"></div>
-                        <div className="w-1/5 bg-green-500"></div>
-                        <div className="w-1/5 bg-[#feb622]"></div>
-                        <div className="w-1/5 bg-[#ef5136]"></div>
-                      </div>
-                      <div
-                        className="absolute top-0 bottom-0 w-0.5 bg-black"
-                        style={{
-                          left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 200 * 100))}%`
-                        }}
-                      ></div>
+                <div className={cn(
+                  "space-y-4",
+                  isEditing.fluency && "bg-gray-50 rounded-lg p-6"
+                )}>
+                  {/* Top Metrics Row */}
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-sm font-medium text-gray-900 mb-2">Speak at Length</div>
+                      {currentQuestion?.duration_feedback && (
+                        <div className="mt-2">
+                          <div className="text-xs text-red-600">
+                            Spoke for {Math.round((currentQuestion.duration_feedback.actual_duration / currentQuestion.duration_feedback.time_limit_sec) * 100)}% of time limit
+                          </div>
+                          <div className="text-xs text-red-600 mt-1">
+                            {currentQuestion.duration_feedback.feedback}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-center mt-1">
-                      <div
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getSpeedCategory(currentFeedback?.fluency?.wpm || 0).color}`}
-                      >
-                        {currentFeedback?.fluency?.wpm || 0} WPM - {getSpeedCategory(currentFeedback?.fluency?.wpm || 0).category}
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
+                      <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
+                        {currentFeedback?.fluency?.cohesive_device_feedback || 'No data available'}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                      <div className="text-sm font-medium text-gray-900 mb-2">Filler Words</div>
+                      <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
+                        {currentFeedback?.fluency?.filler_word_count ? `${currentFeedback.fluency.filler_word_count} filler words used` : 'No data available'}
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Pause Analysis */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Pause Analysis</h4>
-                  <p className="text-sm text-gray-600">
-                    {currentFeedback?.fluency?.issues?.find(issue => issue.toLowerCase().includes('pause')) || 'No pause analysis available.'}
-                  </p>
+                  {/* Speech Speed Analysis */}
+                  <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Speech Speed Analysis</h4>
+
+                    <div className="relative">
+                      <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="absolute inset-0 flex">
+                          <div className="w-1/5 bg-[#ef5136]"></div>
+                          <div className="w-1/5 bg-[#feb622]"></div>
+                          <div className="w-1/5 bg-green-500"></div>
+                          <div className="w-1/5 bg-[#feb622]"></div>
+                          <div className="w-1/5 bg-[#ef5136]"></div>
+                        </div>
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-black"
+                          style={{
+                            left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 200 * 100))}%`
+                          }}
+                        ></div>
+                      </div>
+                      <div className="text-center mt-1">
+                        <div
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white ${getSpeedCategory(currentFeedback?.fluency?.wpm || 0).color}`}
+                        >
+                          {currentFeedback?.fluency?.wpm || 0} WPM - {getSpeedCategory(currentFeedback?.fluency?.wpm || 0).category}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pause Analysis */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Pause Analysis</h4>
+                    <p className="text-sm text-gray-600">
+                      {currentFeedback?.fluency?.issues?.find(issue => issue.toLowerCase().includes('pause')) || 'No pause analysis available.'}
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="pronunciation" className="mt-4">
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Pronunciation Analysis</h4>
-                  
-                  {currentFeedback?.pronunciation?.word_details && (
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-medium text-gray-900">Pronunciation Analysis</h4>
+                    {isEditing.pronunciation && (
+                      <span className="text-sm text-primary font-medium">(Editing)</span>
+                    )}
+                  </div>
+                  <EditButton section="pronunciation" />
+                </div>
+                <div className={cn(
+                  "space-y-4",
+                  isEditing.pronunciation && "bg-gray-50 rounded-lg p-6"
+                )}>
+                  {(isEditing.pronunciation ? tempFeedback : currentFeedback)?.pronunciation?.word_details && (
                     <div>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[100px]">Word</TableHead>
-                            <TableHead>IPA + Definition</TableHead>
-                            <TableHead className="text-center">Score</TableHead>
-                            <TableHead className="text-center">Correct Audio</TableHead>
-                            <TableHead className="text-center">Student Audio</TableHead>
+                            <TableHead className="w-[100px] text-base">Word</TableHead>
+                            <TableHead className="text-base">IPA + Definition</TableHead>
+                            <TableHead className="text-center text-base">Score</TableHead>
+                            <TableHead className="text-center text-base">Correct Audio</TableHead>
+                            <TableHead className="text-center text-base">Student Audio</TableHead>
+                            {isEditing.pronunciation && <TableHead className="w-[50px]"></TableHead>}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {wordsToShow.map((word: any, wordIndex: number) => (
-                            <TableRow key={wordIndex}>
-                              <TableCell className="font-medium">{word.word}</TableCell>
-                              <TableCell>
-                                <div className="flex">
-                                  <span className="text-sm font-mono text-gray-600">/</span>
-                                  {word.phoneme_details?.map((phoneme: { phoneme: string; accuracy_score: number }, idx: number) => (
-                                    <span 
-                                      key={idx} 
-                                      className={`text-sm font-mono ${getPhonemeColor(phoneme.accuracy_score)}`}
-                                    >
-                                      {phonemeToIPA[phoneme.phoneme] || phoneme.phoneme}
-                                    </span>
-                                  ))}
-                                  <span className="text-sm font-mono text-gray-600">/</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <span className={`text-sm font-medium ${getScoreColor(word.accuracy_score)}`}>
-                                  {word.accuracy_score}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                                  onClick={() => playTTSAudio(word.word)}
-                                  disabled={ttsLoading[`tts_${word.word.toLowerCase()}`]}
-                                >
-                                  {ttsLoading[`tts_${word.word.toLowerCase()}`] ? (
-                                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                  ) : (
+                          {wordsToShow.map((word: any, wordIndex: number) => {
+                            // Find the actual index in the full word_details array
+                            const feedbackToUse = isEditing.pronunciation ? tempFeedback : currentFeedback;
+                            const wordDetails = feedbackToUse?.pronunciation?.word_details || [];
+                            const actualIndex = wordDetails.findIndex(
+                              (w: any) => w.word === word.word && w.accuracy_score === word.accuracy_score
+                            );
+                            
+                            return (
+                              <TableRow key={wordIndex}>
+                                <TableCell className="font-medium text-base">{word.word}</TableCell>
+                                <TableCell>
+                                  <div className="flex">
+                                    <span className="text-base font-mono text-gray-600">/</span>
+                                    {word.phoneme_details?.map((phoneme: { phoneme: string; accuracy_score: number }, idx: number) => (
+                                      <span 
+                                        key={idx} 
+                                        className={`text-base font-mono ${getPhonemeColor(phoneme.accuracy_score)}`}
+                                      >
+                                        {phonemeToIPA[phoneme.phoneme] || phoneme.phoneme}
+                                      </span>
+                                    ))}
+                                    <span className="text-base font-mono text-gray-600">/</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className={`text-base font-medium ${getScoreColor(word.accuracy_score)}`}>
+                                    {word.accuracy_score}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                                    onClick={() => playTTSAudio(word.word)}
+                                    disabled={ttsLoading[`tts_${word.word.toLowerCase()}`]}
+                                  >
+                                    {ttsLoading[`tts_${word.word.toLowerCase()}`] ? (
+                                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    ) : (
+                                      <Play className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                                    onClick={() => playWordSegment(word, wordIndex)}
+                                    disabled={!word.offset || !word.duration}
+                                  >
                                     <Play className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                                  onClick={() => playWordSegment(word, wordIndex)}
-                                  disabled={!word.offset || !word.duration}
-                                >
-                                  <Play className="h-3 w-3" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                                  </Button>
+                                </TableCell>
+                                {isEditing.pronunciation && (
+                                  <TableCell className="text-center">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                      onClick={() => actualIndex !== undefined && handleDeleteIssue('pronunciation', actualIndex)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -963,94 +1367,148 @@ const SubmissionFeedback = () => {
               </TabsContent>
 
               <TabsContent value="grammar" className="mt-4">
-                <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-medium text-gray-900">Grammar Analysis</h4>
+                    {isEditing.grammar && (
+                      <span className="text-sm text-primary font-medium">(Editing)</span>
+                    )}
+                  </div>
+                  <EditButton section="grammar" />
+                </div>
+                <div className={cn(
+                  "space-y-4",
+                  isEditing.grammar && "bg-gray-50 rounded-lg p-6"
+                )}>
                   <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Hover over highlighted text to see explanations</p>
+                    <p className="text-base text-gray-600 mb-2">Hover over highlighted text to see explanations</p>
                   </div>
                   
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Grammar Issues</h3>
                     
                     <div className="space-y-3">
-                      {currentFeedback?.grammar?.issues?.map((issue: GrammarIssue, index: number) => (
+                      {(isEditing.grammar ? tempFeedback : currentFeedback)?.grammar?.issues?.map((issue: GrammarIssue, index: number) => (
                         <Collapsible 
                           key={index}
                           open={grammarOpen[`grammar-${index}`]} 
                           onOpenChange={() => toggleGrammarOpen(`grammar-${index}`)}
                         >
-                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700">Grammar Issue {index + 1}</span>
+                              <span className="text-base font-medium text-gray-700">Grammar Issue {index + 1}</span>
                             </div>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${grammarOpen[`grammar-${index}`] ? 'rotate-180' : ''}`} />
+                            <div className="flex items-center gap-2">
+                              {isEditing.grammar && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteIssue('grammar', index);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <ChevronDown className={`h-4 w-4 transition-transform ${grammarOpen[`grammar-${index}`] ? 'rotate-180' : ''}`} />
+                            </div>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="px-3 pb-3">
                             <div className="bg-white p-4 rounded border">
                               <div className="space-y-3">
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Original</h4>
-                                  <p className="text-xs text-gray-600">{issue.original}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Original</h4>
+                                  <p className="text-base text-gray-600">{issue.original}</p>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Correction</h4>
-                                  <p className="text-xs text-gray-600">{issue.correction.suggested_correction}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Correction</h4>
+                                  <p className="text-base text-gray-600">{issue.correction.suggested_correction}</p>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Explanation</h4>
-                                  <p className="text-xs text-gray-600">{issue.correction.explanation}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                                  <p className="text-base text-gray-600">{issue.correction.explanation}</p>
                                 </div>
                               </div>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
-                      )) || <p className="text-sm text-gray-500">No grammar issues found.</p>}
+                      )) || <p className="text-base text-gray-500">No grammar issues found.</p>}
                     </div>
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="vocabulary" className="mt-4">
-                <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-lg font-medium text-gray-900">Vocabulary Analysis</h4>
+                    {isEditing.vocabulary && (
+                      <span className="text-sm text-primary font-medium">(Editing)</span>
+                    )}
+                  </div>
+                  <EditButton section="vocabulary" />
+                </div>
+                <div className={cn(
+                  "space-y-4",
+                  isEditing.vocabulary && "bg-gray-50 rounded-lg p-6"
+                )}>
                   <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2">Hover over highlighted text to see explanations</p>
+                    <p className="text-base text-gray-600 mb-2">Hover over highlighted text to see explanations</p>
                   </div>
                   
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Vocabulary Suggestions</h3>
                     
                     <div className="space-y-3">
-                      {currentFeedback?.lexical?.issues?.map((issue: LexicalIssue, index: number) => (
+                      {(isEditing.vocabulary ? tempFeedback : currentFeedback)?.lexical?.issues?.map((issue: LexicalIssue, index: number) => (
                         <Collapsible 
                           key={index}
                           open={vocabularyOpen[`vocab-${index}`]} 
                           onOpenChange={() => toggleVocabularyOpen(`vocab-${index}`)}
                         >
-                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                          <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-white rounded-lg hover:bg-gray-100 transition-colors">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-700">Vocabulary Issue {index + 1}</span>
+                              <span className="text-base font-medium text-gray-700">Vocabulary Issue {index + 1}</span>
                             </div>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${vocabularyOpen[`vocab-${index}`] ? 'rotate-180' : ''}`} />
+                            <div className="flex items-center gap-2">
+                              {isEditing.vocabulary && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteIssue('lexical', index);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <ChevronDown className={`h-4 w-4 transition-transform ${vocabularyOpen[`vocab-${index}`] ? 'rotate-180' : ''}`} />
+                            </div>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="px-3 pb-3">
                             <div className="bg-white p-4 rounded border">
                               <div className="space-y-3">
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Sentence</h4>
-                                  <p className="text-xs text-gray-600">{issue.sentence}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Sentence</h4>
+                                  <p className="text-base text-gray-600">{issue.sentence}</p>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Suggestion</h4>
-                                  <p className="text-xs text-gray-600">{issue.suggestion.suggested_phrase}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Suggestion</h4>
+                                  <p className="text-base text-gray-600">{issue.suggestion.suggested_phrase}</p>
                                 </div>
                                 <div>
-                                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Explanation</h4>
-                                  <p className="text-xs text-gray-600">{issue.suggestion.explanation}</p>
+                                  <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                                  <p className="text-base text-gray-600">{issue.suggestion.explanation}</p>
                                 </div>
                               </div>
                             </div>
                           </CollapsibleContent>
                         </Collapsible>
-                      )) || <p className="text-sm text-gray-500">No vocabulary issues found.</p>}
+                      )) || <p className="text-base text-gray-500">No vocabulary issues found.</p>}
                     </div>
                   </div>
                 </div>
