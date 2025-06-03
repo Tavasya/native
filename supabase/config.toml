@@ -1,0 +1,2 @@
+[functions.submit-audio]
+verify_jwt = false

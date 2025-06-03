@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface Mistake {
   text: string;
   explanation: string;
+  suggestion?: string;
   type?: string;
   color?: string;
 }
@@ -33,6 +34,7 @@ interface GrammarIssue {
   correction: {
     suggested_correction: string;
     explanation: string;
+    original_phrase?: string;
   };
 }
 
@@ -41,6 +43,7 @@ interface LexicalIssue {
   suggestion: {
     suggested_phrase: string;
     explanation: string;
+    original_phrase?: string;
   };
 }
 
@@ -66,6 +69,13 @@ interface QuestionFeedback {
   audio_url: string;
   transcript: string;
   section_feedback: SectionFeedback;
+  duration_feedback?: {
+    ratio: number;
+    feedback: string;
+    time_limit_sec: number;
+    actual_duration: number;
+    question_number: string;
+  };
 }
 
 interface SpeedCategory {
@@ -94,6 +104,7 @@ interface SectionFeedback {
     grade: number;
     issues: PronunciationIssue[];
     word_details?: WordScore[];
+    critical_errors?: any[];
   };
   feedback?: string;
 }
@@ -167,15 +178,18 @@ const calculateOverallPronunciationScore = (wordDetails: any[]) => {
 const getWordsToShow = (wordDetails: any[]) => {
   if (!wordDetails || wordDetails.length === 0) return [];
   
-  // Show words with scores under 90, or if all scores are high, show bottom 30%
-  const lowScoreWords = wordDetails.filter(word => word.accuracy_score < 90);
+  // Filter out words with scores above 80 and words that are 2 letters or less
+  const filteredWords = wordDetails.filter(word => 
+    word.accuracy_score < 80 && word.word.length > 2
+  );
   
-  if (lowScoreWords.length > 0) {
-    return lowScoreWords;
+  if (filteredWords.length > 0) {
+    return filteredWords;
   }
   
-  // If no words under 90, show bottom 30%
-  const sorted = [...wordDetails].sort((a, b) => a.accuracy_score - b.accuracy_score);
+  // If no words meet the criteria, show bottom 30% of words that are longer than 2 letters
+  const validWords = wordDetails.filter(word => word.word.length > 2);
+  const sorted = [...validWords].sort((a, b) => a.accuracy_score - b.accuracy_score);
   const bottomCount = Math.max(1, Math.floor(sorted.length * 0.3));
   return sorted.slice(0, bottomCount);
 };
@@ -245,6 +259,9 @@ const SubmissionFeedback = () => {
   const [activeTab, setActiveTab] = useState("fluency");
   const [grammarOpen, setGrammarOpen] = useState<{ [key: string]: boolean }>({});
   const [vocabularyOpen, setVocabularyOpen] = useState<{ [key: string]: boolean }>({});
+  const [pollingAttempts, setPollingAttempts] = useState(0);
+  const MAX_POLLING_ATTEMPTS = 10;
+  const POLLING_INTERVAL = 10000; // 10 seconds
 
   // Memoize the current question data
   const currentQuestion = useMemo(() => {
@@ -253,7 +270,7 @@ const SubmissionFeedback = () => {
     const sortedFeedback = [...selectedSubmission.section_feedback].sort((a, b) => 
       (a.question_id || 0) - (b.question_id || 0)
     );
-    return sortedFeedback[selectedQuestionIndex];
+    return sortedFeedback[selectedQuestionIndex] as QuestionFeedback;
   }, [selectedSubmission, selectedQuestionIndex]);
 
   // Memoize the current feedback data
@@ -335,6 +352,20 @@ const SubmissionFeedback = () => {
     }
   }, [currentFeedback]);
 
+  // Add polling effect
+  useEffect(() => {
+    if (!currentQuestion && pollingAttempts < MAX_POLLING_ATTEMPTS) {
+      const timer = setTimeout(() => {
+        setPollingAttempts(prev => prev + 1);
+        if (submissionId) {
+          dispatch(fetchSubmissionById(submissionId));
+        }
+      }, POLLING_INTERVAL);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentQuestion, pollingAttempts, submissionId, dispatch]);
+
   const handleBack = () => {
     if (location.state?.fromClassDetail) {
       navigate(-1);
@@ -368,15 +399,17 @@ const SubmissionFeedback = () => {
     
     if (highlightType === 'grammar' && currentFeedback.grammar?.issues) {
       mistakesToHighlight = currentFeedback.grammar.issues.map((issue: GrammarIssue) => ({
-        text: issue.original || '',
+        text: issue.correction.original_phrase || issue.original || '',
         explanation: issue.correction.explanation || '',
+        suggestion: issue.correction.suggested_correction || '',
         type: 'Grammar',
         color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors'
       }));
     } else if (highlightType === 'vocabulary' && currentFeedback.lexical?.issues) {
       mistakesToHighlight = currentFeedback.lexical.issues.map((issue: LexicalIssue) => ({
-        text: issue.sentence || '',
+        text: issue.suggestion.original_phrase || issue.sentence || '',
         explanation: issue.suggestion.explanation || '',
+        suggestion: issue.suggestion.suggested_phrase || '',
         type: 'Vocabulary',
         color: 'bg-blue-100 text-blue-800 border-blue-200 cursor-pointer hover:bg-blue-200 transition-colors'
       }));
@@ -438,7 +471,16 @@ const SubmissionFeedback = () => {
           {openPopover === mistakeId && (
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-md shadow-sm border border-gray-200 z-50 w-96">
               <div className="font-medium text-gray-900">{pos.mistake.type}</div>
-              <div className="mt-1 text-gray-600">{pos.mistake.explanation}</div>
+              {pos.mistake.suggestion && (
+                <div className="mt-2">
+                  <div className="text-xs text-gray-500">Suggestion:</div>
+                  <div className="font-medium text-green-600">{pos.mistake.suggestion}</div>
+                </div>
+              )}
+              <div className="mt-2">
+                <div className="text-xs text-gray-500">Explanation:</div>
+                <div className="text-gray-600">{pos.mistake.explanation}</div>
+              </div>
               <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-white"></div>
             </div>
           )}
@@ -603,10 +645,22 @@ const SubmissionFeedback = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h2 className="text-lg font-semibold text-yellow-800 mb-2">No Question Data</h2>
-            <p className="text-yellow-600">No question data found for this submission.</p>
-            <p className="text-xs text-gray-500 mt-2">Debug: recordings length = {recordings.length}</p>
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2"
+              onClick={handleBack}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Report</h2>
+            <p className="text-blue-600">Your submission is being processed. This may take a few moments.</p>
+            <div className="mt-4 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -770,9 +824,16 @@ const SubmissionFeedback = () => {
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-sm font-medium text-gray-900 mb-2">Speak at Length</div>
-                    <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
-                      {currentFeedback?.fluency?.wpm ? `${currentFeedback.fluency.wpm} WPM` : 'No data available'}
-                    </div>
+                    {currentQuestion?.duration_feedback && (
+                      <div className="mt-2">
+                        <div className="text-xs text-red-600">
+                          Spoke for {Math.round((currentQuestion.duration_feedback.actual_duration / currentQuestion.duration_feedback.time_limit_sec) * 100)}% of time limit
+                        </div>
+                        <div className="text-xs text-red-600 mt-1">
+                          {currentQuestion.duration_feedback.feedback}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-gray-50 p-4 rounded-lg text-center">
                     <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
@@ -804,7 +865,7 @@ const SubmissionFeedback = () => {
                       <div
                         className="absolute top-0 bottom-0 w-0.5 bg-black"
                         style={{
-                          left: `${Math.min(95, (currentFeedback?.fluency?.wpm || 0) / 250 * 100)}%`
+                          left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 200 * 100))}%`
                         }}
                       ></div>
                     </div>
@@ -898,12 +959,6 @@ const SubmissionFeedback = () => {
                       </Table>
                     </div>
                   )}
-
-                  {currentFeedback?.pronunciation?.issues?.map((issue: PronunciationIssue, index: number) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-600">{issue.message}</p>
-                    </div>
-                  )) || <p className="text-sm text-gray-500">No pronunciation feedback available.</p>}
                 </div>
               </TabsContent>
 
