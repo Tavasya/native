@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { useRealtimeSubmission } from '@/hooks/useRealtimeSubmission';
+import { useRealtimeSubmission } from '@/hooks/feedback/useRealtimeSubmission';
 import { RootState } from '@/app/store';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';

@@ -1,12 +1,15 @@
+// features/submissions/submissionThunks.ts
+
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { submissionService } from "./submissionsService";
 import { 
     CreateSubmissionDto, 
     UpdateSubmissionDto,
-    CreateSubmissionWithRecordings
+    CreateSubmissionWithRecordings,
+    Submission
 } from "./types";
 import { prepareRecordingsForSubmission, uploadAudioToStorage } from "./audioUploadService";
-import { updateRecordingUploadStatus, clearAssignmentRecordings } from "./submissionsSlice";
+import { updateRecordingUploadStatus, clearAssignmentRecordings, updateSubmissionOptimistic } from "./submissionsSlice";
 
 export const uploadQuestionRecording = createAsyncThunk(
     "submissions/uploadQuestionRecording",
@@ -56,7 +59,6 @@ export const createSubmission = createAsyncThunk(
                 questions_count: data.questions.length
             });
 
-            // First upload the recordings to Supabase Storage
             const audioUrls = await prepareRecordingsForSubmission(
                 data.recordings,
                 data.assignment_id,
@@ -66,7 +68,6 @@ export const createSubmission = createAsyncThunk(
             
             console.log('Uploaded audio URLs:', audioUrls);
             
-            // Create the submission with the recordings array
             const submissionData: CreateSubmissionDto = {
                 assignment_id: data.assignment_id,
                 student_id: data.student_id,
@@ -91,10 +92,8 @@ export const createSubmission = createAsyncThunk(
                 console.log('Audio analysis completed:', result);
             } catch (error) {
                 console.error('Error during audio analysis:', error);
-                // Don't throw here - we want to keep the submission even if analysis fails
             }
             
-            // Clear recordings after successful submission
             dispatch(clearAssignmentRecordings(data.assignment_id));
             
             console.log('=== SUBMISSION CREATION DEBUG END ===');
@@ -107,7 +106,6 @@ export const createSubmission = createAsyncThunk(
     }
 );
 
-// Rest of your thunks remain unchanged
 export const fetchSubmissionsByAssignmentAndStudent = createAsyncThunk(
     "submissions/fetchByAssignmentAndStudent",
     async (
@@ -134,15 +132,47 @@ export const fetchSubmissionById = createAsyncThunk(
     }
 );
 
+// FIXED: Better update submission handling with optimistic updates
 export const updateSubmission = createAsyncThunk(
     "submissions/updateSubmission",
     async(
         { id, updates }: { id: string; updates: Omit<UpdateSubmissionDto, 'id'> },
-        { rejectWithValue }
+        { rejectWithValue, dispatch }
     ) => {
-        try { 
-            return await submissionService.updateSubmission(id, updates);
+        try {
+            // FIXED: Convert section_feedback array to Record format for API
+            let apiUpdates = { ...updates };
+            
+            if (updates.section_feedback && Array.isArray(updates.section_feedback)) {
+                const sectionFeedbackRecord: Record<string, any> = {};
+                updates.section_feedback.forEach(entry => {
+                    sectionFeedbackRecord[entry.question_id.toString()] = {
+                        ...entry.section_feedback,
+                        audio_url: entry.audio_url,
+                        transcript: entry.transcript,
+                        duration_feedback: entry.duration_feedback
+                    };
+                });
+                apiUpdates.section_feedback = sectionFeedbackRecord;
+            }
+
+            // FIXED: Create separate optimistic updates object that matches Submission type
+            const optimisticUpdates: Partial<Submission> = {
+                ...updates,
+                section_feedback: Array.isArray(updates.section_feedback) ? updates.section_feedback : undefined
+            };
+
+            // Optimistic update with correct types
+            dispatch(updateSubmissionOptimistic({ 
+                id, 
+                updates: optimisticUpdates
+            }));
+            
+            const result = await submissionService.updateSubmission(id, apiUpdates);
+            return result;
         } catch (error: any) {
+            // Revert optimistic update on error by refetching
+            dispatch(fetchSubmissionById(id));
             return rejectWithValue(error.message);
         }
     }
@@ -150,15 +180,15 @@ export const updateSubmission = createAsyncThunk(
 
 export const deleteSubmission = createAsyncThunk(
     "submissions/deleteSubmission",
-    async (id: string, {rejectWithValue}) => {
+    async (id: string, { rejectWithValue }) => {
         try {
             await submissionService.deleteSubmission(id);
             return id;
         } catch (error: any) {
-            return rejectWithValue(error.message)
+            return rejectWithValue(error.message);
         }
     }
-)
+);
 
 export const submitAudioAndAnalyze = createAsyncThunk<
     { success: boolean },
