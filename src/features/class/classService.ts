@@ -18,15 +18,21 @@ export const classService = {
   },
 
   async getClassesByTeacher(teacherId: string): Promise<Class[]> {
+    console.log('classService - Fetching classes for teacher:', teacherId);
+    
     const { data, error } = await supabase
       .from('classes')
       .select('*')
       .eq('teacher_id', teacherId);
 
+    console.log('classService - Raw response:', { data, error });
+
     if (error) {
+      console.error('classService - Error fetching teacher classes:', error);
       throw new Error(error.message);
     }
 
+    console.log('classService - Returning classes:', data);
     return data;
   },
 

@@ -5,6 +5,7 @@ import LoadingSpinner from '@/components/LoadingSpinner'
 import Layout from '@/components/Layout'
 import Index from '@/pages/landing-page/Index'
 import FlowEditor from '@/dropdown/Index'
+import DevDash from '@/pages/dev/DevDash'
 // import ClassDetail from '@/components/teacher/ClassDetail'
 
 // Eager load frequently visited components
@@ -58,6 +59,7 @@ export default function AppRoutes() {
           <Route path="/sign-up" element={<NewSignUp />} />
           <Route path="/auth/verify" element={<VerificationSuccess />} />
           <Route path="/flow" element={<FlowEditor />} />
+          <Route path="/dev-dash" element={<DevDash />} />
   
           {/* -------- STUDENT ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['student']} />}>

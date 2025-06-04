@@ -348,5 +348,27 @@ import {
   
       return cls;
     },
+  
+    async getAssignmentsByTeacher(teacherId: string): Promise<Assignment[]> {
+      console.log('Fetching assignments for teacher:', teacherId);
+      
+      const { data, error } = await supabase
+        .from('assignments')
+        .select(`
+          *,
+          classes!inner(
+            id,
+            teacher_id
+          )
+        `)
+        .eq('classes.teacher_id', teacherId)
+        .order('created_at', { ascending: false });
+  
+      console.log('Raw assignments data from Supabase:', data);
+      console.log('Supabase error if any:', error);
+  
+      if (error) throw new Error(error.message);
+      return data as Assignment[];
+    },
   };
   

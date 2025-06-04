@@ -24,6 +24,7 @@ export interface Assignment {
     [key: string]: any;       // for future flags
   };
   status: AssignmentStatus;
+  view?: boolean;            // for hiding assignments
   // optionally injected by stats thunk:
   completionStats?: {
     submitted: number;

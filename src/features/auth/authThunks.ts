@@ -272,7 +272,6 @@ export const loadSession = createAsyncThunk<
   }
 );
 
-/* ---------- thunk: email+password login ---------- */
 export const signInWithEmail = createAsyncThunk<
   SessionPayload,
   EmailCreds,
@@ -282,12 +281,11 @@ export const signInWithEmail = createAsyncThunk<
   async (creds, { rejectWithValue }) => {
     console.log('Starting login process with:', { email: creds.email, selectedRole: creds.selectedRole });
     
-    // First try to sign in
     const { data, error } = await supabase.auth.signInWithPassword({
       email: creds.email,
       password: creds.password
     });
-    
+
     if (error || !data.user) {
       console.error('Authentication error:', error);
       return rejectWithValue(error?.message || 'Invalid email or password');
@@ -297,14 +295,27 @@ export const signInWithEmail = createAsyncThunk<
       console.log('Authentication successful, fetching user profile...');
       const profile = await fetchUserProfile(data.user.id);
       console.log('Retrieved profile:', profile);
-      
-      // Validate that the selected role matches the user's role
+
       if (creds.selectedRole && profile.role !== creds.selectedRole) {
         console.error('Role mismatch:', { 
           selectedRole: creds.selectedRole, 
           actualRole: profile.role 
         });
         return rejectWithValue(`Invalid role selected. You are registered as a ${profile.role}.`);
+      }
+
+      // ✅ Log login to login_events manually (optional if your trigger works)
+      try {
+        await supabase
+          .from('login_events')
+          .insert({ user_id: data.user.id });
+        console.log('Login event recorded');
+      } catch (logErr) {
+        if (logErr instanceof Error) {
+          console.warn('Failed to track login:', logErr.message);
+        } else {
+          console.warn('Failed to track login:', logErr);
+        }
       }
 
       console.log('Login successful with role:', profile.role);
@@ -321,7 +332,6 @@ export const signInWithEmail = createAsyncThunk<
     }
   }
 );
-
 /* ---------- thunk: initiate email change ---------- */
 export const initiateEmailChange = createAsyncThunk<
   void,

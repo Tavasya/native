@@ -8,7 +8,8 @@ import {
   fetchLatestSubmissionsByAssignment,
   fetchClassStatistics,
   fetchAssignmentCompletionStats,
-  fetchClassDetailView
+  fetchClassDetailView,
+  fetchAssignmentsByTeacher
 } from "./assignmentThunks";
 
 const initialState: AssignmentState = {
@@ -137,9 +138,22 @@ const assignmentSlice = createSlice({
       })
       .addCase(fetchClassDetailView.fulfilled, (s) => {
         s.loading = false;
-        // handle mapping of detail‑view data to state if needed
       })
       .addCase(fetchClassDetailView.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchAssignmentsByTeacher
+      .addCase(fetchAssignmentsByTeacher.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchAssignmentsByTeacher.fulfilled, (s, a) => {
+        s.loading = false;
+        s.assignments = a.payload;
+      })
+      .addCase(fetchAssignmentsByTeacher.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload as string;
       });

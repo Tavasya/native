@@ -153,3 +153,19 @@ export const fetchClassDetailView = createAsyncThunk<
     }
   }
 );
+
+// Fetch assignments by teacher
+export const fetchAssignmentsByTeacher = createAsyncThunk<
+  Awaited<ReturnType<typeof assignmentService.getAssignmentsByTeacher>>,
+  string,
+  { rejectValue: string }
+>(
+  "assignments/fetchAssignmentsByTeacher",
+  async (teacherId, { rejectWithValue }) => {
+    try {
+      return await assignmentService.getAssignmentsByTeacher(teacherId);
+    } catch (err) {
+      return rejectWithValue((err as Error).message);
+    }
+  }
+);

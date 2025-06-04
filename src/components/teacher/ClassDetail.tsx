@@ -39,6 +39,7 @@ import type {
   StudentSubmission,
 } from '@/features/assignments/types';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { setSelectedTeacher } from '@/features/metrics/metricsSlice';
 
 /* ------------------------------------------------------------------ *
  *  Helpers / local types
@@ -80,6 +81,12 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     deletingAssignmentId,
   } = useAppSelector((s) => s.assignments);
 
+  const { assignmentMetrics } = useAppSelector((state) => state.metrics);
+
+  // Get the override teacher ID from sessionStorage
+  const overrideTeacherId = sessionStorage.getItem('overrideTeacherId');
+  const effectiveUserId = overrideTeacherId || user?.id;
+
   // Initialize expanded state from sessionStorage
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const savedState = sessionStorage.getItem(`expanded_assignments_${classId}`);
@@ -101,13 +108,30 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
    *  Fetch flow – first load basic slices, then per‑assignment data.
    * ------------------------------------------------------------------ */
   useEffect(() => {
-    if (!user || !classId) return;
+    if (!effectiveUserId || !classId) {
+      console.log('ClassDetail - Missing required data:', { effectiveUserId, classId });
+      return;
+    }
 
-    console.log('ClassDetail - Fetching data for class:', classId);
-    dispatch(fetchClasses({ role: 'teacher', userId: user.id }));
-    dispatch(fetchClassStatsByTeacher(user.id));
-    dispatch(fetchAssignmentByClass(classId));
-  }, [user, classId, dispatch]);
+    console.log('ClassDetail - Starting data fetch:', {
+      effectiveUserId,
+      classId,
+      isOverride: !!overrideTeacherId
+    });
+
+    // Fetch classes first
+    dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))
+      .unwrap()
+      .then(classes => {
+        console.log('ClassDetail - Fetched classes:', classes);
+        // Then fetch stats and assignments
+        dispatch(fetchClassStatsByTeacher(effectiveUserId));
+        dispatch(fetchAssignmentByClass(classId));
+      })
+      .catch(err => {
+        console.error('ClassDetail - Error fetching classes:', err);
+      });
+  }, [effectiveUserId, classId, dispatch]);
 
   useEffect(() => {
     if (!assignments.length) return;
@@ -216,7 +240,40 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const handleBackToDashboard = () => {
     console.log('ClassDetail - Going back to dashboard, clearing session storage');
     sessionStorage.removeItem(`expanded_assignments_${classId}`);
-    onBack();
+    
+    // Check if we're viewing as another teacher
+    const overrideTeacherId = sessionStorage.getItem('overrideTeacherId');
+    if (overrideTeacherId) {
+      // Clear the override teacher ID
+      sessionStorage.removeItem('overrideTeacherId');
+      
+      // Get the teacher's name from the metrics data
+      const teacherMetric = assignmentMetrics.find(m => m.teacher_id === overrideTeacherId);
+      const teacherName = teacherMetric?.name || '';
+      
+      console.log('ClassDetail - Saving teacher data:', { 
+        teacherId: overrideTeacherId, 
+        teacherName,
+        teacherMetric
+      });
+      
+      // Store the selected teacher in Redux for the dev dashboard
+      dispatch(setSelectedTeacher({
+        teacher_id: overrideTeacherId,
+        name: teacherName,
+        total_assignments: teacherMetric?.total_assignments || 0,
+        last_assignment_created_at: teacherMetric?.last_assignment_created_at || null
+      }));
+
+      // Store the active tab in sessionStorage
+      sessionStorage.setItem('devDashActiveTab', 'assignments');
+      
+      // Navigate back to dev dashboard
+      navigate('/dev-dash');
+    } else {
+      // Normal back navigation
+      onBack();
+    }
   };
 
   /* ------------------------------------------------------------------ *
