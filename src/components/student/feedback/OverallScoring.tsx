@@ -1,12 +1,13 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface Score {
-  avg_fluency_score: number;
-  avg_grammar_score: number;
-  avg_lexical_score: number;
-  avg_pronunciation_score: number;
+  avg_fluency_score: number | null;
+  avg_grammar_score: number | null;
+  avg_lexical_score: number | null;
+  avg_pronunciation_score: number | null;
 }
 
 interface OverallScoringProps {
@@ -17,10 +18,11 @@ interface OverallScoringProps {
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
-  onScoreChange: (field: keyof Score, value: number) => void;
+  onScoreChange: (field: keyof Score, value: number | null) => void;
 }
 
-const getScoreColor = (score: number) => {
+const getScoreColor = (score: number | null) => {
+  if (score === null) return "text-gray-400";
   if (score >= 90) return "text-green-500";
   if (score >= 80) return "text-green-400";
   if (score >= 70) return "text-yellow-400";
@@ -77,68 +79,84 @@ const OverallScoring = ({
       <div className="grid grid-cols-4 gap-4">
         <div className="text-center">
           {isEditing ? (
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={tempScores.avg_fluency_score}
-              onChange={(e) => onScoreChange('avg_fluency_score', parseInt(e.target.value) || 0)}
-              className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_fluency_score)}`}
-            />
+            <div className={cn(
+              "bg-gray-50 px-2 py-1 rounded-md transition-all duration-200 w-16 mx-auto"
+            )}>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tempScores.avg_fluency_score === null ? 0 : tempScores.avg_fluency_score}
+                onChange={(e) => onScoreChange('avg_fluency_score', e.target.value ? parseInt(e.target.value) : null)}
+                className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.avg_fluency_score)}`}
+              />
+            </div>
           ) : (
-            <div className={`text-2xl font-bold mb-1 ${getScoreColor(scores.avg_fluency_score)}`}>
-              {scores.avg_fluency_score}
+            <div className={`text-base font-bold w-16 mx-auto ${getScoreColor(scores.avg_fluency_score)}`}>
+              {scores.avg_fluency_score ?? 0}
             </div>
           )}
           <div className="text-xs text-gray-500">Fluency</div>
         </div>
         <div className="text-center">
           {isEditing ? (
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={tempScores.avg_pronunciation_score}
-              onChange={(e) => onScoreChange('avg_pronunciation_score', parseInt(e.target.value) || 0)}
-              className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_pronunciation_score)}`}
-            />
+            <div className={cn(
+              "bg-gray-50 px-2 py-1 rounded-md transition-all duration-200 w-16 mx-auto"
+            )}>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tempScores.avg_pronunciation_score === null ? 0 : tempScores.avg_pronunciation_score}
+                onChange={(e) => onScoreChange('avg_pronunciation_score', e.target.value ? parseInt(e.target.value) : null)}
+                className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.avg_pronunciation_score)}`}
+              />
+            </div>
           ) : (
-            <div className={`text-2xl font-bold mb-1 ${getScoreColor(scores.avg_pronunciation_score)}`}>
-              {scores.avg_pronunciation_score}
+            <div className={`text-base font-bold w-16 mx-auto ${getScoreColor(scores.avg_pronunciation_score)}`}>
+              {scores.avg_pronunciation_score ?? 0}
             </div>
           )}
           <div className="text-xs text-gray-500">Pronunciation</div>
         </div>
         <div className="text-center">
           {isEditing ? (
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={tempScores.avg_grammar_score}
-              onChange={(e) => onScoreChange('avg_grammar_score', parseInt(e.target.value) || 0)}
-              className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_grammar_score)}`}
-            />
+            <div className={cn(
+              "bg-gray-50 px-2 py-1 rounded-md transition-all duration-200 w-16 mx-auto"
+            )}>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tempScores.avg_grammar_score === null ? 0 : tempScores.avg_grammar_score}
+                onChange={(e) => onScoreChange('avg_grammar_score', e.target.value ? parseInt(e.target.value) : null)}
+                className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.avg_grammar_score)}`}
+              />
+            </div>
           ) : (
-            <div className={`text-2xl font-bold mb-1 ${getScoreColor(scores.avg_grammar_score)}`}>
-              {scores.avg_grammar_score}
+            <div className={`text-base font-bold w-16 mx-auto ${getScoreColor(scores.avg_grammar_score)}`}>
+              {scores.avg_grammar_score ?? 0}
             </div>
           )}
           <div className="text-xs text-gray-500">Grammar</div>
         </div>
         <div className="text-center">
           {isEditing ? (
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={tempScores.avg_lexical_score}
-              onChange={(e) => onScoreChange('avg_lexical_score', parseInt(e.target.value) || 0)}
-              className={`text-2xl font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ${getScoreColor(tempScores.avg_lexical_score)}`}
-            />
+            <div className={cn(
+              "bg-gray-50 px-2 py-1 rounded-md transition-all duration-200 w-16 mx-auto"
+            )}>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tempScores.avg_lexical_score === null ? 0 : tempScores.avg_lexical_score}
+                onChange={(e) => onScoreChange('avg_lexical_score', e.target.value ? parseInt(e.target.value) : null)}
+                className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.avg_lexical_score)}`}
+              />
+            </div>
           ) : (
-            <div className={`text-2xl font-bold mb-1 ${getScoreColor(scores.avg_lexical_score)}`}>
-              {scores.avg_lexical_score}
+            <div className={`text-base font-bold w-16 mx-auto ${getScoreColor(scores.avg_lexical_score)}`}>
+              {scores.avg_lexical_score ?? 0}
             </div>
           )}
           <div className="text-xs text-gray-500">Vocabulary</div>

@@ -4,6 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface TeacherCommentProps {
   comment: string;
@@ -49,14 +50,18 @@ const TeacherComment: React.FC<TeacherCommentProps> = ({
       </div>
       <Separator className="my-4" />
       {isEditing ? (
-        <Textarea
-          value={comment}
-          onChange={(e) => onCommentChange(e.target.value)}
-          placeholder="Enter your feedback for the student..."
-          className="min-h-[100px] resize-none"
-        />
+        <div className={cn(
+          "bg-gray-50 rounded-md transition-all duration-200"
+        )}>
+          <Textarea
+            value={comment}
+            onChange={(e) => onCommentChange(e.target.value)}
+            placeholder="Enter your feedback for the student..."
+            className="border-none text-base font-medium bg-transparent min-h-[100px] resize-none focus-visible:ring-0 focus-visible:ring-offset-0 rounded-md"
+          />
+        </div>
       ) : (
-        <div className="min-h-[100px] p-3 bg-gray-50 rounded border">
+        <div className="min-h-[100px] p-3">
           {comment || (
             <span className="text-gray-500 italic">No comment provided</span>
           )}
