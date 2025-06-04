@@ -17,7 +17,6 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     clearAuth(state) {
-      console.log('[authSlice] clearAuth called');
       state.user  = null;
       state.role  = null;
       state.error = null;

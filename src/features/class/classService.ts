@@ -18,46 +18,33 @@ export const classService = {
   },
 
   async getClassesByTeacher(teacherId: string): Promise<Class[]> {
-    console.log('classService - Fetching classes for teacher:', teacherId);
-    
     const { data, error } = await supabase
       .from('classes')
       .select('*')
       .eq('teacher_id', teacherId);
 
-    console.log('classService - Raw response:', { data, error });
-
     if (error) {
-      console.error('classService - Error fetching teacher classes:', error);
       throw new Error(error.message);
     }
 
-    console.log('classService - Returning classes:', data);
     return data;
   },
 
   async getClassesByStudent(studentId: string): Promise<Class[]> {
-    console.log('Fetching classes for student:', studentId);
-    
     const { data, error } = await supabase
       .from('students_classes')
       .select('class_id, classes(*)')
       .eq('student_id', studentId);
 
     if (error) {
-      console.error('Error fetching student classes:', error);
       throw new Error(error.message);
     }
 
-    console.log('Raw student classes data:', data);
-
     // The data comes in the format: [{ class_id: string, classes: Class }]
     const classes = data.map((row: any) => {
-      console.log('Processing row:', row);
       return row.classes;
     });
 
-    console.log('Processed classes:', classes);
     return classes;
   },
 

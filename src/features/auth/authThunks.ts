@@ -14,21 +14,16 @@ type SignupCreds = {
   };
 
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
-  console.log('Fetching user profile for ID:', id);
   const { data, error } = await supabase
     .from('users')
     .select('role, name, email')  // Now fetching role, name, and email
     .eq('id', id)
     .single();
   
-  console.log('Profile query result:', data);
-  
   if (error) {
-    console.error('Error fetching user profile:', error);
     throw new Error(error.message || 'Profile not found');
   }
   if (!data) {
-    console.error('No user record found for ID:', id);
     throw new Error('User record not found');
   }
   
@@ -184,11 +179,8 @@ export const verifyEmail = createAsyncThunk<
   'auth/verifyEmail',
   async ({ email, token }, { rejectWithValue }) => {
     try {
-      console.log('Starting email verification with:', { email, token });
-
       // First, try to get the current session
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Current session:', session);
 
       // Verify the OTP
       const { data, error } = await supabase.auth.verifyOtp({
@@ -198,16 +190,12 @@ export const verifyEmail = createAsyncThunk<
       });
 
       if (error) {
-        console.error('OTP verification error:', error);
         return rejectWithValue(error.message || 'Email verification failed');
       }
 
       if (!data.user) {
-        console.error('No user data returned from verification');
         return rejectWithValue('No user data returned from verification');
       }
-
-      console.log('OTP verification successful:', data);
 
       // Update user record to mark email as verified
       const { error: updateError } = await supabase
@@ -216,15 +204,11 @@ export const verifyEmail = createAsyncThunk<
         .eq('id', data.user.id);
 
       if (updateError) {
-        console.error('User record update error:', updateError);
         return rejectWithValue(`Failed to update user verification status: ${updateError.message}`);
       }
 
-      console.log('User record updated successfully');
-
       // Fetch updated profile
       const profile = await fetchUserProfile(data.user.id);
-      console.log('Fetched user profile:', profile);
 
       // Create AuthUser object with required fields
       const authUser: AuthUser = {
@@ -234,14 +218,11 @@ export const verifyEmail = createAsyncThunk<
         email_verified: true
       };
 
-      console.log('Created auth user:', authUser);
-
       return {
         user: authUser,
         role: profile.role
       };
     } catch (err: any) {
-      console.error('Verification error:', err);
       return rejectWithValue(err.message || 'An unexpected error occurred during email verification');
     }
   }
@@ -279,28 +260,19 @@ export const signInWithEmail = createAsyncThunk<
 >(
   'auth/signInWithEmail',
   async (creds, { rejectWithValue }) => {
-    console.log('Starting login process with:', { email: creds.email, selectedRole: creds.selectedRole });
-    
     const { data, error } = await supabase.auth.signInWithPassword({
       email: creds.email,
       password: creds.password
     });
 
     if (error || !data.user) {
-      console.error('Authentication error:', error);
       return rejectWithValue(error?.message || 'Invalid email or password');
     }
 
     try {
-      console.log('Authentication successful, fetching user profile...');
       const profile = await fetchUserProfile(data.user.id);
-      console.log('Retrieved profile:', profile);
 
       if (creds.selectedRole && profile.role !== creds.selectedRole) {
-        console.error('Role mismatch:', { 
-          selectedRole: creds.selectedRole, 
-          actualRole: profile.role 
-        });
         return rejectWithValue(`Invalid role selected. You are registered as a ${profile.role}.`);
       }
 
@@ -309,7 +281,6 @@ export const signInWithEmail = createAsyncThunk<
         await supabase
           .from('login_events')
           .insert({ user_id: data.user.id });
-        console.log('Login event recorded');
       } catch (logErr) {
         if (logErr instanceof Error) {
           console.warn('Failed to track login:', logErr.message);
@@ -318,7 +289,6 @@ export const signInWithEmail = createAsyncThunk<
         }
       }
 
-      console.log('Login successful with role:', profile.role);
       return { 
         user: {
           ...data.user,
@@ -327,7 +297,6 @@ export const signInWithEmail = createAsyncThunk<
         role: profile.role 
       };
     } catch (err: any) {
-      console.error('Profile fetch error:', err);
       return rejectWithValue(err.message || 'Failed to fetch user profile');
     }
   }
@@ -346,11 +315,9 @@ export const initiateEmailChange = createAsyncThunk<
       });
 
       if (error) {
-        console.error('Email change initiation error:', error);
         return rejectWithValue(error.message || 'Failed to initiate email change');
       }
     } catch (err: any) {
-      console.error('Email change initiation error:', err);
       return rejectWithValue(err.message || 'An unexpected error occurred while initiating email change');
     }
   }
@@ -373,7 +340,6 @@ export const verifyEmailChange = createAsyncThunk<
       });
 
       if (error || !data.user) {
-        console.error('OTP verification error:', error);
         return rejectWithValue(error?.message || 'Email change verification failed');
       }
 
@@ -387,7 +353,6 @@ export const verifyEmailChange = createAsyncThunk<
         .eq('id', data.user.id);
 
       if (updateError) {
-        console.error('User record update error:', updateError);
         return rejectWithValue(`Failed to update user record: ${updateError.message}`);
       }
 
@@ -407,7 +372,6 @@ export const verifyEmailChange = createAsyncThunk<
         role: profile.role
       };
     } catch (err: any) {
-      console.error('Email change verification error:', err);
       return rejectWithValue(err.message || 'An unexpected error occurred during email change verification');
     }
   }
@@ -442,7 +406,6 @@ export const savePartialStudentData = createAsyncThunk<
       .single();
     if (existingUser && existingUser.email_verified) {
       // Do not overwrite verified users
-      console.warn('Attempted to overwrite a verified student user. Skipping update.');
       return;
     }
     // Upsert by email (if user exists, update; else insert)

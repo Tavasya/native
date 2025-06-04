@@ -90,13 +90,11 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   // Initialize expanded state from sessionStorage
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const savedState = sessionStorage.getItem(`expanded_assignments_${classId}`);
-    console.log('ClassDetail - Loading expanded state from sessionStorage:', savedState);
     return new Set(savedState ? JSON.parse(savedState) : []);
   });
 
   // Save expanded state to sessionStorage whenever it changes
   useEffect(() => {
-    console.log('ClassDetail - Saving expanded state to sessionStorage:', Array.from(expanded));
     sessionStorage.setItem(`expanded_assignments_${classId}`, JSON.stringify(Array.from(expanded)));
   }, [expanded, classId]);
 
@@ -109,33 +107,21 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
    * ------------------------------------------------------------------ */
   useEffect(() => {
     if (!effectiveUserId || !classId) {
-      console.log('ClassDetail - Missing required data:', { effectiveUserId, classId });
       return;
     }
-
-    console.log('ClassDetail - Starting data fetch:', {
-      effectiveUserId,
-      classId,
-      isOverride: !!overrideTeacherId
-    });
 
     // Fetch classes first
     dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))
       .unwrap()
       .then(classes => {
-        console.log('ClassDetail - Fetched classes:', classes);
         // Then fetch stats and assignments
         dispatch(fetchClassStatsByTeacher(effectiveUserId));
         dispatch(fetchAssignmentByClass(classId));
-      })
-      .catch(err => {
-        console.error('ClassDetail - Error fetching classes:', err);
       });
   }, [effectiveUserId, classId, dispatch]);
 
   useEffect(() => {
     if (!assignments.length) return;
-    console.log('ClassDetail - Fetching submissions for assignments:', assignments.map(a => a.id));
 
     assignments.forEach((assignment) => {
       if (!fetchedAssignmentIds.current.has(assignment.id)) {
@@ -169,12 +155,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   /* map assignments -> rows, using stats already in the store */
   const assignmentRows: LocalAssignment[] = assignments.map((a) => {
     const subs = submissions[a.id] || [];
-    console.log('ClassDetail - Assignment submissions:', { 
-      assignmentId: a.id, 
-      title: a.title, 
-      submissions: subs,
-      expanded: expanded.has(a.id)
-    });
     const comp = {
       submitted: subs.filter(s => s.status === 'graded' || s.status === 'pending').length,
       inProgress: subs.filter(s => s.status === 'in_progress').length,
@@ -204,7 +184,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
    *  UI helpers
    * ------------------------------------------------------------------ */
   const toggle = (id: string) => {
-    console.log('ClassDetail - Toggling assignment:', id, 'Current expanded:', Array.from(expanded));
     setExpanded((prev) => {
       const nxt = new Set(prev);
       nxt.has(id) ? nxt.delete(id) : nxt.add(id);
@@ -238,7 +217,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   };
 
   const handleBackToDashboard = () => {
-    console.log('ClassDetail - Going back to dashboard, clearing session storage');
     sessionStorage.removeItem(`expanded_assignments_${classId}`);
     
     // Check if we're viewing as another teacher
@@ -250,12 +228,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
       // Get the teacher's name from the metrics data
       const teacherMetric = assignmentMetrics.find(m => m.teacher_id === overrideTeacherId);
       const teacherName = teacherMetric?.name || '';
-      
-      console.log('ClassDetail - Saving teacher data:', { 
-        teacherId: overrideTeacherId, 
-        teacherName,
-        teacherMetric
-      });
       
       // Store the selected teacher in Redux for the dev dashboard
       dispatch(setSelectedTeacher({
@@ -445,7 +417,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm w-1/5">
                               {(() => {
-                                console.log('Rendering status for:', st.student_name, 'Status:', st.status, 'Grade:', st.grade);
                                 const isCompleted = st.status === 'graded' || st.status === 'pending' || st.status === 'awaiting_review';
                                 return (
                                   <span className={`px-2 py-1 rounded-full ${
@@ -495,8 +466,6 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  console.log('ClassDetail - Navigating to submission:', st.id);
-                                  console.log('ClassDetail - Current expanded state:', Array.from(expanded));
                                   navigate(`/student/submission/${st.id}/feedback`, { 
                                     state: { 
                                       fromClassDetail: true

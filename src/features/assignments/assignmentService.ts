@@ -58,7 +58,6 @@ import {
         .single();
   
       if (error) throw new Error(error.message);
-      console.log('Raw assignment data from Supabase:', data);
       
       // Parse the questions field if it's a string
       if (data && typeof data.questions === 'string') {
@@ -149,8 +148,6 @@ import {
         `)
         .eq('assignment_id', assignmentId);
   
-      console.log('Raw submissions from DB:', submissions);
-  
       if (subErr) throw new Error(subErr.message);
   
       // 4. Create a map of latest submissions per student
@@ -159,8 +156,6 @@ import {
         const prev = latestAttempt.get(row.student_id);
         if (!prev || prev.attempt < row.attempt) latestAttempt.set(row.student_id, row);
       });
-  
-      console.log('Latest attempts map:', Object.fromEntries(latestAttempt));
   
       // 5. Create final output including all students
       const result = students.map(student => {
@@ -200,7 +195,6 @@ import {
         };
       });
   
-      console.log('Final processed submissions:', result);
       return result;
     },
   
