@@ -96,6 +96,7 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
     .order('last_logged_in_at', { ascending: false });
 
   if (lastLoginsError) throw lastLoginsError;
+  console.log('Raw last logins data:', lastLoginsData);
 
   // Get the view status for these users
   const userIds = lastLoginsData.map(user => user.user_id);
@@ -104,6 +105,7 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
     .select('id, view')
     .in('id', userIds);
   if (usersError) throw usersError;
+  console.log('Users data:', usersData);
   const viewStatusMap = new Map(usersData.map(user => [user.id, user.view]));
 
   // Get teacher-student relationships
@@ -117,6 +119,7 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
       )
     `) as { data: StudentClass[] | null, error: any };
   if (studentClassesError) throw studentClassesError;
+  console.log('Student classes data:', studentClasses);
 
   // Create a map of student IDs to their teacher IDs
   const studentTeacherMap = new Map<string, string>();
@@ -127,32 +130,49 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
       }
     });
   }
+  console.log('Student teacher map:', Object.fromEntries(studentTeacherMap));
 
-  // Deduplicate by email, prefer teacher role, and filter out hidden users
+  // First, collect all teachers
+  const teachers = lastLoginsData.filter(user => user.role === 'teacher');
+  console.log('All teachers before filtering:', teachers);
+
+  // Then handle students and deduplication
   const emailMap = new Map<string, LastLogin>();
-  lastLoginsData.forEach(user => {
-    const isHidden = viewStatusMap.get(user.user_id) === false;
-    if (isHidden) return; // Skip hidden users
-
-    const existingUser = emailMap.get(user.email);
-    if (!existingUser) {
-      emailMap.set(user.email, {
-        ...user,
-        view: viewStatusMap.get(user.user_id) ?? true,
-        teacher_id: user.role === 'student' ? studentTeacherMap.get(user.user_id) : undefined
+  
+  // First add all teachers
+  teachers.forEach(teacher => {
+    const isHidden = viewStatusMap.get(teacher.user_id) === false;
+    if (!isHidden) {
+      emailMap.set(teacher.email, {
+        ...teacher,
+        view: viewStatusMap.get(teacher.user_id) ?? true,
+        teacher_id: undefined
       });
-    } else {
-      if (user.role === 'teacher' && existingUser.role !== 'teacher') {
+    }
+  });
+
+  // Then add students
+  lastLoginsData.forEach(user => {
+    if (user.role === 'student') {
+      const isHidden = viewStatusMap.get(user.user_id) === false;
+      if (!isHidden) {
         emailMap.set(user.email, {
           ...user,
           view: viewStatusMap.get(user.user_id) ?? true,
-          teacher_id: undefined
+          teacher_id: studentTeacherMap.get(user.user_id)
         });
       }
     }
   });
 
-  return Array.from(emailMap.values());
+  const result = Array.from(emailMap.values());
+  console.log('Final result:', {
+    total: result.length,
+    teachers: result.filter(u => u.role === 'teacher').length,
+    students: result.filter(u => u.role === 'student').length,
+    teacherEmails: result.filter(u => u.role === 'teacher').map(t => t.email)
+  });
+  return result;
 }
 
 /**

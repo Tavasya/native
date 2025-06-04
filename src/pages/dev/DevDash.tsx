@@ -12,8 +12,8 @@ import {
   loadMoreUsers,
   setSelectedTeacher,
   clearSelectedTeacher,
-  setLastLogins,
 } from '@/features/metrics/metricsSlice';
+import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import type { RootState, AppDispatch } from '@/app/store';
 import type {
   LastLogin,
@@ -145,13 +145,13 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ verified }) => (
 export default function DashboardPage() {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState(() => {
-    // Initialize activeTab from sessionStorage or default to 'overview'
     return sessionStorage.getItem('devDashActiveTab') || 'overview';
   });
+  const [searchTerm, setSearchTerm] = useState('');
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
+  const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
   const {
-    lastLogins,
     allLastLogins,
     assignmentMetrics,
     loadingLastLogins,
@@ -165,12 +165,30 @@ export default function DashboardPage() {
     usersPerPage,
   } = useSelector((state: RootState) => state.metrics);
 
+  // Calculate visible and filtered users
+  const visibleLastLogins = allLastLogins.filter(u => u.view !== false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('all');
+  
+  const filteredUsers = visibleLastLogins.filter(user => {
+    // First apply search filter
+    const matchesSearch = !searchTerm || 
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Then apply teacher filter
+    const matchesTeacher = selectedTeacherId === 'all' || 
+      (user.role === 'student' && user.teacher_id === selectedTeacherId) ||
+      (user.role === 'teacher' && user.user_id === selectedTeacherId);
+    
+    return matchesSearch && matchesTeacher;
+  });
+
   // Update activeTab in sessionStorage when it changes
   useEffect(() => {
     sessionStorage.setItem('devDashActiveTab', activeTab);
   }, [activeTab]);
 
-  // Load data when component mounts or when returning from class detail
+  // Load data when component mounts
   useEffect(() => {
     console.log('DevDash - Loading data, activeTab:', activeTab);
     dispatch(fetchLastLogins({ page: 1, perPage: 20 }));
@@ -181,6 +199,17 @@ export default function DashboardPage() {
     dispatch(fetchStudentEngagement());
     dispatch(fetchInactiveUsers());
   }, [dispatch, activeTab]);
+
+  // Load class data separately
+  useEffect(() => {
+    if (allLastLogins.length > 0) {
+      const teachers = allLastLogins.filter(user => user.role === 'teacher');
+      teachers.forEach(teacher => {
+        dispatch(fetchClasses({ role: 'teacher', userId: teacher.user_id }));
+        dispatch(fetchClassStatsByTeacher(teacher.user_id));
+      });
+    }
+  }, [dispatch, allLastLogins.length]);
 
   const handleHideUser = async (userId: string) => {
     dispatch(hideUserById(userId));
@@ -194,9 +223,6 @@ export default function DashboardPage() {
   // Calculate stats from allLastLogins
   console.log('Raw allLastLogins data:', allLastLogins);
 
-  const visibleLastLogins = lastLogins.filter(u => u.view !== false);
-  console.log('Visible users for table:', visibleLastLogins);
-
   const tabs = [
     // { id: 'overview', name: 'Overview', icon: ChartIcon },
     { id: 'users', name: 'Users', icon: UserIcon },
@@ -204,19 +230,40 @@ export default function DashboardPage() {
     // { id: 'engagement', name: 'Engagement', icon: ChartIcon },
   ] as const;
 
+  // Helper function to get teacher name from class data
+  const getTeacherName = (studentId: string) => {
+    // First try to find the student's class
+    const studentClass = classes.find(c => 
+      classStats.some(s => s.id === c.id && s.student_count > 0)
+    );
+
+    if (studentClass) {
+      // Find the teacher for this class
+      const teacher = allLastLogins.find(t => t.user_id === studentClass.teacherId);
+      if (teacher) {
+        return teacher.name;
+      }
+    }
+
+    // If we can't find through classes, try the direct teacher_id
+    const student = allLastLogins.find(s => s.user_id === studentId);
+    if (student?.teacher_id) {
+      const teacher = allLastLogins.find(t => t.user_id === student.teacher_id);
+      if (teacher) {
+        return teacher.name;
+      }
+    }
+
+    return 'No Teacher';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600 mt-1">Manage your educational platform</p>
-            </div>
-            <div className="text-sm text-gray-500">
-              Last updated: {new Date().toLocaleString()}
-            </div>
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="flex justify-end">
+          <div className="text-sm text-gray-500">
+            Last updated: {new Date().toLocaleString()}
           </div>
         </div>
       </div>
@@ -250,77 +297,69 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">User Management</h2>
-              <div className="flex space-x-2">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Export Users
-                </button>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-600">Total Users</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  {filteredUsers.length}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-600">Total Students</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  {filteredUsers.filter(user => user.role === 'student').length}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-600">Total Teachers</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  {filteredUsers.filter(user => user.role === 'teacher').length}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-600">Total Assignments</h4>
+                <p className="text-2xl font-bold text-gray-900">
+                  {assignmentMetrics.reduce((sum, m) => sum + m.total_assignments, 0)}
+                </p>
               </div>
             </div>
 
             {/* Teacher Filter and Metrics */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Teacher Filter</h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <input
+                  type="text"
+                  placeholder="Search users by name or email..."
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-80"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
                 <select 
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedTeacherId}
                   onChange={(e) => {
-                    const teacherId = e.target.value;
-                    console.log('Selected teacher ID:', teacherId);
-                    console.log('All last logins:', allLastLogins);
-                    
-                    if (teacherId === 'all') {
-                      // Reset to show all users
-                      dispatch(fetchLastLogins({ page: 1, perPage: 20 }));
-                    } else {
-                      // Filter students by selected teacher from allLastLogins
-                      const teacherStudents = allLastLogins.filter(user => {
-                        console.log('Checking user:', {
-                          id: user.user_id,
-                          role: user.role,
-                          teacher_id: user.teacher_id,
-                          view: user.view
-                        });
-                        return user.role === 'student' && user.teacher_id === teacherId && user.view !== false;
-                      });
-                      
-                      console.log('Filtered students:', teacherStudents);
-                      
-                      // Update the lastLogins state with filtered students
-                      dispatch(setLastLogins(teacherStudents));
-                    }
+                    setSelectedTeacherId(e.target.value);
                   }}
                 >
                   <option value="all">All Teachers</option>
-                  {allLastLogins
-                    .filter(user => user.role === 'teacher' && user.view !== false)
-                    .map(teacher => (
-                      <option key={teacher.user_id} value={teacher.user_id}>
-                        {teacher.name} ({allLastLogins.filter(u => u.role === 'student' && u.teacher_id === teacher.user_id && u.view !== false).length} students)
-                      </option>
-                    ))}
+                  {(() => {
+                    const teachers = allLastLogins.filter(user => user.role === 'teacher' && user.view !== false);
+                    return teachers
+                      .sort((a, b) => {
+                        const aStudents = allLastLogins.filter(u => u.role === 'student' && u.teacher_id === a.user_id && u.view !== false).length;
+                        const bStudents = allLastLogins.filter(u => u.role === 'student' && u.teacher_id === b.user_id && u.view !== false).length;
+                        return bStudents - aStudents;
+                      })
+                      .map(teacher => (
+                        <option key={teacher.user_id} value={teacher.user_id}>
+                          {teacher.name} ({allLastLogins.filter(u => u.role === 'student' && u.teacher_id === teacher.user_id && u.view !== false).length} students)
+                        </option>
+                      ));
+                  })()}
                 </select>
-              </div>
-
-              {/* Teacher Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-800">Total Students</h4>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {allLastLogins.filter(user => user.role === 'student' && user.view !== false).length}
-                  </p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-purple-800">Total Teachers</h4>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {allLastLogins.filter(user => user.role === 'teacher' && user.view !== false).length}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-green-800">Total Assignments</h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    {assignmentMetrics.reduce((sum, m) => sum + m.total_assignments, 0)}
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -334,8 +373,8 @@ export default function DashboardPage() {
               <ErrorMessage message={errorLastLogins} />
             ) : (
               <DataTable<LastLogin>
-                headers={['Name', 'Email', 'Role', 'Status', 'Last Login', 'Actions']}
-                data={visibleLastLogins}
+                headers={['Name', 'Email', 'Role', 'Teacher', 'Status', 'Last Login', 'Actions']}
+                data={filteredUsers}
                 renderRow={(user) => (
                   <tr key={user.user_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
@@ -346,6 +385,15 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4">
                       <RoleBadge role={user.role as 'teacher' | 'student' | 'admin'} />
+                    </td>
+                    <td className="px-6 py-4">
+                      {user.role === 'student' ? (
+                        <div className="text-gray-600">
+                          {getTeacherName(user.user_id)}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400">-</div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge verified={user.email_verified} />

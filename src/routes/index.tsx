@@ -59,8 +59,7 @@ export default function AppRoutes() {
           <Route path="/sign-up" element={<NewSignUp />} />
           <Route path="/auth/verify" element={<VerificationSuccess />} />
           <Route path="/flow" element={<FlowEditor />} />
-          <Route path="/dev-dash" element={<DevDash />} />
-  
+          
           {/* -------- STUDENT ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['student']} />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
@@ -73,6 +72,7 @@ export default function AppRoutes() {
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
             <Route path="/class/:id" element={<ClassDetailPage />} />
             <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
+            <Route path="/dev-dash" element={<DevDash />} />
           </Route>
 
           {/* -------- SHARED ROUTES -------- */}

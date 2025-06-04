@@ -622,7 +622,7 @@ const CreateAssignmentPage: React.FC = () => {
                                       activeCardId === card.id ? "bg-gray-50" : ""
                                     )}
                                   >
-                                    <h4 className="text-sm font-medium mb-3">Bullet Points</h4>
+                                    <h4 className="text-sm font-medium mb-3">You should say:</h4>
                                     <div className="space-y-2">
                                       {card.bulletPoints?.map((bullet, i) => (
                                         <div key={i} className="flex items-center space-x-2">
@@ -706,14 +706,14 @@ const CreateAssignmentPage: React.FC = () => {
                                             <SelectTrigger className="w-40">
                                               <SelectValue>
                                                 {card.type === "normal"
-                                                  ? "Standard "
-                                                  : "Cue Card "}
+                                                  ? "Part 1 or Part 3 "
+                                                  : "Part 2 "}
                                               </SelectValue>
                                             </SelectTrigger>
                                             <SelectContent>
-                                              <SelectItem value="normal">Standard</SelectItem>
+                                              <SelectItem value="normal">Part 1 or Part 3</SelectItem>
                                               <SelectItem value="bulletPoints">
-                                                Cue Card
+                                                Part 2
                                               </SelectItem>
                                             </SelectContent>
                                           </Select>
