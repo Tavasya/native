@@ -1,6 +1,21 @@
+// supabase/functions/submit-audio/index.ts
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
+console.log("Submit Audio function started")
+
 serve(async (req) => {
+  // Handle CORS for browser requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+    })
+  }
+
   try {
     // 1) Log incoming headers
     console.log("➡️ [submit-audio] Received headers:", Object.fromEntries(req.headers.entries()))
@@ -26,7 +41,13 @@ serve(async (req) => {
         console.error("❌ [submit-audio] Failed to parse JSON:", e)
         return new Response(
           JSON.stringify({ error: "Invalid JSON in request" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { 
+            status: 400, 
+            headers: { 
+              "Content-Type": "application/json",
+              'Access-Control-Allow-Origin': '*'
+            } 
+          }
         )
       }
 
@@ -54,7 +75,13 @@ serve(async (req) => {
       console.log("➡️ [submit-audio] Raw body (unknown format):", bodyText)
       return new Response(
         JSON.stringify({ error: "Unsupported Content-Type" }),
-        { status: 415, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 415, 
+          headers: { 
+            "Content-Type": "application/json",
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     }
 
@@ -62,7 +89,13 @@ serve(async (req) => {
       console.error("❌ [submit-audio] Missing submission_id after parsing")
       return new Response(
         JSON.stringify({ error: "submission_id is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { 
+          status: 400, 
+          headers: { 
+            "Content-Type": "application/json",
+            'Access-Control-Allow-Origin': '*'
+          } 
+        }
       )
     }
 
@@ -70,9 +103,9 @@ serve(async (req) => {
       console.warn("⚠️ [submit-audio] No audio_urls were parsed")
     }
 
-    // 5) Build the downstream payload
+    // 5) Build the downstream payload - Backend expects submission_url
     const downstreamPayload = {
-      submission_url: submission_id,
+      submission_url: submission_id,  // ← Backend expects submission_url
       audio_urls,
     }
     console.log("➡️ [submit-audio] Forwarding payload to ClassConnect:", downstreamPayload)
@@ -84,51 +117,48 @@ serve(async (req) => {
       "Body:", JSON.stringify(downstreamPayload)
     )
 
-    // 6) Forward to the ClassConnect endpoint
-    const downstreamResponse = await fetch(
-      "https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          // If ClassConnect requires auth, uncomment and replace below:
-          // "Authorization": "Bearer YOUR_CLASSCONNECT_TOKEN"
-        },
-        body: JSON.stringify(downstreamPayload),
-      }
-    )
+    // 6) Forward to the ClassConnect endpoint (fire-and-forget)
+    fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        // If ClassConnect requires auth, uncomment and replace below:
+        // "Authorization": "Bearer YOUR_CLASSCONNECT_TOKEN"
+      },
+      body: JSON.stringify(downstreamPayload),
+    }).catch(error => {
+      console.error("⚠️ [submit-audio] Failed to forward request:", error)
+    })
 
-    console.log("⬅️ [submit-audio] ClassConnect status:", downstreamResponse.status)
-    console.log("⬅️ [submit-audio] ClassConnect response headers:", 
-      Object.fromEntries(downstreamResponse.headers.entries())
-    )
+    console.log("✅ [submit-audio] Request forwarded successfully, processing in background")
 
-    const downstreamText = await downstreamResponse.text()
-    console.log("⬅️ [submit-audio] ClassConnect raw body:", downstreamText)
-
-    let downstreamData: any
-    try {
-      downstreamData = JSON.parse(downstreamText)
-      console.log("⬅️ [submit-audio] ClassConnect JSON:", downstreamData)
-    } catch (e) {
-      console.warn("⚠️ [submit-audio] ClassConnect returned non‑JSON:", e)
-      downstreamData = { raw: downstreamText }
+    // 7) Return immediate success response
+    const returnValue = { 
+      status: "accepted", 
+      message: "Audio submission received and processing started",
+      submission_id: submission_id
     }
-
-    // 7) Return combined result
-    const returnValue = { status: downstreamResponse.status, data: downstreamData }
-    console.log("⬅️ [submit-audio] Returning to caller:", returnValue)
+    console.log("⬅️ [submit-audio] Returning immediate response:", returnValue)
     return new Response(JSON.stringify(returnValue), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+      status: 202, // 202 = Accepted (processing async)
+      headers: { 
+        "Content-Type": "application/json",
+        'Access-Control-Allow-Origin': '*'
+      },
     })
 
   } catch (err) {
     console.error("❌ [submit-audio] Unexpected error:", err)
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { 
+        status: 500, 
+        headers: { 
+          "Content-Type": "application/json",
+          'Access-Control-Allow-Origin': '*'
+        } 
+      }
     )
   }
 })

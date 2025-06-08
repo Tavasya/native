@@ -144,8 +144,13 @@ export const updateSubmission = createAsyncThunk(
             let apiUpdates = { ...updates };
             
             if (updates.section_feedback && Array.isArray(updates.section_feedback)) {
+                // Sort section_feedback by question_id before converting to Record
+                const sortedSectionFeedback = [...updates.section_feedback].sort((a, b) => 
+                    (a.question_id || 0) - (b.question_id || 0)
+                );
+                
                 const sectionFeedbackRecord: Record<string, any> = {};
-                updates.section_feedback.forEach(entry => {
+                sortedSectionFeedback.forEach(entry => {
                     sectionFeedbackRecord[entry.question_id.toString()] = {
                         ...entry.section_feedback,
                         audio_url: entry.audio_url,
@@ -159,7 +164,9 @@ export const updateSubmission = createAsyncThunk(
             // FIXED: Create separate optimistic updates object that matches Submission type
             const optimisticUpdates: Partial<Submission> = {
                 ...updates,
-                section_feedback: Array.isArray(updates.section_feedback) ? updates.section_feedback : undefined
+                section_feedback: Array.isArray(updates.section_feedback) 
+                    ? [...updates.section_feedback].sort((a, b) => (a.question_id || 0) - (b.question_id || 0))
+                    : undefined
             };
 
             // Optimistic update with correct types

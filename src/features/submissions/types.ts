@@ -50,16 +50,66 @@ export interface SectionFeedback {
       };
     }[];
   };
+  grammar_corrections?: {
+    grade: number;
+    issues: string[];
+    grammar_corrections: {
+      [key: string]: {
+        original: string;
+        corrections: {
+          type: string;
+          explanation: string;
+          phrase_index: number;
+          sentence_text: string;
+          sentence_index: number;
+          original_phrase: string;
+          suggested_correction: string;
+        }[];
+      };
+    };
+  };
   lexical?: {
     grade: number;
     issues: {
-      sentence?: string;
+      type: string;
+      sentence: string;
       suggestion: {
-        suggested_phrase: string;
         explanation: string;
-        original_phrase?: string;
+        phrase_index: number;
+        resource_type: string;
+        sentence_text: string;
+        sentence_index: number;
+        original_phrase: string;
+        suggested_phrase: string;
       };
     }[];
+    enhanced_lexical_analysis: Array<Array<{
+      explanation: string;
+      phrase_index: number;
+      resource_type: string;
+      sentence_text: string;
+      sentence_index: number;
+      original_phrase: string;
+      suggested_phrase: string;
+    }>>;
+  };
+  vocabulary?: {
+    grade: number;
+    issues: string[];
+    vocabulary_suggestions: {
+      [key: string]: {
+        examples: string[];
+        word_type: string;
+        explanation: string;
+        phrase_index: number;
+        original_word: string;
+        sentence_text: string;
+        original_level: string;
+        sentence_index: number;
+        suggested_word: string;
+        suggested_level: string;
+      };
+    };
   };
   fluency?: {
     grade: number;
@@ -110,6 +160,7 @@ export interface Submission {
   submitted_at: string;
   grade?: number;
   recordings?: RecordingData[];
+  report_version?: string | null;
   overall_assignment_score?: {
     avg_fluency_score: number;
     avg_grammar_score: number;

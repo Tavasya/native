@@ -180,7 +180,7 @@ export const verifyEmail = createAsyncThunk<
   async ({ email, token }, { rejectWithValue }) => {
     try {
       // First, try to get the current session
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { /* session */ } } = await supabase.auth.getSession();
 
       // Verify the OTP
       const { data, error } = await supabase.auth.verifyOtp({

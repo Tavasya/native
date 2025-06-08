@@ -24,20 +24,7 @@ const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
       isEditing && "bg-gray-50 rounded-lg p-6"
     )}>
       {/* Top Metrics Row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-50 p-4 rounded-lg text-center">
-          <div className="text-sm font-medium text-gray-900 mb-2">Speak at Length</div>
-          {currentQuestion?.duration_feedback && (
-            <div className="mt-2">
-              <div className="text-xs text-red-600">
-                Spoke for {Math.round((currentQuestion.duration_feedback.actual_duration / currentQuestion.duration_feedback.time_limit_sec) * 100)}% of time limit
-              </div>
-              <div className="text-xs text-red-600 mt-1">
-                {currentQuestion.duration_feedback.feedback}
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-50 p-4 rounded-lg text-center">
           <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
           <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>

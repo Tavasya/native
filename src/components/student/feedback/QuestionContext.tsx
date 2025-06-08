@@ -30,6 +30,12 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   openPopover,
   setOpenPopover,
 }) => {
+  console.log('QuestionContent render:', {
+    selectedQuestionIndex,
+    audioUrl,
+    questionsCount: questions.length
+  });
+
   return (
     <Card className="shadow-sm border-0 bg-white">
       <CardContent className="p-4">
@@ -40,13 +46,15 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         />
 
         <div className="mt-6">
-          <AudioPlayer
-            ref={audioRef}
-            audioUrl={audioUrl}
-            hasRecorded={!!audioUrl}
-            isRecording={false}
-            onTimeUpdate={() => {}}
-          />
+          {audioUrl && (
+            <AudioPlayer
+              ref={audioRef}
+              audioUrl={audioUrl}
+              hasRecorded={true}
+              isRecording={false}
+              onTimeUpdate={() => {}}
+            />
+          )}
         </div>
 
         <Transcript

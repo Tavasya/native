@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RecordingData } from "./types";
+import { validateAudioBlob } from "@/utils/webm-diagnostics";
 
 /**
  * Gets the appropriate file extension based on MIME type
@@ -25,6 +26,12 @@ export async function uploadAudioToStorage(
   questionId: string, 
   studentId: string
 ): Promise<string> {
+  // Validate the blob before uploading
+  const validation = await validateAudioBlob(blob);
+  if (!validation.valid) {
+    throw new Error(`Invalid audio file: ${validation.error}`);
+  }
+
   // Check if user is authenticated
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
@@ -91,6 +98,12 @@ export async function prepareRecordingsForSubmission(
         const idx = parseInt(questionIdx);
         const questionId = (questions[idx]?.id || idx).toString();
         
+        // Validate the recording before uploading
+        const validation = await validateAudioBlob(recording.blob);
+        if (!validation.valid) {
+          throw new Error(`Invalid recording for question ${questionId}: ${validation.error}`);
+        }
+        
         // Upload the recording to Supabase
         const publicUrl = await uploadAudioToStorage(
           recording.blob,
@@ -112,5 +125,4 @@ export async function prepareRecordingsForSubmission(
     }
     
     return recordingData;
-    
 }

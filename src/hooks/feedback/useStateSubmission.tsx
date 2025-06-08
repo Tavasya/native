@@ -43,23 +43,78 @@ export const useSubmissionState = (submissionId: string | undefined) => {
 
   // ✅ Memoized current question computation
   const currentQuestion = useMemo((): QuestionFeedback | null => {
-    if (!selectedSubmission?.section_feedback || !Array.isArray(selectedSubmission.section_feedback)) {
+    if (!selectedSubmission) {
       return null;
     }
-    
-    const sortedFeedback = [...selectedSubmission.section_feedback].sort((a, b) => 
+
+    // If section_feedback is not yet loaded, return null
+    if (!selectedSubmission.section_feedback) {
+      console.log('Section feedback not yet loaded');
+      return null;
+    }
+
+    // Log version information
+    console.log('Submission version info:', {
+      report_version: selectedSubmission.report_version,
+      section_feedback_length: selectedSubmission.section_feedback.length
+    });
+
+    // Ensure section_feedback is an array
+    const sectionFeedback = Array.isArray(selectedSubmission.section_feedback) 
+      ? selectedSubmission.section_feedback 
+      : [];
+
+    // Sort feedback by question_id
+    const sortedFeedback = [...sectionFeedback].sort((a, b) => 
       (a.question_id || 0) - (b.question_id || 0)
     );
     
     const question = sortedFeedback[ui.selectedQuestionIndex];
-    if (!question) return null;
+    if (!question) {
+      console.log('No question found at index:', ui.selectedQuestionIndex);
+      return null;
+    }
 
-    // Get audio URL from recordings
-    const audioUrl = Array.isArray(selectedSubmission.recordings) && selectedSubmission.recordings[ui.selectedQuestionIndex]
-      ? (typeof selectedSubmission.recordings[ui.selectedQuestionIndex] === 'string' 
-          ? selectedSubmission.recordings[ui.selectedQuestionIndex] 
-          : (selectedSubmission.recordings[ui.selectedQuestionIndex] as any)?.audioUrl || '')
-      : '';
+    console.log('Current question:', {
+      question_id: question.question_id,
+      recordings: selectedSubmission.recordings,
+      selectedIndex: ui.selectedQuestionIndex
+    });
+
+    // Get audio URL from section feedback
+    let audioUrl = '';
+    if (Array.isArray(selectedSubmission.section_feedback)) {
+      // Log the full structure of the data
+      console.log('Raw submission data:', {
+        submission_id: selectedSubmission.id,
+        recordings: selectedSubmission.recordings,
+        section_feedback: selectedSubmission.section_feedback,
+        report_version: selectedSubmission.report_version
+      });
+
+      // Find the current question's feedback
+      const currentFeedback = selectedSubmission.section_feedback.find(
+        feedback => feedback.question_id === question.question_id
+      );
+
+      console.log('Question matching:', {
+        currentQuestionId: question.question_id,
+        foundFeedback: currentFeedback ? {
+          question_id: currentFeedback.question_id,
+          audio_url: currentFeedback.audio_url
+        } : null
+      });
+
+      // Use the audio_url from the section feedback
+      audioUrl = currentFeedback?.audio_url || '';
+      
+      console.log('Found recording:', {
+        question_id: question.question_id,
+        audioUrl
+      });
+    }
+
+    console.log('Final audio URL:', audioUrl);
 
     return {
       question_id: question.question_id,

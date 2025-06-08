@@ -36,6 +36,8 @@ export interface GrammarIssue {
     explanation: string;
     original_phrase?: string;
   };
+  sentence_index?: number;
+  phrase_index?: number;
 }
 
 export interface LexicalIssue {

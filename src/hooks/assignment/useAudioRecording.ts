@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { validateAudioBlob } from '@/utils/webm-diagnostics';
 
 interface UseAudioRecordingProps {
   onRecordingComplete: (audioBlob: Blob, audioUrl: string) => void;
@@ -11,6 +12,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   const mediaStream = useRef<MediaStream | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const recordingStartTime = useRef<number>(0);
 
   // Get the best supported MIME type
   const getSupportedMimeType = (): string => {
@@ -54,6 +56,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       
       mediaRecorder.current = new MediaRecorder(stream, options);
       audioChunks.current = [];
+      recordingStartTime.current = Date.now();
 
       mediaRecorder.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -61,14 +64,32 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
         }
       };
 
-      mediaRecorder.current.onstop = () => {
+      mediaRecorder.current.onstop = async () => {
         setIsProcessing(true);
         
         const audioBlob = new Blob(audioChunks.current, { type: mimeType });
-        const audioUrl = URL.createObjectURL(audioBlob);
-        
         console.log(`📊 Recording size: ${(audioBlob.size / 1024).toFixed(1)}KB`);
         
+        // Validate the recording
+        const validation = await validateAudioBlob(audioBlob);
+        
+        if (!validation.valid) {
+          console.error('Recording validation failed:', validation.error);
+          onError(`Recording validation failed: ${validation.error}`);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Check minimum recording duration (1 second)
+        const recordingDuration = Date.now() - recordingStartTime.current;
+        if (recordingDuration < 1000) {
+          console.error('Recording too short:', recordingDuration);
+          onError('Recording must be at least 1 second long');
+          setIsProcessing(false);
+          return;
+        }
+        
+        const audioUrl = URL.createObjectURL(audioBlob);
         onRecordingComplete(audioBlob, audioUrl);
         setIsProcessing(false);
       };

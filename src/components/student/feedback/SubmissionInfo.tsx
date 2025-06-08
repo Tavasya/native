@@ -15,7 +15,7 @@ interface SubmissionInfoProps {
   onEditOverall: () => void;
   onSaveOverall: () => void;
   onCancelOverall: () => void;
-  onScoreChange: (field: keyof AverageScores, value: number) => void;
+  onScoreChange: (field: keyof AverageScores, value: number | null) => void;
   teacherComment: string;
   isEditingComment: boolean;
   onEditComment: () => void;

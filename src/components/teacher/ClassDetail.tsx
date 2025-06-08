@@ -87,6 +87,22 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const overrideTeacherId = sessionStorage.getItem('overrideTeacherId');
   const effectiveUserId = overrideTeacherId || user?.id;
 
+  // Clear override if we're in a normal view (not injected)
+  useEffect(() => {
+    // If we have a user ID and it matches the override, we're in a normal view
+    if (user?.id && overrideTeacherId === user.id) {
+      sessionStorage.removeItem('overrideTeacherId');
+    }
+
+    // Cleanup when navigating away
+    return () => {
+      // If we're not in an injected view (override doesn't match current user)
+      if (user?.id && overrideTeacherId !== user.id) {
+        sessionStorage.removeItem('overrideTeacherId');
+      }
+    };
+  }, [overrideTeacherId, user?.id]);
+
   // Initialize expanded state from sessionStorage
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const savedState = sessionStorage.getItem(`expanded_assignments_${classId}`);
@@ -113,7 +129,8 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     // Fetch classes first
     dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))
       .unwrap()
-      .then(classes => {
+      // .then(classes => {
+      .then(_ => {
         // Then fetch stats and assignments
         dispatch(fetchClassStatsByTeacher(effectiveUserId));
         dispatch(fetchAssignmentByClass(classId));

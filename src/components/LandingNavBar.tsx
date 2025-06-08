@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import { useNavigate } from "react-router-dom";
+import NativeLogo from '@/lib/images/Native Logo.png';
 
 const NavBar = () => {
   const navigate = useNavigate();
@@ -9,9 +10,8 @@ const NavBar = () => {
   return <header className="py-4 border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container flex items-center justify-between">
         <div className="flex items-center">
-          <a href="/" className="flex items-center font-display text-xl font-bold">
-            <span className="text-brand-primary">Native</span>
-            <span className="text-brand-primary"> Speaking</span>
+          <a href="/" className="flex items-center">
+            <img src={NativeLogo} alt="Native" className="h-6" />
           </a>
         </div>
 

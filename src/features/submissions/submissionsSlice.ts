@@ -70,14 +70,48 @@ const initialState: SubmissionsState = {
   ui: initialUIState,
 };
 
+// Helper function to detect report version and format
+const detectReportFormat = (submission: any): { version: string | null, format: 'v1' | 'v2' } => {
+  // Check if the first item in section_feedback is a version object
+  if (Array.isArray(submission.section_feedback) && 
+      submission.section_feedback.length > 0 && 
+      submission.section_feedback[0].version) {
+    return {
+      version: submission.section_feedback[0].version,
+      format: 'v2'
+    };
+  }
+  
+  return {
+    version: null,
+    format: 'v1'
+  };
+};
+
 // Helper function to normalize section_feedback to array format
 const normalizeSectionFeedback = (submission: any): Submission => {
   if (!submission.section_feedback) {
     return { ...submission, section_feedback: [] };
   }
 
+  // Detect report format
+  const { version, format } = detectReportFormat(submission);
+
   if (Array.isArray(submission.section_feedback)) {
-    return submission;
+    // For v2 format, skip the version object
+    const feedbackArray = format === 'v2' 
+      ? submission.section_feedback.slice(1) 
+      : submission.section_feedback;
+
+    // Sort array by question_id
+    const sortedFeedback = [...feedbackArray].sort((a, b) => 
+      (a.question_id || 0) - (b.question_id || 0)
+    );
+    return { 
+      ...submission, 
+      section_feedback: sortedFeedback,
+      report_version: version
+    };
   }
 
   if (typeof submission.section_feedback === 'object') {
@@ -93,11 +127,16 @@ const normalizeSectionFeedback = (submission: any): Submission => {
 
     return {
       ...submission,
-      section_feedback: sectionFeedbackArray
+      section_feedback: sectionFeedbackArray,
+      report_version: version
     };
   }
 
-  return { ...submission, section_feedback: [] };
+  return { 
+    ...submission, 
+    section_feedback: [],
+    report_version: version
+  };
 };
 
 const submissionsSlice = createSlice({

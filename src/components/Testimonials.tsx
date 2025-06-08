@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Quote, ChevronLeft, ChevronRight, Circle, CircleDot } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 
@@ -20,7 +19,6 @@ const Testimonial = ({
   name,
   role,
   location,
-  image,
   className,
   style
 }: TestimonialProps) => {
@@ -40,11 +38,7 @@ const Testimonial = ({
         <p className="text-gray-700 mb-6 flex-1 italic">"{quote}"</p>
         
         <div className="flex items-center mt-auto pt-4 border-t border-gray-100">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={image} alt={name} />
-            <AvatarFallback>{name[0]}</AvatarFallback>
-          </Avatar>
-          <div className="ml-3">
+          <div>
             <h4 className="font-semibold text-gray-900">{name}</h4>
             <p className="text-sm text-gray-500">{role}, {location}</p>
           </div>

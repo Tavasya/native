@@ -64,6 +64,37 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
       "space-y-4",
       isEditing && "bg-gray-50 rounded-lg p-6"
     )}>
+      {/* Pronunciation Score Legend */}
+      <div className="bg-gray-50 p-4 rounded-lg mb-4">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Pronunciation Score Guide</h4>
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-green-500">●</span>
+            <span>Perfect</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">●</span>
+            <span>Excellent</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400">●</span>
+            <span>Good</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-orange-400">●</span>
+            <span>Fair</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-orange-500">●</span>
+            <span>Getting There</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-red-400">●</span>
+            <span>Keep Practicing</span>
+          </div>
+        </div>
+      </div>
+
       {feedbackToUse?.pronunciation?.word_details && (
         <div>
           <Table>

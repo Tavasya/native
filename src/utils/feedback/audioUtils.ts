@@ -33,13 +33,16 @@ export const playWordSegment = (
     endTime,
     currentTime: audio.currentTime,
     duration: audio.duration,
-    word: word.word
+    word: word.word,
+    playbackRate: audio.playbackRate
   });
 
   // Set up the timeupdate listener before setting the time
   const handleTimeUpdate = () => {
     if (audio.currentTime >= endTime) {
       audio.pause();
+      // Reset playback rate to normal speed
+      audio.playbackRate = 1.0;
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       console.log('Finished playing word segment:', word.word);
     }
@@ -50,6 +53,8 @@ export const playWordSegment = (
   
   // Set the current time and play
   audio.currentTime = startTime;
+  // Set slow playback rate for word segment
+  audio.playbackRate = 0.5;
   const playPromise = audio.play();
   
   if (playPromise !== undefined) {
