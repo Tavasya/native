@@ -40,7 +40,6 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
   onCancelSection,
   currentFeedback,
   tempFeedback,
-  currentQuestion,
   averageScores,
   audioRef,
   ttsAudioCache,
@@ -116,7 +115,6 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
         </div>
         <FluencyAnalysis
           currentFeedback={currentFeedback}
-          currentQuestion={currentQuestion}
           averageScores={averageScores}
           isEditing={isEditing.fluency}
         />

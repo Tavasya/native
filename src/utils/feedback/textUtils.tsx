@@ -172,65 +172,6 @@ const findTextPosition = (
   return matches.length > 0 ? matches[0] : null;
 };
 
-// Helper function to split text into sentences - more flexible approach
-const splitIntoSentences = (text: string): string[] => {
-  // Split by periods, but be more flexible about sentence boundaries
-  // This handles cases where sentences might not end with proper punctuation
-  const sentences = text.split(/\.(?:\s+|$)/).filter(s => s.trim().length > 0);
-  
-  // If no periods found, split by other potential sentence boundaries
-  if (sentences.length === 1) {
-    return text.split(/(?:\.\s+|;\s+|!\s+|\?\s+)/).filter(s => s.trim().length > 0);
-  }
-  
-  return sentences;
-};
-
-// Helper function to find text position using sentence index
-const findTextInSentence = (
-  allText: string, 
-  targetSentenceIndex: number, 
-  targetPhrase: string
-): { start: number; end: number } | null => {
-  // First, try to use sentence boundaries to locate the text
-  const sentences = splitIntoSentences(allText);
-  
-  // If we have a valid sentence index and it's within bounds
-  if (targetSentenceIndex >= 0 && targetSentenceIndex < sentences.length) {
-    const targetSentence = sentences[targetSentenceIndex];
-    
-    // Find where this sentence appears in the original text
-    let sentenceStartInText = 0;
-    for (let i = 0; i < targetSentenceIndex; i++) {
-      const sentenceToFind = sentences[i];
-      const foundAt = allText.indexOf(sentenceToFind, sentenceStartInText);
-      if (foundAt !== -1) {
-        sentenceStartInText = foundAt + sentenceToFind.length;
-        // Skip any whitespace or punctuation between sentences
-        while (sentenceStartInText < allText.length && 
-               /[\s\.]/.test(allText[sentenceStartInText])) {
-          sentenceStartInText++;
-        }
-      }
-    }
-    
-    // Now find the target sentence in the text
-    const targetSentenceStart = allText.indexOf(targetSentence, Math.max(0, sentenceStartInText - 50));
-    if (targetSentenceStart !== -1) {
-      // Find the phrase within this sentence
-      const phraseIndex = targetSentence.toLowerCase().indexOf(targetPhrase.toLowerCase());
-      if (phraseIndex !== -1) {
-        return {
-          start: targetSentenceStart + phraseIndex,
-          end: targetSentenceStart + phraseIndex + targetPhrase.length
-        };
-      }
-    }
-  }
-  
-  return null;
-};
-
 export const createHighlightedText = (
   text: string,
   currentFeedback: SectionFeedback | null,

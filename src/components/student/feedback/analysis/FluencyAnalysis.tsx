@@ -3,18 +3,16 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { getScoreColor, getSpeedCategory } from '@/utils/feedback/scoreUtils';
-import { SectionFeedback, QuestionFeedback } from '@/types/feedback';
+import { SectionFeedback } from '@/types/feedback';
 
 interface FluencyAnalysisProps {
   currentFeedback: SectionFeedback | null;
-  currentQuestion: QuestionFeedback | null;
   averageScores: { avg_fluency_score: number };
   isEditing: boolean;
 }
 
 const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
   currentFeedback,
-  currentQuestion,
   averageScores,
   isEditing
 }) => {

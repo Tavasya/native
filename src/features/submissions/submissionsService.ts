@@ -12,6 +12,7 @@ interface AudioAnalysisResponse {
   data?: {
     transcription?: string;
     analysis?: any;
+    status: string;
   };
   error?: string;
 }
@@ -359,6 +360,9 @@ export const submissionService = {
       console.log('Submission ID:', submission_id);
       console.log('Number of audio URLs:', urls.length);
       console.log('Audio URLs:', urls);
+      
+      // Commenting out API call and returning pending status
+      /*
       console.log('Sending to /analyze endpoint:', {
         audio_urls: urls,
         submission_url: submission_id
@@ -391,8 +395,15 @@ export const submissionService = {
 
       const data = await response.json();
       console.log('Analysis response data:', data);
+      */
+      
       console.log('=== AUDIO ANALYSIS DEBUG END ===');
-      return data;
+      return {
+        success: true,
+        data: {
+          status: 'pending'
+        }
+      };
     } catch (error) {
       console.error('=== AUDIO ANALYSIS ERROR ===');
       console.error('Error in analyzeAudio:', error);

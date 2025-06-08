@@ -27,8 +27,12 @@ export async function validateAudioBlob(blob: Blob): Promise<{
     }
 
     // Check MIME type
-    const validTypes = ['audio/webm', 'audio/webm;codecs=opus'];
-    if (!validTypes.includes(blob.type)) {
+    const validTypes = ['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4'];
+    if (
+      !validTypes.some(type =>
+        blob.type === type || blob.type.startsWith(type + ';')
+      )
+    ) {
       return {
         valid: false,
         error: `Invalid MIME type: ${blob.type}`,
@@ -47,32 +51,34 @@ export async function validateAudioBlob(blob: Blob): Promise<{
       };
     }
 
-    // Create an array buffer from the blob for deeper analysis
-    const buffer = await blob.arrayBuffer();
-    const dataView = new DataView(buffer);
+    // Only check for WebM header if the file is a WebM type
+    if (blob.type.startsWith('audio/webm')) {
+      const buffer = await blob.arrayBuffer();
+      const dataView = new DataView(buffer);
 
-    // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
-    if (buffer.byteLength >= 4) {
-      const byte1 = dataView.getUint8(0);
-      const byte2 = dataView.getUint8(1);
-      const byte3 = dataView.getUint8(2);
-      const byte4 = dataView.getUint8(3);
+      // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
+      if (buffer.byteLength >= 4) {
+        const byte1 = dataView.getUint8(0);
+        const byte2 = dataView.getUint8(1);
+        const byte3 = dataView.getUint8(2);
+        const byte4 = dataView.getUint8(3);
 
-      if (byte1 !== 0x1A || byte2 !== 0x45 || byte3 !== 0xDF || byte4 !== 0xA3) {
+        if (byte1 !== 0x1A || byte2 !== 0x45 || byte3 !== 0xDF || byte4 !== 0xA3) {
+          return {
+            valid: false,
+            error: 'Invalid WebM header signature',
+            size: blob.size,
+            type: blob.type
+          };
+        }
+      } else {
         return {
           valid: false,
-          error: 'Invalid WebM header signature',
+          error: 'File too small to contain valid WebM header',
           size: blob.size,
           type: blob.type
         };
       }
-    } else {
-      return {
-        valid: false,
-        error: 'File too small to contain valid WebM header',
-        size: blob.size,
-        type: blob.type
-      };
     }
 
     return { 
