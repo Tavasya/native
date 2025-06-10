@@ -87,12 +87,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Question timer
   const currentQuestion = assignment?.questions[currentQuestionIndex];
   const timeLimit = currentQuestion ? Number(currentQuestion.timeLimit) * 60 : 0;
-  
-  const { timeRemaining, formatTime } = useQuestionTimer({
-    timeLimit,
-    isRecording: false, // Will be updated by recording hook
-    onTimeUp: () => {} // Will be handled by recording hook
-  });
 
   // Audio recording
   const {
@@ -119,6 +113,21 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         description: error,
         variant: "destructive",
       });
+    }
+  });
+
+  // Question timer (now using actual isRecording state)
+  const { timeRemaining, formatTime } = useQuestionTimer({
+    timeLimit,
+    isRecording,
+    onTimeUp: () => {
+      if (isRecording) {
+        baseToggleRecording(); // Stop recording when time is up
+        toast({
+          title: "Time's up!",
+          description: "Recording stopped automatically",
+        });
+      }
     }
   });
 
