@@ -32,9 +32,9 @@ const FeaturesSection = () => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          <Feature icon={Check} title="Instant AI-Powered Feedback" description="Based on IELTS criteria: Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, and Pronunciation." className="animate-slide-up" />
-          <Feature icon={Clock} title="Cut Grading time by 80%" description="Automated scoring lets you focus on coaching, not repetitive grading. More time for what matters most." className="animate-slide-up delay-100" />
-          <Feature icon={Users} title="More Practice, Less Admin" description="Assign tasks, monitor submissions, and review progress. All from one intuitive dashboard. (Coming soon)" className="animate-slide-up delay-200" />
+          <Feature icon={Check} title="Instant Speaking Feedback" description="AI scores speaking on fluency, vocabulary, grammar, and pronunciation." className="animate-slide-up" />
+          <Feature icon={Clock} title="Save Hours of Grading" description="Let Native handle repetitive scoring – focus more on teaching." className="animate-slide-up delay-100" />
+          <Feature icon={Users} title="Less Admin, More Learning" description="Assign tasks, track progress, and review student growth in one place." className="animate-slide-up delay-200" />
         </div>
       </div>
     </section>;
