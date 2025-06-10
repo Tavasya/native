@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, Users, FileText } from "lucide-react";
+import { Trash2, Users, FileText, Play, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import {
@@ -30,6 +30,7 @@ interface ClassTableProps {
 const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   const [classToDelete, setClassToDelete] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const { toast } = useToast();
   
   const handleDelete = () => {
@@ -59,8 +60,22 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   return (
     <TooltipProvider>
       {classes.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border shadow-subtle">
-          <p className="text-gray-500">No classes found</p>
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border shadow-subtle">
+          <div className="text-center max-w-md">
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              No Classes Yet
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Get started by creating your first class, or watch our help video to learn how to use the platform effectively.
+            </p>
+            <Button 
+              onClick={() => setIsVideoModalOpen(true)}
+              className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-6 py-3 rounded-md flex items-center gap-2 mx-auto"
+            >
+              <Play className="h-5 w-5" />
+              Watch Help Video
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -146,6 +161,36 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
           ))}
         </div>
       )}
+
+      {/* Video Modal */}
+      <Dialog open={isVideoModalOpen} onOpenChange={setIsVideoModalOpen}>
+        <DialogContent className="max-w-4xl w-full p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Help Video</DialogTitle>
+            <DialogDescription>
+              Instructional video to help you get started with the platform
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2"
+              onClick={() => setIsVideoModalOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <video
+              controls
+              autoPlay
+              className="w-full h-auto rounded-lg"
+              src="/DELL U2421E (1).mp4"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
