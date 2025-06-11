@@ -1,4 +1,3 @@
-
 import {
   Accordion,
   AccordionContent,
@@ -10,7 +9,7 @@ const FAQSection = () => {
   const faqs = [
     {
       question: "What is the speaking evaluation based on?",
-      answer: "Our AI is calibrated to IELTS band descriptors—assessing fluency and coherence, grammar, pronunciation, and lexical resource—for consistent, objective scoring. However, we do not benchmark the scores directly to IELTS bands."
+      answer: "Our AI evaluates fluency and coherence, grammar accuracy, pronunciation, and vocabulary to ensure consistent and objective scoring. Upon request, we can provide estimated benchmark scores for IELTS, TOEFL, and TOEIC."
     },
     {
       question: "Can I review or override AI-generated scores?",
@@ -21,8 +20,8 @@ const FAQSection = () => {
       answer: "Students can easily join your class using a class code—no setup needed. You can add as many students as you like without any limits."
     },
     {
-      question: "Can I assign a full IELTS speaking simulation for my students?",
-      answer: "Yes. Native supports full IELTS speaking test simulations—Parts 1, 2, and 3—if the assignment is set up correctly. This allows students to experience the real test format with detailed AI feedback."
+      question: "Can I assign a full mock speaking test for my students using Native?",
+      answer: "Yes, you can assign a full mock test experience. Native supports English Proficiency Speaking Test simulations such as IELTS, TOEFL, and TOEIC—provided the assignment is set up correctly. This gives students the opportunity to experience the actual test format along with detailed AI feedback"
     },
     {
       question: "How quickly do students receive their speaking feedback?",
@@ -38,7 +37,7 @@ const FAQSection = () => {
     <section id="faq" className="py-16 bg-inherit">
       <div className="container">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-secondary">Frequently Asked Questions</h2>
           <p className="text-xl text-gray-600">
             Everything you need to know about Native Speaking.
           </p>

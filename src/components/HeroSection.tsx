@@ -1,31 +1,31 @@
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import pfp1 from '@/lib/images/pfp_1.png';
-import pfp2 from '@/lib/images/pfp_2.png';
-import pfp3 from '@/lib/images/pfp_3.png';
+import pfp1 from '@/lib/images/teachers/ha_hoang.png';
+import pfp2 from '@/lib/images/teachers/van_vu.png';
+import pfp3 from '@/lib/images/teachers/suzie_nguyen.png';
 import image from '@/lib/images/image.png';
 
 const teachers = [
   {
     id: 1,
     image: pfp1,
-    name: "Sarah Chen",
-    role: "IELTS Speaking Coach",
-    testimonial: "Native has transformed how I give feedback to my students!"
+    name: "Ha Hoang",
+    role: "Lecturer",
+    testimonial: "The practice feels just like the real speaking test!"
   },
   {
     id: 2,
     image: pfp2,
-    name: "Marcus Johnson",
-    role: "English Literature Teacher",
-    testimonial: "The AI feedback saves me hours while helping students improve faster."
+    name: "Van Vu",
+    role: "IELTS Instructor",
+    testimonial: "Native saves me so much time grading and keeping track of stuff."
   },
   {
     id: 3,
     image: pfp3,
-    name: "Elena Rodriguez",
-    role: "ESL Instructor",
-    testimonial: "My students love the instant feedback and practice opportunities."
+    name: "Suzie Nguyen",
+    role: "IELTS Instructor",
+    testimonial: "It gives students feedback that actually feels personal and useful!"
   }
 ];
 
@@ -38,7 +38,7 @@ const HeroSection = () => {
           <div className="space-y-6">
             <h1 className="text-4xl lg:text-6xl leading-tight font-bold text-brand-secondary md:text-4xl">Help Students Find their Voice</h1>
             <p className="text-xl leading-relaxed text-gray-600 md:text-xl">
-            AI-powered feedback to save you hours on grading and give students the practice they need.
+            AI-powered feedback to save you hours on grading and <br/>give students the practice they need.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">

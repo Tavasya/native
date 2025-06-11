@@ -18,7 +18,7 @@ const TimeCalculator = () => {
           <div className="grid md:grid-cols-2">
             <div className="p-8 md:p-12 bg-brand-secondary text-white">
               <Clock className="h-10 w-10 mb-6" />
-              <h2 className="text-3xl font-bold mb-4">See How Much Time You Could Save</h2>
+              <h2 className="text-3xl font-bold mb-4">See How Much Time <br/>You Could Save</h2>
               <p className="text-white/80 mb-8">
               Stop grading manually. Native handles scoring for you.
               </p>
@@ -48,7 +48,7 @@ const TimeCalculator = () => {
               <h3 className="text-2xl font-semibold mb-6 text-brand-secondary">What could you do with the time you save?</h3>
               
               <ul className="space-y-4">
-                {["Provide more personalized coaching to students who need it most", "Develop new teaching materials and resources", "Take on more students without increasing your workload", "Improve your work-life balance", "Focus on professional development"].map((item, i) => <li key={i} className="flex items-start gap-3">
+                {["Develop new teaching materials and resources", "Teach more students, no extra work.", "Improve your work-life balance", "Focus on professional development"].map((item, i) => <li key={i} className="flex items-start gap-3">
                     <div className="mt-1 h-5 w-5 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
                       <Check className="h-3 w-3 text-brand-primary" />
                     </div>

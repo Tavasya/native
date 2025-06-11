@@ -58,7 +58,7 @@ const StudentSpeakingFlow = () => {
   return <section id="how-it-works" className="py-[10px] bg-inherit">
       <div className="container py-[30px]">
         <div className="text-center max-w-3xl mx-auto mb-6">
-          <h2 className="text-3xl font-bold mb-4 md:text-4xl text-inherit">How it works</h2>
+          <h2 className="text-3xl font-bold mb-4 md:text-4xl text-brand-secondary">How it works</h2>
         </div>
 
         <div className="relative bg-white rounded-2xl shadow-md p-8 pt-12 mt-16">

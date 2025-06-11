@@ -19,7 +19,7 @@ const Footer = () => {
               </a>
             </div>
             <p className="text-white/70 mb-4 pr-8">
-              Helping IELTS teachers save time and deliver personalized feedback with AI-powered speaking practice.
+              Helping English teachers save time and deliver personalized feedback with AI-powered speaking practice.
             </p>
             <div className="flex space-x-4">
               <a 
@@ -88,11 +88,6 @@ const Footer = () => {
           <p className="text-white/60 text-sm order-2 md:order-1">
             &copy; {new Date().getFullYear()} Native Speaking. All rights reserved.
           </p>
-          <div className="flex space-x-4 mb-4 md:mb-0 order-1 md:order-2">
-            <a href="#" className="text-white/60 hover:text-white text-sm">Terms</a>
-            <a href="#" className="text-white/60 hover:text-white text-sm">Privacy</a>
-            <a href="#" className="text-white/60 hover:text-white text-sm">Cookies</a>
-          </div>
         </div>
       </div>
     </footer>

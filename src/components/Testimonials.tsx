@@ -61,37 +61,37 @@ const Testimonials = () => {
       name: "Min-Ji Park",
       role: "IELTS Coach",
       location: "Seoul",
-      image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop&crop=faces"
+      image: "/src/lib/images/teachers/teach2.png"
     }, {
       quote: "I was spending 15+ hours a week just grading speaking assignments. With Native, that's down to just 4 hours, and my students are seeing better results.",
       name: "Phuong Nguyen",
       role: "Senior Instructor",
       location: "Ho Chi Minh City",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=faces"
+      image: "/src/lib/images/teachers/phuong_nguyen.png"
     }, {
       quote: "The AI feedback is remarkably accurate. It catches the same issues I would, but provides students with immediate guidance instead of waiting for our next session.",
       name: "Hiroshi Tanaka",
       role: "Language Center Director",
       location: "Tokyo",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=faces"
+      image: "/src/lib/images/teachers/teach1.png"
     }, {
       quote: "My students love getting instant feedback after practice. It's helping them gain confidence much faster than traditional methods.",
-      name: "Suparat Wongsin",
-      role: "IELTS Examiner",
-      location: "Bangkok",
-      image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=faces"
+      name: "Ha Hoang",
+      role: "Lecturer",
+      location: "Hanoi",
+      image: "/src/lib/images/teachers/ha_hoang.png"
     }, {
       quote: "The reporting dashboard is a game-changer. I can quickly see which students need extra attention and where the whole class is struggling.",
-      name: "Li Wei",
-      role: "Test Prep Specialist",
-      location: "Shanghai",
-      image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&crop=faces"
+      name: "Van Vu",
+      role: "IELTS Instructor",
+      location: "Hanoi",
+      image: "/src/lib/images/teachers/van_vu.png"
     }, {
       quote: "Native has helped me scale my tutoring business from 30 to over 100 students without sacrificing quality. The ROI is incredible.",
-      name: "Anh Tran",
-      role: "Independent Tutor",
+      name: "Suzie Nguyen",
+      role: "IELTS Instructor",
       location: "Hanoi",
-      image: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop&crop=faces"
+      image: "/src/lib/images/teachers/suzie_nguyen.png"
     }
   ];
 
@@ -165,7 +165,7 @@ const Testimonials = () => {
     <section id="testimonials" className="bg-gradient-to-b from-white to-gray-50 py-16 bg-inherit">
       <div className="container bg-inherit">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">What Teachers Say</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-brand-secondary">What Teachers Say</h2>
         </div>
 
         <div className="relative">
