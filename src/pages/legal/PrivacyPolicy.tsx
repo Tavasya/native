@@ -11,7 +11,7 @@ const PrivacyPolicy = () => {
             {/* Header */}
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Native – Personal Information Protection Policy
+                Personal Information Protection Policy
               </h1>
               <p className="text-lg text-gray-600 mb-2">
                 <strong>Effective Date:</strong> March 1st, 2025
@@ -141,8 +141,8 @@ const PrivacyPolicy = () => {
                   <li>Comply with COPPA, FERPA, CCPA, and GDPR</li>
                   <li>Acknowledge responsibility for any submitted student data</li>
                 </ul>
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                  <p className="text-yellow-700">
+                <div className="p-4">
+                  <p className="text-gray-700">
                     <strong>⚠️ Notice:</strong> Failure to comply may result in data deletion or account suspension.
                   </p>
                 </div>
@@ -194,8 +194,8 @@ const PrivacyPolicy = () => {
                   <li>Request data export or copies</li>
                   <li>Contact regulatory bodies to file complaints</li>
                 </ul>
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                  <p className="text-blue-700">
+                <div className="p-4">
+                  <p className="text-gray-700">
                     <strong>💡 How to Exercise Your Rights:</strong> To exercise these rights, email us at support@nativespeaking.ai
                   </p>
                 </div>
@@ -229,11 +229,11 @@ const PrivacyPolicy = () => {
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                   Article 13: Student Privacy Notice
                 </h2>
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-4">
-                  <p className="text-blue-700 font-semibold mb-2">
+                <div className="p-6 rounded-lg mb-4">
+                  <p className="text-gray-700 font-semibold mb-2">
                     📚 Student Privacy Notice
                   </p>
-                  <p className="text-blue-700">
+                  <p className="text-gray-700">
                     This notice outlines how Native uses and protects your information as required by law.
                   </p>
                 </div>
@@ -321,10 +321,10 @@ const PrivacyPolicy = () => {
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                   Article 14: Contact
                 </h2>
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="p-6 rounded-lg">
                   <p className="text-gray-700 font-semibold mb-2">J&R Innovations, Inc.</p>
                   <p className="text-gray-700 mb-2">📍 1337 Isengard Court, San Jose, CA 95112</p>
-                  <p className="text-brand-primary">📧 support@nativespeaking.ai</p>
+                  <p className="text-gray-700">📧 support@nativespeaking.ai</p>
                 </div>
               </section>
             </div>

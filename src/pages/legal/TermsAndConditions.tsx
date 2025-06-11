@@ -11,7 +11,7 @@ const TermsAndConditions = () => {
             {/* Header */}
             <div className="text-center mb-12">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Native – Terms & Conditions of Use
+                Terms & Conditions of Use
               </h1>
               <p className="text-lg text-gray-600 mb-2">
                 <strong>Effective Date:</strong> March 1st, 2025
@@ -74,8 +74,8 @@ const TermsAndConditions = () => {
                     </tbody>
                   </table>
                 </div>
-                <div className="bg-red-50 border-l-4 border-red-400 p-4">
-                  <p className="text-red-700">
+                <div className="p-4">
+                  <p className="text-gray-700">
                     <strong>🛑 Important:</strong> Students under 18 in select regions may only participate through Teacher-issued 
                     class codes, with parental consent. Teachers guarantee this consent is in place.
                   </p>
@@ -225,10 +225,10 @@ const TermsAndConditions = () => {
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                   Article 14: Contact
                 </h2>
-                <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="p-6 rounded-lg">
                   <p className="text-gray-700 font-semibold mb-2">J&R Innovations, Inc.</p>
                   <p className="text-gray-700 mb-2">📍 1337 Isengard Court, San Jose, CA 95112</p>
-                  <p className="text-brand-primary">📧 support@nativespeaking.ai</p>
+                  <p className="text-gray-700">📧 support@nativespeaking.ai</p>
                 </div>
               </section>
             </div>
