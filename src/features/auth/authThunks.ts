@@ -44,7 +44,8 @@ export const signUpWithEmail = createAsyncThunk<
       active_student_count?: number | null;
       avg_tuition_per_student?: number | null;
       referral_source?: string;
-    }
+    };
+    agreed_to_terms?: boolean;
   },
   { rejectValue: string }
 >(
@@ -112,7 +113,8 @@ export const signUpWithEmail = createAsyncThunk<
             email: creds.email,
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
-            email_verified: false
+            email_verified: false,
+            agreed_to_terms: creds.agreed_to_terms || false
           })
           .eq('id', authData.user.id);
 
@@ -128,7 +130,8 @@ export const signUpWithEmail = createAsyncThunk<
             email: authData.user.email,
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
-            email_verified: false
+            email_verified: false,
+            agreed_to_terms: creds.agreed_to_terms || false
           });
 
         if (userError) {

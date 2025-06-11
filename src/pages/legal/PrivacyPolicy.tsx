@@ -228,7 +228,99 @@ const PrivacyPolicy = () => {
               {/* Article 13 */}
               <section className="mb-8">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-                  Article 13: Contact
+                  Article 13: Student Privacy Notice
+                </h2>
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-4">
+                  <p className="text-blue-700 font-semibold mb-2">
+                    📚 Student Privacy Notice
+                  </p>
+                  <p className="text-blue-700">
+                    This notice outlines how Native uses and protects your information as required by law.
+                  </p>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      1. Who collects and controls your data?
+                    </h3>
+                    <p className="text-gray-700">
+                      Your teacher is responsible for managing your account. Native (J&R Innovations, Inc.) processes your data only to provide the learning services.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      2. What data is collected?
+                    </h3>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1">
+                      <li>Your name (if entered)</li>
+                      <li>Audio recordings of your speaking</li>
+                      <li>AI feedback (fluency, pronunciation, grammar, vocabulary)</li>
+                      <li>Usage activity, such as when and how often you submit recordings</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      3. Why is this data collected?
+                    </h3>
+                    <p className="text-gray-700">
+                      To give you feedback, track your progress, and help your teacher support your learning. We may also use de-identified data to improve our AI models and make the system better for all learners.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      4. Who can see your data?
+                    </h3>
+                    <p className="text-gray-700">
+                      Only your teacher and authorized members of Native's support and engineering teams (under strict access controls).
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      5. Do you need permission to use Native?
+                    </h3>
+                    <p className="text-gray-700">
+                      Yes. If you're under 18, your teacher must receive permission from your parent or guardian before you use Native.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      6. How is your data protected?
+                    </h3>
+                    <p className="text-gray-700">
+                      Your data is encrypted and securely stored. Native follows strict data protection rules and never sells your data.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      7. Can your data help improve the platform?
+                    </h3>
+                    <p className="text-gray-700">
+                      We may use de-identified and aggregated student data to train and improve our speech analysis models. This data is never linked to your name or identity.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      8. Can you ask for your data to be deleted?
+                    </h3>
+                    <p className="text-gray-700">
+                      Yes. You or your teacher can request deletion at any time by contacting support@nativespeaking.ai.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Article 14 */}
+              <section className="mb-8">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                  Article 14: Contact
                 </h2>
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <p className="text-gray-700 font-semibold mb-2">J&R Innovations, Inc.</p>
