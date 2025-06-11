@@ -26,8 +26,7 @@ const PricingSection = () => {
               variant="outline" 
               className="flex-1 border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white py-3 px-6 text-lg"
               onClick={() => {
-                // Add navigation or action for booking demo
-                console.log('Book a Demo clicked');
+                window.open('https://cal.mixmax.com/jessietran-native/democall', '_blank');
               }}
             >
               Book a Demo
