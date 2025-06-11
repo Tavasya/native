@@ -182,9 +182,8 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
             </Button>
             <video
               controls
-              autoPlay
               className="w-full h-auto rounded-lg"
-              src="/DELL U2421E (1).mp4"
+              src="/welcome.mp4"
             >
               Your browser does not support the video tag.
             </video>
