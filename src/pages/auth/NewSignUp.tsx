@@ -486,7 +486,12 @@ export default function NewSignUp() {
       name,
       role: selectedRole,
       agreed_to_terms: selectedRole === 'teacher' ? teacherAgreementChecked : studentAgreementChecked,
+      ...(selectedRole === 'student' && {
+        phone_number: studentPhone,
+        date_of_birth: studentDOB
+      }),
       ...(selectedRole === 'teacher' && {
+        phone_number: teacherPhone,
         teacherMetadata: {
           active_student_count: parseInt(teacherActiveStudents.split('-')[0]) || null,
           avg_tuition_per_student: parseInt(teacherAvgTuition.split('-')[0]) || null,

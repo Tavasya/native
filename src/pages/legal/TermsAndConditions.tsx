@@ -1,4 +1,3 @@
-import React from 'react';
 import NavBar from '@/components/LandingNavBar';
 import Footer from '@/components/Footer';
 

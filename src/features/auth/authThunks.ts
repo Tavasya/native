@@ -11,7 +11,9 @@ type SignupCreds = {
     password: string;
     name?: string;
     role: UserRole;
-  };
+    phone_number?: string;
+    date_of_birth?: string;
+};
 
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   const { data, error } = await supabase
@@ -114,7 +116,9 @@ export const signUpWithEmail = createAsyncThunk<
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
             email_verified: false,
-            agreed_to_terms: creds.agreed_to_terms || false
+            agreed_to_terms: creds.agreed_to_terms || false,
+            ...(creds.phone_number && { phone_number: creds.phone_number }),
+            ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
           })
           .eq('id', authData.user.id);
 
@@ -131,7 +135,9 @@ export const signUpWithEmail = createAsyncThunk<
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
             email_verified: false,
-            agreed_to_terms: creds.agreed_to_terms || false
+            agreed_to_terms: creds.agreed_to_terms || false,
+            ...(creds.phone_number && { phone_number: creds.phone_number }),
+            ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
           });
 
         if (userError) {
