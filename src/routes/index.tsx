@@ -19,6 +19,8 @@ import NewSignUp from '@/pages/auth/NewSignUp'
 import JoinClass from '@/pages/student/JoinClass'
 import SubmissionFeedback from '@/pages/student/SubmissionFeedback'
 import VerificationSuccess from '@/pages/auth/VerificationSuccess'
+import TermsAndConditions from '@/pages/legal/TermsAndConditions'
+import PrivacyPolicy from '@/pages/legal/PrivacyPolicy'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -52,6 +54,8 @@ export default function AppRoutes() {
         {/* Landing page route outside of Layout */}
         <Route path="/" element={<Navigate to="/landing-page" replace />} />
         <Route path="/landing-page" element={<Index />} />
+        <Route path="/legal/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
         
         <Route element={<Layout />}>
           {/* -------- PUBLIC -------- */}

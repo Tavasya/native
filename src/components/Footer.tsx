@@ -47,9 +47,14 @@ const Footer = () => {
           <div>
             <h4 className="font-medium text-lg mb-4">Company</h4>
             <ul className="space-y-2">
-              {["About Us", "Blog", "Careers", "Contact", "Privacy Policy"].map((item) => (
+              {["Careers", "Terms & Conditions", "Privacy Policy"].map((item) => (
                 <li key={item}>
-                  <FooterLink href="#">{item}</FooterLink>
+                  <FooterLink href={
+                    item === "Terms & Conditions" ? "/legal/terms-and-conditions" :
+                    item === "Privacy Policy" ? "/legal/privacy-policy" : "#"
+                  }>
+                    {item}
+                  </FooterLink>
                 </li>
               ))}
             </ul>

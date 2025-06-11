@@ -17,10 +17,6 @@ const FAQSection = () => {
       answer: "Absolutely. Teachers have full control to review recordings, make edits on feedback to maintain teaching standards and flexibility."
     },
     {
-      question: "Can I assign and manage speaking homework for all classes from one dashboard?",
-      answer: "Yes. Native lets you assign tasks, track submissions, and access all student reports from one streamlined dashboard—saving time and simplifying class management."
-    },
-    {
       question: "How do I add my students? Are there any limits?",
       answer: "Students can easily join your class using a class code—no setup needed. You can add as many students as you like without any limits."
     },
