@@ -1,6 +1,6 @@
 import NavBar from '@/components/LandingNavBar';
 import Footer from '@/components/Footer';
-
+//sdf
 const PrivacyPolicy = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -15,7 +15,7 @@ const PrivacyPolicy = () => {
               </h1>
               <p className="text-lg text-gray-600 mb-2">
                 <strong>Effective Date:</strong> March 1st, 2025
-              </p>
+              </p> 
               <p className="text-sm text-gray-500 mb-4">
                 Operated by J&R Innovations, Inc.<br />
                 1337 Isengard Court, San Jose, CA 95112
