@@ -12,7 +12,7 @@ const CTASection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button className="bg-white text-brand-secondary hover:bg-white/90 px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all" onClick={() => window.location.href = "#pricing"}>
+            <Button className="bg-white text-brand-secondary hover:bg-white/90 px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all" onClick={() => window.location.href = "/sign-up"}>
               Get Started Today
             </Button>
             

@@ -57,7 +57,7 @@ const TimeCalculator = () => {
               </ul>
 
               <div className="mt-8">
-                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={() => window.location.href = "#pricing"}>
+                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={() => window.location.href = "/sign-up"}>
                   Start Saving Time Today
                 </Button>
               </div>
