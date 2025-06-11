@@ -22,46 +22,185 @@ import {
 function Modal({ open, onClose, title, children }: { open: boolean, onClose: () => void, title: string, children: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
-        <h2 className="text-xl font-bold mb-4">{title}</h2>
-        <div className="mb-6 text-sm text-gray-700">{children}</div>
-        <button 
-          onClick={onClose} 
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 cursor-pointer"
-        >
-          ✕
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+      <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden relative">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+          <button 
+            onClick={onClose} 
+            className="text-gray-400 hover:text-gray-600 cursor-pointer text-xl"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-6 text-sm text-gray-700 overflow-y-auto max-h-[calc(90vh-120px)]">
+          {children}
+        </div>
       </div>
     </div>
   );
 }
 
-function StudentPrivacyPolicyModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+function StudentSignUpAgreementModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  const handleLinkClick = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title="Student Privacy Policy">
-      We collect your data to provide educational services. Your information will not be shared with third parties except as required by law.
+    <Modal open={open} onClose={onClose} title="Student Sign-Up Agreement">
+      <div className="space-y-6 text-sm">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-[#272A69] text-base mb-3">
+            By continuing, I confirm the following:
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I have been given a <strong>Class Code by my teacher</strong> to join Native.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              If I am <strong>under 18 years old</strong>, my teacher has received permission from my parent or legal guardian to let me use Native.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I understand that my <strong>recordings and feedback will only be shared with my teacher</strong>.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I agree to Native's{' '}
+              <button 
+                onClick={() => handleLinkClick('/legal/privacy-policy')}
+                className="text-[#272A69] underline hover:text-[#272A69]/80 font-medium"
+              >
+                Privacy Policy
+              </button>{' '}
+              and{' '}
+              <button 
+                onClick={() => handleLinkClick('/legal/terms-and-conditions')}
+                className="text-[#272A69] underline hover:text-[#272A69]/80 font-medium"
+              >
+                Terms of Service
+              </button>.
+            </p>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
+          <p className="text-xs text-gray-600 text-center">
+            If you have questions, ask your teacher or contact:{' '}
+            <a href="mailto:support@nativespeaking.ai" className="text-[#272A69] underline">
+              support@nativespeaking.ai
+            </a>
+          </p>
+        </div>
+      </div>
     </Modal>
   );
 }
-function StudentTermsOfServiceModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+function TeacherSignUpAgreementModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  const handleLinkClick = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <Modal open={open} onClose={onClose} title="Student Terms of Service">
-      By using this platform, you agree to abide by all school and platform rules. Misuse may result in account suspension.
-    </Modal>
-  );
-}
-function TeacherPrivacyPolicyModal({ open, onClose }: { open: boolean, onClose: () => void }) {
-  return (
-    <Modal open={open} onClose={onClose} title="Teacher Privacy Policy">
-      We collect your data to facilitate teaching and payment. Your information will not be shared with third parties except as required by law.
-    </Modal>
-  );
-}
-function TeacherTermsOfServiceModal({ open, onClose }: { open: boolean, onClose: () => void }) {
-  return (
-    <Modal open={open} onClose={onClose} title="Teacher Terms of Service">
-      By using this platform, you agree to provide accurate information and conduct yourself professionally.
+    <Modal open={open} onClose={onClose} title="Teacher Sign-Up Agreement">
+      <div className="space-y-6 text-sm">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-[#272A69] text-base mb-3">
+            By signing up for a Teacher account on Native, I confirm the following:
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I am <strong>18 years or older</strong> and legally eligible to use this service.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+                             I have read and agree to Native's{' '}
+               <button 
+                 onClick={() => handleLinkClick('/legal/terms-and-conditions')}
+                 className="text-[#272A69] underline hover:text-[#272A69]/80 font-medium"
+               >
+                 Terms and Conditions
+               </button>{' '}
+               and{' '}
+               <button 
+                 onClick={() => handleLinkClick('/legal/privacy-policy')}
+                 className="text-[#272A69] underline hover:text-[#272A69]/80 font-medium"
+               >
+                 Privacy Policy
+               </button>.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I understand that Native is designed for <strong>supervised student use</strong>.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I agree that if I assign Native to any student under the age of 18, I will first obtain <strong>verifiable consent</strong> from that student's parent or legal guardian.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I take full responsibility for ensuring student data is submitted in compliance with applicable laws, including <strong>COPPA, FERPA, and CCPA</strong>.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I acknowledge that AI model training is conducted using <strong>anonymized data only</strong>, and that Native does not associate student names or identities with the training process.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              I'm responsible for <strong>communicating this clearly to guardians</strong>.
+            </p>
+          </div>
+          
+          <div className="flex items-start gap-3">
+            <div className="w-2 h-2 bg-red-500 rounded-full mt-2 flex-shrink-0"></div>
+            <p className="text-gray-700 leading-relaxed">
+              <strong>Failure to comply</strong> with these obligations may result in data removal or suspension of my account.
+            </p>
+          </div>
+        </div>
+        
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
+          <p className="text-xs text-gray-600 text-center">
+            By checking the agreement box, you acknowledge that you have read, understood, and agree to all the terms above.
+          </p>
+        </div>
+      </div>
     </Modal>
   );
 }
@@ -91,20 +230,16 @@ export default function NewSignUp() {
   // Student fields
   const [studentPhone, setStudentPhone] = useState('');
   const [studentDOB, setStudentDOB] = useState('');
-  const [studentPrivacyChecked, setStudentPrivacyChecked] = useState(false);
-  const [studentTermsChecked, setStudentTermsChecked] = useState(false);
+  const [studentAgreementChecked, setStudentAgreementChecked] = useState(false);
   // Teacher fields
   const [teacherPhone, setTeacherPhone] = useState('');
   const [teacherActiveStudents, setTeacherActiveStudents] = useState('');
   const [teacherAvgTuition, setTeacherAvgTuition] = useState('');
   const [teacherReferralSource, setTeacherReferralSource] = useState('');
-  const [teacherPrivacyChecked, setTeacherPrivacyChecked] = useState(false);
-  const [teacherTermsChecked, setTeacherTermsChecked] = useState(false);
+  const [teacherAgreementChecked, setTeacherAgreementChecked] = useState(false);
   // Modal state
-  const [showStudentPrivacy, setShowStudentPrivacy] = useState(false);
-  const [showStudentTerms, setShowStudentTerms] = useState(false);
-  const [showTeacherPrivacy, setShowTeacherPrivacy] = useState(false);
-  const [showTeacherTerms, setShowTeacherTerms] = useState(false);
+  const [showStudentAgreement, setShowStudentAgreement] = useState(false);
+  const [showTeacherAgreement, setShowTeacherAgreement] = useState(false);
   const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
@@ -310,8 +445,7 @@ export default function NewSignUp() {
     if (!email.trim()) return 'Email is required.';
     if (!studentPhone.trim()) return 'Phone number is required.';
     if (!studentDOB.trim()) return 'Date of birth is required.';
-    if (!studentPrivacyChecked) return 'You must agree to the Privacy Policy.';
-    if (!studentTermsChecked) return 'You must agree to the Terms of Service.';
+    if (!studentAgreementChecked) return 'You must agree to the Student Sign-Up Agreement.';
     return '';
   }
   function validateTeacher() {
@@ -320,8 +454,7 @@ export default function NewSignUp() {
     if (!teacherPhone.trim()) return 'Phone number is required.';
     if (!teacherActiveStudents.trim()) return 'Number of active students is required.';
     if (!teacherAvgTuition.trim()) return 'Average tuition per student is required.';
-    if (!teacherPrivacyChecked) return 'You must agree to the Privacy Policy.';
-    if (!teacherTermsChecked) return 'You must agree to the Terms of Service.';
+    if (!teacherAgreementChecked) return 'You must agree to the Teacher Sign-Up Agreement.';
     return '';
   }
 
@@ -352,7 +485,13 @@ export default function NewSignUp() {
       password, 
       name,
       role: selectedRole,
+      agreed_to_terms: selectedRole === 'teacher' ? teacherAgreementChecked : studentAgreementChecked,
+      ...(selectedRole === 'student' && {
+        phone_number: studentPhone,
+        date_of_birth: studentDOB
+      }),
       ...(selectedRole === 'teacher' && {
+        phone_number: teacherPhone,
         teacherMetadata: {
           active_student_count: parseInt(teacherActiveStudents.split('-')[0]) || null,
           avg_tuition_per_student: parseInt(teacherAvgTuition.split('-')[0]) || null,
@@ -504,8 +643,8 @@ export default function NewSignUp() {
               <div className="mb-1">Current Step: {currentStep}</div>
               <div className="mb-1">Current Role: {selectedRole}</div>
               <div className="mb-1">Current Form State: <pre>{JSON.stringify({
-                name, email, studentPhone, studentDOB, studentPrivacyChecked, studentTermsChecked,
-                teacherPhone, teacherActiveStudents, teacherAvgTuition, teacherReferralSource, teacherPrivacyChecked, teacherTermsChecked
+                name, email, studentPhone, studentDOB, studentAgreementChecked,
+                teacherPhone, teacherActiveStudents, teacherAvgTuition, teacherReferralSource, teacherAgreementChecked
               }, null, 2)}</pre></div>
               <div className="mb-1">Last Validation Error: {validationError || '(none)'}</div>
             </div>
@@ -675,43 +814,22 @@ export default function NewSignUp() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
-                      id="student-privacy"
+                      id="student-agreement"
                       type="checkbox"
-                      checked={studentPrivacyChecked}
+                      checked={studentAgreementChecked}
                       onChange={e => {
-                        setStudentPrivacyChecked(e.target.checked);
+                        setStudentAgreementChecked(e.target.checked);
                       }}
-                      className={!studentPrivacyChecked && validationError ? 'border-red-500' : ''}
+                      className={!studentAgreementChecked && validationError ? 'border-red-500' : ''}
                     />
-                    <Label htmlFor="student-privacy" className="text-sm flex items-center">
+                    <Label htmlFor="student-agreement" className="text-sm flex items-center">
                       I agree to the{' '}
                       <button 
                         type="button" 
-                        onClick={() => setShowStudentPrivacy(true)}
+                        onClick={() => setShowStudentAgreement(true)}
                         className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
                       >
-                        Privacy Policy
-                      </button>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="student-terms"
-                      type="checkbox"
-                      checked={studentTermsChecked}
-                      onChange={e => {
-                        setStudentTermsChecked(e.target.checked);
-                      }}
-                      className={!studentTermsChecked && validationError ? 'border-red-500' : ''}
-                    />
-                    <Label htmlFor="student-terms" className="text-sm flex items-center">
-                      I agree to the{' '}
-                      <button 
-                        type="button" 
-                        onClick={() => setShowStudentTerms(true)}
-                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1"
-                      >
-                        Terms of Service
+                        Student Sign-Up Agreement
                       </button>
                     </Label>
                   </div>
@@ -799,43 +917,22 @@ export default function NewSignUp() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
-                      id="teacher-privacy"
+                      id="teacher-agreement"
                       type="checkbox"
-                      checked={teacherPrivacyChecked}
+                      checked={teacherAgreementChecked}
                       onChange={e => {
-                        setTeacherPrivacyChecked(e.target.checked);
+                        setTeacherAgreementChecked(e.target.checked);
                       }}
-                      className={!teacherPrivacyChecked && validationError ? 'border-red-500' : ''}
+                      className={!teacherAgreementChecked && validationError ? 'border-red-500' : ''}
                     />
-                    <Label htmlFor="teacher-privacy" className="text-sm flex items-center">
+                    <Label htmlFor="teacher-agreement" className="text-sm flex items-center">
                       I agree to the{' '}
                       <button 
                         type="button" 
-                        onClick={() => setShowTeacherPrivacy(true)}
+                        onClick={() => setShowTeacherAgreement(true)}
                         className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
                       >
-                        Privacy Policy
-                      </button>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      id="teacher-terms"
-                      type="checkbox"
-                      checked={teacherTermsChecked}
-                      onChange={e => {
-                        setTeacherTermsChecked(e.target.checked);
-                      }}
-                      className={!teacherTermsChecked && validationError ? 'border-red-500' : ''}
-                    />
-                    <Label htmlFor="teacher-terms" className="text-sm flex items-center">
-                      I agree to the{' '}
-                      <button 
-                        type="button" 
-                        onClick={() => setShowTeacherTerms(true)}
-                        className="text-[#272A69] hover:text-[#272A69]/90 underline ml-1 cursor-pointer"
-                      >
-                        Terms of Service
+                        Teacher Sign-Up Agreement
                       </button>
                     </Label>
                   </div>
@@ -862,10 +959,8 @@ export default function NewSignUp() {
       </div>
 
       {/* Modals */}
-      <StudentPrivacyPolicyModal open={showStudentPrivacy} onClose={() => setShowStudentPrivacy(false)} />
-      <StudentTermsOfServiceModal open={showStudentTerms} onClose={() => setShowStudentTerms(false)} />
-      <TeacherPrivacyPolicyModal open={showTeacherPrivacy} onClose={() => setShowTeacherPrivacy(false)} />
-      <TeacherTermsOfServiceModal open={showTeacherTerms} onClose={() => setShowTeacherTerms(false)} />
+      <StudentSignUpAgreementModal open={showStudentAgreement} onClose={() => setShowStudentAgreement(false)} />
+      <TeacherSignUpAgreementModal open={showTeacherAgreement} onClose={() => setShowTeacherAgreement(false)} />
     </div>
   );
 } 

@@ -38,29 +38,27 @@ const Step = ({
 const StudentSpeakingFlow = () => {
   const [activeStep, setActiveStep] = useState(1);
   const steps = [{
-    title: "Assign Task",
-    description: "Create customizable assignments with your own prompts or choose from our IELTS-aligned question bank.",
+    title: "Create Speaking Tasks",
+    description: "Give students questions or topics to speak about.",
     icon: <Check className="w-full h-full" />
   }, {
-    title: "Students Submit",
-    description: "Students complete assignments on any device with a microphone, practicing as many times as needed.",
+    title: "Students Record and Submit",
+    description: "They upload answers using laptop – no downloads needed.",
     icon: <Mic className="w-full h-full" />
   }, {
-    title: "AI Analyzes",
-    description: "Our AI evaluates recordings using official IELTS criteria, providing detailed feedback and scoring.",
+    title: "Get AI Feedback Instantly",
+    description: "Fluency, grammar, pronunciation, and vocabulary all scored for you.",
     icon: <Bot className="w-full h-full" />
   }, {
-    title: "Teachers Review",
-    description: "Review AI analysis, listen to recordings, and add your own comments to guide improvement.",
+    title: "Track Progress & Guide Improvement",
+    description: "See reports, give targeted help, and help students speak with confidence.",
     icon: <Clipboard className="w-full h-full" />
   }];
   const progressPercentage = activeStep / steps.length * 100;
   return <section id="how-it-works" className="py-[10px] bg-inherit">
       <div className="container py-[30px]">
-        <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-6">
           <h2 className="text-3xl font-bold mb-4 md:text-4xl text-inherit">How it works</h2>
-          <p className="text-xl text-gray-600">From assignment creation to AI-powered feedback  
-— built for busy IELTS teachers.</p>
         </div>
 
         <div className="relative bg-white rounded-2xl shadow-md p-8 pt-12 mt-16">
@@ -83,7 +81,7 @@ const StudentSpeakingFlow = () => {
           <div className="flex justify-between mt-12 px-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <Check className="w-5 h-5 text-green-500" />
-              <span>AI-powered insights delivered in real time</span>
+              <span>IELTS / TOEFL / TOEIC teachers can turn on test-specific questions and scoring anytime.</span>
             </div>
             <div className="flex items-center gap-2">
               

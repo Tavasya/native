@@ -90,3 +90,13 @@
     @apply w-4 bg-brand-primary;
   }
 }
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px); 
+  }
+  50% { 
+    transform: translateY(-8px); 
+  }
+}

@@ -11,7 +11,9 @@ type SignupCreds = {
     password: string;
     name?: string;
     role: UserRole;
-  };
+    phone_number?: string;
+    date_of_birth?: string;
+};
 
 async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
   const { data, error } = await supabase
@@ -44,7 +46,8 @@ export const signUpWithEmail = createAsyncThunk<
       active_student_count?: number | null;
       avg_tuition_per_student?: number | null;
       referral_source?: string;
-    }
+    };
+    agreed_to_terms?: boolean;
   },
   { rejectValue: string }
 >(
@@ -112,7 +115,10 @@ export const signUpWithEmail = createAsyncThunk<
             email: creds.email,
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
-            email_verified: false
+            email_verified: false,
+            agreed_to_terms: creds.agreed_to_terms || false,
+            ...(creds.phone_number && { phone_number: creds.phone_number }),
+            ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
           })
           .eq('id', authData.user.id);
 
@@ -128,7 +134,10 @@ export const signUpWithEmail = createAsyncThunk<
             email: authData.user.email,
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
-            email_verified: false
+            email_verified: false,
+            agreed_to_terms: creds.agreed_to_terms || false,
+            ...(creds.phone_number && { phone_number: creds.phone_number }),
+            ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
           });
 
         if (userError) {

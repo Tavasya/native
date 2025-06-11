@@ -18,9 +18,9 @@ const TimeCalculator = () => {
           <div className="grid md:grid-cols-2">
             <div className="p-8 md:p-12 bg-brand-secondary text-white">
               <Clock className="h-10 w-10 mb-6" />
-              <h2 className="text-3xl font-bold mb-4">Calculate Your Time Savings</h2>
+              <h2 className="text-3xl font-bold mb-4">See How Much Time You Could Save</h2>
               <p className="text-white/80 mb-8">
-                See how much time you could save by using Native for your IELTS speaking practice and assessment.
+              Stop grading manually. Native handles scoring for you.
               </p>
               <div className="space-y-8">
                 <div>
@@ -57,7 +57,7 @@ const TimeCalculator = () => {
               </ul>
 
               <div className="mt-8">
-                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={() => window.location.href = "#pricing"}>
+                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={() => window.location.href = "/sign-up"}>
                   Start Saving Time Today
                 </Button>
               </div>
