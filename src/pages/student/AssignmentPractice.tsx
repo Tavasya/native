@@ -76,7 +76,9 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     loadExistingSubmission,
     saveNewRecording,
     hasRecordingForQuestion,
-    getRecordingForQuestion
+    getRecordingForQuestion,
+    isQuestionUploading,
+    hasUploadError
   } = useRecordingSession({
     assignmentId: id || 'preview',
     userId,
@@ -249,6 +251,26 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
     if (!hasRecorded) return;
 
+    // Check if recording is still uploading
+    if (isQuestionUploading(currentQuestionIndex)) {
+      toast({
+        title: "Upload in Progress",
+        description: "Please wait for the recording to finish uploading before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if there's an upload error
+    if (hasUploadError(currentQuestionIndex)) {
+      toast({
+        title: "Upload Error",
+        description: "Please retry recording - upload failed.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     markQuestionCompleted(currentQuestionIndex);
 
     if (isLastQuestion) {
@@ -321,6 +343,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     onNextQuestion={goToNextQuestion}
                     isPreviewMode={previewMode}
                     getRecordingForQuestion={getRecordingForQuestion}
+                    isUploading={isQuestionUploading(currentQuestionIndex)}
+                    hasUploadError={hasUploadError(currentQuestionIndex)}
                   />
                 )}
               </TooltipProvider>

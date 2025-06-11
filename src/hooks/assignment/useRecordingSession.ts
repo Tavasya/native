@@ -19,6 +19,10 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     [index: string]: { url: string; createdAt: string; uploadedUrl: string }
   }>({});
   const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
+  
+  // Add upload tracking state
+  const [uploadingQuestions, setUploadingQuestions] = useState<Set<number>>(new Set());
+  const [uploadErrors, setUploadErrors] = useState<{ [questionIndex: number]: string }>({});
 
   const recordingsData = useAppSelector(state => 
     assignmentId ? state.submissions.recordings?.[assignmentId] : undefined
@@ -166,6 +170,14 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
       duration: 3000,
     });
 
+    // Mark this question as uploading
+    setUploadingQuestions(prev => new Set(prev.add(questionIndex)));
+    setUploadErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[questionIndex];
+      return newErrors;
+    });
+
     // Upload to Supabase in background
     try {
       const questionId = assignment.questions[questionIndex].id;
@@ -188,6 +200,13 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
 
       await handleRecordingUpdate(questionId, uploadedUrl);
       
+      // Mark upload as complete
+      setUploadingQuestions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(questionIndex);
+        return newSet;
+      });
+      
       // Show upload success toast
       toast({
         title: "Upload Complete!",
@@ -197,9 +216,22 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
 
     } catch (error) {
       console.error('Error uploading recording:', error);
+      
+      // Mark upload as failed
+      setUploadingQuestions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(questionIndex);
+        return newSet;
+      });
+      
+      setUploadErrors(prev => ({
+        ...prev,
+        [questionIndex]: error instanceof Error ? error.message : 'Upload failed'
+      }));
+      
       toast({
-        title: "Upload Warning",
-        description: "Recording saved locally but upload failed. Will retry on submission.",
+        title: "Upload Failed",
+        description: "Recording saved locally but upload failed. Please try again before proceeding.",
         variant: "destructive",
         duration: 5000,
       });
@@ -268,12 +300,34 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     return sessionRecordings[questionIndex] || recordingsData?.[questionIndex.toString()];
   }, [sessionRecordings, recordingsData]);
 
+  // New helper functions for upload state
+  const isQuestionUploading = useCallback((questionIndex: number) => {
+    return uploadingQuestions.has(questionIndex);
+  }, [uploadingQuestions]);
+
+  const hasUploadError = useCallback((questionIndex: number) => {
+    return uploadErrors[questionIndex] !== undefined;
+  }, [uploadErrors]);
+
+  const getUploadError = useCallback((questionIndex: number) => {
+    return uploadErrors[questionIndex];
+  }, [uploadErrors]);
+
+  const isRecordingFullyUploaded = useCallback((questionIndex: number) => {
+    const recording = sessionRecordings[questionIndex] || recordingsData?.[questionIndex.toString()];
+    return recording?.uploadedUrl && recording.uploadedUrl !== recording.url && !isQuestionUploading(questionIndex);
+  }, [sessionRecordings, recordingsData, isQuestionUploading]);
+
   return {
     sessionRecordings,
     recordingsData,
     loadExistingSubmission,
     saveNewRecording,
     hasRecordingForQuestion,
-    getRecordingForQuestion
+    getRecordingForQuestion,
+    isQuestionUploading,
+    hasUploadError,
+    getUploadError,
+    isRecordingFullyUploaded
   };
 };

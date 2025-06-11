@@ -35,6 +35,8 @@ interface QuestionContentProps {
   onNextQuestion?: () => void;
   isPreviewMode?: boolean;
   getRecordingForQuestion: (index: number) => { url: string } | undefined;
+  isUploading?: boolean;
+  hasUploadError?: boolean;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -58,7 +60,9 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   mediaStream = null,
   onNextQuestion,
   isPreviewMode = false,
-  getRecordingForQuestion
+  getRecordingForQuestion,
+  isUploading = false,
+  hasUploadError = false
 }) => {
   return (
     <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
@@ -108,6 +112,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           hasRecorded={hasRecorded}
           isPlaying={isPlaying}
           isPreviewMode={isPreviewMode}
+          isUploading={isUploading}
+          hasUploadError={hasUploadError}
           onComplete={completeQuestion}
           onNext={onNextQuestion}
         />
