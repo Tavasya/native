@@ -60,6 +60,8 @@ const CreateAssignmentPage: React.FC = () => {
   // Time limit options in minutes
   const timeLimits = [
     { value: "0.25", label: "15 seconds" },
+    { value: "0.333", label: "20 seconds" },
+    { value: "0.417", label: "25 seconds" },
     { value: "0.5", label: "30 seconds" },
     { value: "1", label: "1 minute" },
     { value: "2", label: "2 minutes" },
