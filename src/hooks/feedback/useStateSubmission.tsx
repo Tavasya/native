@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
+import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
 import { 
   setTempScores,
   setTempFeedback,
@@ -36,6 +37,9 @@ export const useSubmissionState = (submissionId: string | undefined) => {
   } = useAppSelector((state: RootState) => state.submissions);
 
   const { role } = useAppSelector((state: RootState) => state.auth);
+  
+  // Assignment state
+  const { assignments } = useAppSelector((state: RootState) => state.assignments);
   
   // TTS selectors
   const ttsAudioCache = useAppSelector(selectTTSAudio);
@@ -134,6 +138,12 @@ export const useSubmissionState = (submissionId: string | undefined) => {
   const isGraded = selectedSubmission?.status === 'graded';
   const isAwaitingReview = selectedSubmission?.status === 'awaiting_review';
   const canEdit = isAwaitingReview && role === 'teacher';
+  
+  // Get current assignment
+  const currentAssignment = useMemo(() => {
+    if (!selectedSubmission?.assignment_id) return null;
+    return assignments.find(a => a.id === selectedSubmission.assignment_id) || null;
+  }, [selectedSubmission?.assignment_id, assignments]);
 
   // ✅ Simple effect - just fetch data when needed
   useEffect(() => {
@@ -142,6 +152,17 @@ export const useSubmissionState = (submissionId: string | undefined) => {
       dispatch(fetchSubmissionById(submissionId));
     }
   }, [submissionId, dispatch]);
+
+  // Fetch assignment data when submission is loaded
+  useEffect(() => {
+    if (selectedSubmission?.assignment_id) {
+      const assignmentExists = assignments.find(a => a.id === selectedSubmission.assignment_id);
+      if (!assignmentExists) {
+        console.log('Fetching assignment:', selectedSubmission.assignment_id);
+        dispatch(fetchAssignmentById(selectedSubmission.assignment_id));
+      }
+    }
+  }, [selectedSubmission?.assignment_id, assignments, dispatch]);
 
   // ✅ Cleanup TTS on unmount
   useEffect(() => {
@@ -179,6 +200,7 @@ export const useSubmissionState = (submissionId: string | undefined) => {
   return {
     // ✅ Data from Redux
     selectedSubmission,
+    currentAssignment,
     loading,
     error,
     currentQuestion,

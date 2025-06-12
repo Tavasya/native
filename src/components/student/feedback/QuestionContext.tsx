@@ -3,7 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import QuestionSelector from '@/components/student/feedback/QuestionSelector';
 import AudioPlayer from '@/components/assignment/AudioPlayer';
 import Transcript from '@/components/student/feedback/Transcript';
+import AssignmentQuestions from '@/components/student/feedback/AssignmentQuestions';
 import { QuestionFeedback, SectionFeedback } from '@/types/feedback';
+import { Assignment } from '@/features/assignments/types';
 
 interface QuestionContentProps {
   questions: QuestionFeedback[];
@@ -16,6 +18,7 @@ interface QuestionContentProps {
   highlightType: 'none' | 'grammar' | 'vocabulary';
   openPopover: string | null;
   setOpenPopover: (popover: string | null) => void;
+  assignment?: Assignment | null;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -29,11 +32,15 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   highlightType,
   openPopover,
   setOpenPopover,
+  assignment,
 }) => {
   console.log('QuestionContent render:', {
     selectedQuestionIndex,
     audioUrl,
-    questionsCount: questions.length
+    questionsCount: questions.length,
+    assignment: assignment,
+    assignmentQuestions: assignment?.questions,
+    assignmentQuestionsType: typeof assignment?.questions
   });
 
   return (
@@ -44,6 +51,15 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           selectedIndex={selectedQuestionIndex}
           onSelectQuestion={onSelectQuestion}
         />
+
+        {assignment && (
+          <div className="mt-4">
+            <AssignmentQuestions 
+              assignment={assignment} 
+              selectedQuestionIndex={selectedQuestionIndex} 
+            />
+          </div>
+        )}
 
         <div className="mt-6">
           {audioUrl && (

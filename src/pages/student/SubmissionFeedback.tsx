@@ -41,6 +41,7 @@ const SubmissionFeedback = () => {
     setVocabularyOpen,
     discardChanges,
     selectedSubmission,
+    currentAssignment,
     loading,
     error,
     ttsAudioCache,
@@ -203,6 +204,7 @@ const SubmissionFeedback = () => {
           highlightType={activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'}
           openPopover={openPopover}
           setOpenPopover={setOpenPopover}
+          assignment={currentAssignment}
         />
 
         <Card className="shadow-sm border-0 bg-white">

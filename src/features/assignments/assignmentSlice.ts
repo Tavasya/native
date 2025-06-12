@@ -3,6 +3,7 @@ import { AssignmentState } from "./types";
 import {
   createAssignment,
   fetchAssignmentByClass,
+  fetchAssignmentById,
   deleteAssignment,
   updateAssignmentStatus,
   fetchLatestSubmissionsByAssignment,
@@ -62,6 +63,26 @@ const assignmentSlice = createSlice({
         s.assignments = a.payload;
       })
       .addCase(fetchAssignmentByClass.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchAssignmentById
+      .addCase(fetchAssignmentById.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchAssignmentById.fulfilled, (s, a) => {
+        s.loading = false;
+        // Add or update the assignment in the assignments array
+        const existingIndex = s.assignments.findIndex(assignment => assignment.id === a.payload.id);
+        if (existingIndex >= 0) {
+          s.assignments[existingIndex] = a.payload;
+        } else {
+          s.assignments.push(a.payload);
+        }
+      })
+      .addCase(fetchAssignmentById.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload as string;
       })
