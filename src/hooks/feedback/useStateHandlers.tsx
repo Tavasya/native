@@ -6,13 +6,14 @@ import {
   setOperationLoading,
   stopEditing,
   commitTempChanges,
-  setTempScores,
   setTempFeedback,
   discardTempChanges,
 } from '@/features/submissions/submissionsSlice';
 import { useToast } from "@/components/ui/use-toast";
 import { EditingState, SectionFeedback, AverageScores } from '@/types/feedback';
 import { Submission, QuestionFeedbackEntry } from '@/features/submissions/types';
+import { UpdateSubmissionDto } from '@/features/submissions/types';
+import { AppDispatch } from '@/app/store';
 
 interface UseSubmissionHandlersProps {
   selectedSubmission: Submission | null;
@@ -21,8 +22,7 @@ interface UseSubmissionHandlersProps {
   teacherComment: string;
   currentFeedback: SectionFeedback | null;
   selectedQuestionIndex: number;
-  // ✅ Remove all the setters - Redux handles state now
-  dispatch: any;
+  dispatch: AppDispatch;
 }
 
 export const useSubmissionHandlers = ({
@@ -58,25 +58,46 @@ export const useSubmissionHandlers = ({
     }
 
     try {
-      const resultAction = await dispatch(updateSubmission({
-        id: selectedSubmission.id,
-        updates: { status: 'graded' }
-      }));
+      // If we have temp scores that are different from the current scores, save them first
+      if (tempScores && selectedSubmission.overall_assignment_score !== tempScores) {
+        const updates: Omit<UpdateSubmissionDto, 'id'> = { 
+          overall_assignment_score: tempScores,
+          status: 'graded'
+        };
+        if (tempScores.overall_grade !== undefined && tempScores.overall_grade !== null) {
+          updates.grade = tempScores.overall_grade;
+        }
 
-      if (updateSubmission.fulfilled.match(resultAction)) {
-        toast({
-          title: "Success!",
-          description: `Feedback has been sent to ${selectedSubmission.student_name || 'student'}`,
-          duration: 5000,
-        });
+        const resultAction = await dispatch(updateSubmission({
+          id: selectedSubmission.id,
+          updates
+        }));
 
-        if (location.state?.fromClassDetail) {
-          navigate(-1);
-        } else {
-          navigate('/teacher/classes');
+        if (!updateSubmission.fulfilled.match(resultAction)) {
+          throw new Error('Failed to update scores');
         }
       } else {
-        throw new Error('Update submission failed');
+        // If no score changes, just update the status
+        const resultAction = await dispatch(updateSubmission({
+          id: selectedSubmission.id,
+          updates: { status: 'graded' }
+        }));
+
+        if (!updateSubmission.fulfilled.match(resultAction)) {
+          throw new Error('Update submission failed');
+        }
+      }
+
+      toast({
+        title: "Success!",
+        description: `Feedback has been sent to ${selectedSubmission.student_name || 'student'}`,
+        duration: 5000,
+      });
+
+      if (location.state?.fromClassDetail) {
+        navigate(-1);
+      } else {
+        navigate('/teacher/classes');
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);
@@ -90,57 +111,26 @@ export const useSubmissionHandlers = ({
   };
 
   // ✅ Enhanced with Redux operation tracking
-  const handleSaveOverallScores = async () => {
-    if (!selectedSubmission?.id || !tempScores) {
+  const handleSaveOverallScores = () => {
+    if (!tempScores) {
       toast({
         title: "Error",
-        description: "No submission or scores found to update.",
+        description: "No scores found to update.",
         variant: "destructive",
         duration: 5000,
       });
       return;
     }
 
-    // ✅ Set loading state in Redux
-    dispatch(setOperationLoading({ operation: 'savingScores', loading: true }));
-
-    try {
-      const resultAction = await dispatch(updateSubmission({
-        id: selectedSubmission.id,
-        updates: { overall_assignment_score: tempScores }
-      }));
-
-      if (updateSubmission.fulfilled.match(resultAction)) {
-        // ✅ Commit changes and stop editing via Redux
-        dispatch(commitTempChanges({ section: 'scores' }));
-        dispatch(stopEditing('overall'));
-        
-        toast({
-          title: "Success",
-          description: "Overall scores updated successfully.",
-          duration: 3000,
-        });
-      } else {
-        throw new Error('Update failed');
-      }
-    } catch (error) {
-      console.error('Error updating overall score:', error);
-      
-      // ✅ Revert temp scores via Redux
-      if (selectedSubmission.overall_assignment_score) {
-        dispatch(setTempScores(selectedSubmission.overall_assignment_score));
-      }
-      
-      toast({
-        title: "Error",
-        description: "Failed to update scores. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    } finally {
-      // ✅ Clear loading state
-      dispatch(setOperationLoading({ operation: 'savingScores', loading: false }));
-    }
+    // Just commit the changes to Redux state
+    dispatch(commitTempChanges({ section: 'scores' }));
+    dispatch(stopEditing('overall'));
+    
+    toast({
+      title: "Success",
+      description: "Scores updated in form. Click 'Submit and Send' to save changes.",
+      duration: 3000,
+    });
   };
 
   // ✅ Enhanced teacher comment handler

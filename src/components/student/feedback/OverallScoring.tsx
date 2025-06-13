@@ -8,6 +8,7 @@ interface Score {
   avg_grammar_score: number | null;
   avg_lexical_score: number | null;
   avg_pronunciation_score: number | null;
+  overall_grade?: number | null;
 }
 
 interface OverallScoringProps {
@@ -19,6 +20,7 @@ interface OverallScoringProps {
   onSave: () => void;
   onCancel: () => void;
   onScoreChange: (field: keyof Score, value: number | null) => void;
+  isAutoGradeEnabled?: boolean;
 }
 
 const getScoreColor = (score: number | null) => {
@@ -40,42 +42,71 @@ const OverallScoring = ({
   onSave,
   onCancel,
   onScoreChange,
+  isAutoGradeEnabled = true,
 }: OverallScoringProps) => {
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Overall Assignment Scoring</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-gray-900">Overall Assignment Scoring</h3>
         {canEdit && (
-          <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onSave}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onCancel}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onEdit}
-              >
-                Edit
-              </Button>
+          <div className="flex items-center gap-4">
+            {/* Overall Grade Input - Only shown when autograde is disabled */}
+            {!isAutoGradeEnabled && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Overall Grade:</span>
+                {isEditing ? (
+                  <div className={cn(
+                    "bg-gray-50 px-3 py-1 rounded-md transition-all duration-200 w-20"
+                  )}>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tempScores.overall_grade ?? ''}
+                      onChange={(e) => onScoreChange('overall_grade', e.target.value ? parseInt(e.target.value) : null)}
+                      className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.overall_grade ?? null)}`}
+                      placeholder="Grade"
+                    />
+                  </div>
+                ) : (
+                  <div className={`text-base font-bold ${getScoreColor(scores.overall_grade ?? null)}`}>
+                    {scores.overall_grade ?? 'Not graded'}
+                  </div>
+                )}
+              </div>
             )}
+            <div className="flex gap-2">
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onSave}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onCancel}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onEdit}
+                >
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
+
       <div className="grid grid-cols-4 gap-4">
         <div className="text-center">
           {isEditing ? (

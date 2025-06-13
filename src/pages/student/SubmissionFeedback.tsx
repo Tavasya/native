@@ -191,6 +191,7 @@ const SubmissionFeedback = () => {
             stopEditing('teacherComment');
           }}
           onCommentChange={setTeacherComment}
+          isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
         />
 
         <QuestionContent

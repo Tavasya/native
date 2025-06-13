@@ -208,6 +208,7 @@ export interface AverageScores {
   avg_grammar_score: number;
   avg_lexical_score: number;
   avg_pronunciation_score: number;
+  overall_grade?: number | null;
 }
 
 export interface FormEditingState {
