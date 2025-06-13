@@ -346,6 +346,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     getRecordingForQuestion={getRecordingForQuestion}
                     isUploading={isQuestionUploading(currentQuestionIndex)}
                     hasUploadError={hasUploadError(currentQuestionIndex)}
+                    isTest={assignment.metadata?.isTest ?? false}
                   />
                 )}
               </TooltipProvider>

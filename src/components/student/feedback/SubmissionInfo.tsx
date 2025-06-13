@@ -23,6 +23,7 @@ interface SubmissionInfoProps {
   onCancelComment: () => void;
   onCommentChange: (value: string) => void;
   isAutoGradeEnabled?: boolean;
+  isTest?: boolean;
 }
 
 const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
@@ -44,6 +45,7 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   onCancelComment,
   onCommentChange,
   isAutoGradeEnabled = true,
+  isTest = false,
 }) => {
   return (
     <Card className="shadow-sm border-0 bg-white">
@@ -71,6 +73,7 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
           onCancel={onCancelOverall}
           onScoreChange={onScoreChange}
           isAutoGradeEnabled={isAutoGradeEnabled}
+          isTest={isTest}
         />
 
         <TeacherComment

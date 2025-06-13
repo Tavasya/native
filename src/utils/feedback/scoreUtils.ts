@@ -2,7 +2,11 @@
 
 import { SpeedCategory } from '@/types/feedback';
 
-export const getScoreColor = (score: number): string => {
+export const getScoreColor = (score: number | null, isTest: boolean = false): string => {
+  if (score === null) return "text-gray-400";
+  if (isTest) {
+    return "text-orange-500";
+  }
   if (score >= 90) return "text-green-500";
   if (score >= 80) return "text-green-400";
   if (score >= 70) return "text-yellow-400";

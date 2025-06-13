@@ -55,6 +55,7 @@ const CreateAssignmentPage: React.FC = () => {
   const [activeCardId, setActiveCardId] = useState('1');
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
   const [autoGrade, setAutoGrade] = useState(true);
+  const [isTest, setIsTest] = useState(false);
   // const [showPreview, setShowPreview] = useState(false);
 
   // Time limit options in minutes
@@ -200,7 +201,7 @@ const CreateAssignmentPage: React.FC = () => {
           question: card.question.trim(),
           bulletPoints: card.bulletPoints?.map(bp => bp.trim())
         })),
-        metadata: { autoGrade },
+        metadata: { autoGrade, isTest },
         status: 'not_started' as const
       };
 
@@ -327,7 +328,11 @@ const CreateAssignmentPage: React.FC = () => {
           title,
           due_date: dueDate,
           questions: questionCards,
-          id: 'preview'
+          id: 'preview',
+          metadata: {
+            autoGrade,
+            isTest
+          }
         }}
         onBack={() => setIsPreviewMode(false)}
       />
@@ -384,8 +389,9 @@ const CreateAssignmentPage: React.FC = () => {
           {/* Header Card with title, description, settings */}
           <Card
             className={cn(
-              "mb-4 overflow-hidden shadow-md rounded-lg transition-all duration-200 border-t-[4px] border-t-[#272A69] border-x-0 border-b-0",
-              activeHeaderCard ? "ring-2 ring-[#272A69]" : ""
+              "shadow-md rounded-2xl p-6 mb-6 border-2",
+              activeHeaderCard && (isTest ? "ring-2 ring-orange-500 border-orange-500" : "ring-2 ring-[#272A69] border-[#272A69]"),
+              !activeHeaderCard && "border-gray-200"
             )}
             onMouseDown={(e: React.MouseEvent) => {
               const target = e.target as HTMLElement;
@@ -500,6 +506,35 @@ const CreateAssignmentPage: React.FC = () => {
                             </Label>
                           </div>
                         </div>
+
+                        {/* Test Setting */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-sm font-medium text-gray-700">Test Mode</Label>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button type="button" className="focus:outline-none">
+                                    <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
+                                  <p className="text-sm text-gray-700">When enabled, grading boxes will be highlighted in orange instead of navy blue.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                          <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                            <Switch
+                              id="test-mode"
+                              checked={isTest}
+                              onCheckedChange={setIsTest}
+                            />
+                            <Label htmlFor="test-mode" className="text-sm text-gray-600">
+                              {isTest ? "Enabled" : "Disabled"}
+                            </Label>
+                          </div>
+                        </div>
                         
                         {/* Assignment Templates */}
                         <div className="space-y-2">
@@ -574,7 +609,7 @@ const CreateAssignmentPage: React.FC = () => {
                           {...provided.draggableProps}
                           className={cn(
                             "mb-4 relative rounded-lg overflow-hidden",
-                            activeCardId === card.id && "ring-2 ring-[#272A69]"
+                            activeCardId === card.id && (isTest ? "ring-2 ring-orange-500" : "ring-2 ring-[#272A69]")
                           )}
                           onMouseDown={(e: React.MouseEvent) => {
                             const target = e.target as HTMLElement;

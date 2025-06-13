@@ -37,6 +37,7 @@ interface QuestionContentProps {
   getRecordingForQuestion: (index: number) => { url: string } | undefined;
   isUploading?: boolean;
   hasUploadError?: boolean;
+  isTest?: boolean;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -62,7 +63,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   isPreviewMode = false,
   getRecordingForQuestion,
   isUploading = false,
-  hasUploadError = false
+  hasUploadError = false,
+  isTest = false
 }) => {
   return (
     <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
@@ -72,6 +74,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           dueDate={dueDate}
           timeRemaining={timeRemaining}
           formatTime={formatTime}
+          isTest={isTest}
         />
         
         <QuestionProgress

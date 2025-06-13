@@ -21,6 +21,8 @@ export interface Assignment {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];  // now an array of the above
   metadata: {
+    autoGrade?: boolean;
+    isTest?: boolean;
     [key: string]: any;       // for future flags
   };
   status: AssignmentStatus;
@@ -42,6 +44,8 @@ export interface CreateAssignmentDto {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];
   metadata?: {
+    autoGrade?: boolean;
+    isTest?: boolean;
     [key: string]: any;
   };
   status?: AssignmentStatus;
