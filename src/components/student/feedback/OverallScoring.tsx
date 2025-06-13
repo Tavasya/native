@@ -48,7 +48,7 @@ const OverallScoring = ({
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-gray-900">Overall Assignment Scoring</h3>
-        {canEdit && (
+        {canEdit ? (
           <div className="flex items-center gap-4">
             {/* Overall Grade Input - Only shown when autograde is disabled */}
             {!isAutoGradeEnabled && (
@@ -104,6 +104,19 @@ const OverallScoring = ({
               )}
             </div>
           </div>
+        ) : (
+          // Student view - only show overall grade if it exists
+          scores.overall_grade !== undefined && scores.overall_grade !== null && (
+            <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
+              <span className="text-sm font-medium text-gray-600">Overall Grade</span>
+              <div className="flex items-center gap-1">
+                <div className={`text-lg font-bold ${getScoreColor(scores.overall_grade)}`}>
+                  {scores.overall_grade}
+                </div>
+                <span className="text-sm font-medium text-gray-500">%</span>
+              </div>
+            </div>
+          )
         )}
       </div>
 
