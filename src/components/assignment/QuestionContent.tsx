@@ -7,6 +7,8 @@ import RecordingControls from './RecordingControls';
 import AudioPlayer from './AudioPlayer';
 import NavigationButton from './NavigationButton';
 import AudioVisualizer from './AudioVisualizer';
+import { Button } from '@/components/ui/button';
+import { Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   TooltipProvider,
@@ -39,6 +41,12 @@ interface QuestionContentProps {
   isUploading?: boolean;
   hasUploadError?: boolean;
   isTest?: boolean;
+  // Test mode prep time props
+  isPrepTimeActive?: boolean;
+  prepTimeRemaining?: number;
+  formatPrepTime?: (seconds: number) => string;
+  onStartPrepTime?: () => void;
+  showStartButton?: boolean;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -65,7 +73,13 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   getRecordingForQuestion,
   isUploading = false,
   hasUploadError = false,
-  isTest = false
+  isTest = false,
+  // Test mode prep time props
+  isPrepTimeActive = false,
+  prepTimeRemaining = 0,
+  formatPrepTime,
+  onStartPrepTime,
+  showStartButton = false
 }) => {
   return (
     <div className={cn(
@@ -79,6 +93,11 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           timeRemaining={timeRemaining}
           formatTime={formatTime}
           isTest={isTest}
+          isPrepTimeActive={isPrepTimeActive}
+          prepTimeRemaining={prepTimeRemaining}
+          formatPrepTime={formatPrepTime}
+          showStartButton={showStartButton}
+          prepTime={currentQuestion.prepTime}
         />
         
         <QuestionProgress
@@ -86,44 +105,67 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           totalQuestions={totalQuestions}
         />
         
-        <QuestionDisplay currentQuestion={currentQuestion} isTest={isTest} />
-        
-        {/* Audio Visualizer */}
-        {isRecording && mediaStream && (
-          <div className="w-full px-4 mb-4">
-            <AudioVisualizer stream={mediaStream} isRecording={isRecording} />
+        {/* Test Mode: Show Start Button Initially */}
+        {isTest && showStartButton && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Ready to Begin?</h2>
+              <p className="text-gray-600">Click start when you're ready to see the question and begin preparation time.</p>
+            </div>
+            <Button
+              onClick={onStartPrepTime}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg flex items-center gap-2"
+            >
+              <Play className="h-5 w-5" />
+              Start
+            </Button>
           </div>
         )}
+        
+        {/* Normal Mode or Test Mode After Start */}
+        {(!isTest || !showStartButton) && (
+          <>
+            <QuestionDisplay currentQuestion={currentQuestion} />
+            
+            {/* Audio Visualizer */}
+            {isRecording && mediaStream && (
+              <div className="w-full px-4 mb-4">
+                <AudioVisualizer stream={mediaStream} isRecording={isRecording} />
+              </div>
+            )}
 
-        <RecordingControls
-          isRecording={isRecording}
-          hasRecorded={hasRecorded}
-          isPlaying={isPlaying}
-          isProcessing={isProcessing}
-          showRecordButton={showRecordButton}
-          isPreviewMode={isPreviewMode}
-          onToggleRecording={toggleRecording}
-          onPlayRecording={playRecording}
-          onRetryRecording={toggleRecording}
-        />
+            <RecordingControls
+              isRecording={isRecording}
+              hasRecorded={hasRecorded}
+              isPlaying={isPlaying}
+              isProcessing={isProcessing}
+              showRecordButton={showRecordButton}
+              isPreviewMode={isPreviewMode}
+              onToggleRecording={toggleRecording}
+              onPlayRecording={playRecording}
+              onRetryRecording={toggleRecording}
+              isPrepTimeActive={isPrepTimeActive}
+            />
 
-        <AudioPlayer
-          hasRecorded={hasRecorded}
-          isRecording={isRecording}
-          onTimeUpdate={onTimeUpdate || (() => {})}
-          audioUrl={getRecordingForQuestion(currentQuestionIndex)?.url}
-        />
+            <AudioPlayer
+              hasRecorded={hasRecorded}
+              isRecording={isRecording}
+              onTimeUpdate={onTimeUpdate || (() => {})}
+              audioUrl={getRecordingForQuestion(currentQuestionIndex)?.url}
+            />
 
-        <NavigationButton
-          isLastQuestion={isLastQuestion}
-          hasRecorded={hasRecorded}
-          isPlaying={isPlaying}
-          isPreviewMode={isPreviewMode}
-          isUploading={isUploading}
-          hasUploadError={hasUploadError}
-          onComplete={completeQuestion}
-          onNext={onNextQuestion}
-        />
+            <NavigationButton
+              isLastQuestion={isLastQuestion}
+              hasRecorded={hasRecorded}
+              isPlaying={isPlaying}
+              isPreviewMode={isPreviewMode}
+              isUploading={isUploading}
+              hasUploadError={hasUploadError}
+              onComplete={completeQuestion}
+              onNext={onNextQuestion}
+            />
+          </>
+        )}
       </TooltipProvider>
     </div>
   );

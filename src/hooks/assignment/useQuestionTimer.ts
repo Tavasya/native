@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface UseQuestionTimerProps {
   timeLimit: number; // in seconds
   isRecording: boolean;
   onTimeUp: () => void;
   questionId: string; // Add questionId to track question changes
+  resetTrigger?: number; // Add reset trigger for external resets
 }
 
-export const useQuestionTimer = ({ timeLimit, isRecording, onTimeUp, questionId }: UseQuestionTimerProps) => {
+export const useQuestionTimer = ({ timeLimit, isRecording, onTimeUp, questionId, resetTrigger }: UseQuestionTimerProps) => {
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
 
-  // Reset timer when timeLimit or questionId changes
+  // Reset timer when timeLimit, questionId, or resetTrigger changes
   useEffect(() => {
     setTimeRemaining(timeLimit);
-  }, [timeLimit, questionId]);
+  }, [timeLimit, questionId, resetTrigger]);
 
   useEffect(() => {
     if (timeRemaining > -15 && isRecording) {
@@ -38,8 +39,13 @@ export const useQuestionTimer = ({ timeLimit, isRecording, onTimeUp, questionId 
     return `${isNegative ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const resetTimer = useCallback(() => {
+    setTimeRemaining(timeLimit);
+  }, [timeLimit]);
+
   return {
     timeRemaining,
-    formatTime
+    formatTime,
+    resetTimer
   };
 };

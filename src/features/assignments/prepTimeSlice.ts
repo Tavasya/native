@@ -65,6 +65,12 @@ const prepTimeSlice = createSlice({
       if (state.isPrepTimeActive && state.prepTimeRemaining > 0) {
         state.prepTimeRemaining -= 1;
       }
+      // Automatically end prep time when it reaches 0
+      if (state.isPrepTimeActive && state.prepTimeRemaining <= 0) {
+        state.isPrepTimeActive = false;
+        state.isRecordingPhaseActive = true;
+        state.recordingTimeRemaining = state.recordingTimeDuration;
+      }
     },
 
     // End prep time and start recording phase
@@ -85,6 +91,10 @@ const prepTimeSlice = createSlice({
     tickRecordingTime: (state) => {
       if (state.isRecordingPhaseActive && state.recordingTimeRemaining > 0) {
         state.recordingTimeRemaining -= 1;
+      }
+      // Automatically end recording phase when it reaches 0
+      if (state.isRecordingPhaseActive && state.recordingTimeRemaining <= 0) {
+        state.isRecordingPhaseActive = false;
       }
     },
 

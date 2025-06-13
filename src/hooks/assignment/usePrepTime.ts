@@ -22,23 +22,6 @@ interface UsePrepTimeProps {
   onRecordingTimeEnd?: () => void;
 }
 
-// Helper function to convert time string to seconds
-const timeStringToSeconds = (timeString: string): number => {
-  if (!timeString) return 15; // default 15 seconds
-  
-  // Handle M:SS format
-  if (timeString.includes(':')) {
-    const parts = timeString.split(':');
-    const minutes = Math.min(parseInt(parts[0]) || 0, 9); // max 9 minutes
-    const seconds = parseInt(parts[1]) || 0;
-    return minutes * 60 + seconds;
-  }
-  
-  // Handle old format (just minutes as decimal)
-  const minutes = Math.min(parseFloat(timeString) || 1, 9); // max 9 minutes
-  return minutes * 60;
-};
-
 export const usePrepTime = ({
   assignmentId,
   questionIndex,
@@ -72,7 +55,7 @@ export const usePrepTime = ({
     const timer = setInterval(() => {
       dispatch(tickPrepTime());
       
-      // Check if prep time is up
+      // Check if prep time is up (check current state, not stale closure)
       if (prepTimeState.prepTimeRemaining <= 1) {
         dispatch(endPrepTime());
         onPrepTimeEnd?.();
@@ -89,7 +72,7 @@ export const usePrepTime = ({
     const timer = setInterval(() => {
       dispatch(tickRecordingTime());
       
-      // Check if recording time is up
+      // Check if recording time is up (check current state, not stale closure)
       if (prepTimeState.recordingTimeRemaining <= 1) {
         dispatch(endRecordingPhase());
         onRecordingTimeEnd?.();

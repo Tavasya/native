@@ -19,6 +19,7 @@ interface RecordingControlsProps {
   onToggleRecording: () => void;
   onPlayRecording: () => void;
   onRetryRecording: () => void;
+  isPrepTimeActive?: boolean;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -29,10 +30,21 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   showRecordButton,
   isPreviewMode,
   onToggleRecording,
-  onRetryRecording
+  onRetryRecording,
+  isPrepTimeActive = false
 }) => {
   return (
     <div className="flex flex-col gap-4">
+      {/* Prep Time Message */}
+      {isPrepTimeActive && (
+        <div className="flex justify-center">
+          <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+            <p className="text-orange-800 font-medium">Preparation Time</p>
+            <p className="text-orange-600 text-sm">Recording will start automatically when prep time ends</p>
+          </div>
+        </div>
+      )}
+      
       {/* Main Record Button */}
       <div className="flex justify-center">
         <div className="flex space-x-4 items-center">
@@ -66,7 +78,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
       </div>
 
       {/* Retry Button */}
-      {hasRecorded && !isRecording && (
+      {hasRecorded && !isRecording && !isPrepTimeActive && (
         <div className="flex justify-center pb-4">
           <div className="flex space-x-3">
             <Tooltip delayDuration={0}>
@@ -74,14 +86,15 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                 <Button
                   onClick={onRetryRecording}
                   variant="outline"
-                  className="text-gray-700"
+                  className="text-gray-700 hover:bg-gray-50"
                   disabled={isProcessing || isPlaying}
                 >
-                  <RotateCcw className="h-4 w-4" />
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
-                <p>Retry</p>
+                <p>Reset and try again</p>
               </TooltipContent>
             </Tooltip>
           </div>

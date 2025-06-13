@@ -20,9 +20,6 @@ import { useQuestionNavigation } from '@/hooks/assignment/useQuestionNavigation'
 import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
 
-// Components
-import PrepTimeTimer from '@/components/assignment/PrepTimeTimer';
-
 interface PreviewData {
   title: string;
   due_date: string;
@@ -54,7 +51,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const [isCompleted] = useState(false);
 
   // Load assignment data
-  const { assignment, loading, error, markQuestionCompleted } = useAssignmentData({
+  const { assignment, loading, markQuestionCompleted } = useAssignmentData({
     id,
     previewMode,
     previewData
@@ -122,6 +119,30 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     }
   });
 
+  // Submission management
+  const { handleFinalSubmit } = useSubmissionManager({
+    assignment,
+    assignmentId: id || 'preview',
+    userId,
+    sessionRecordings,
+    recordingsData: (recordingsData || {}) as Record<string, { uploadedUrl: string }>
+  });
+
+  // Test mode and prep time management
+  const isTestMode = assignment?.metadata?.isTest ?? false;
+  
+  // Local state for recording status
+  const [hasRecorded, setHasRecorded] = useState(false);
+
+  // Test mode state management
+  const [hasStarted, setHasStarted] = useState(!isTestMode); // Non-test mode starts immediately
+  const [timerResetTrigger, setTimerResetTrigger] = useState(0); // For resetting the main timer
+  
+  const handleStartTest = () => {
+    setHasStarted(true);
+    startPrepTimePhase();
+  };
+
   // Question timer (now using actual isRecording state)
   const { timeRemaining, formatTime } = useQuestionTimer({
     timeLimit,
@@ -135,7 +156,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         });
       }
     },
-    questionId: currentQuestion?.id || ''
+    questionId: currentQuestion?.id || '',
+    resetTrigger: timerResetTrigger
   });
 
   // Audio playback
@@ -153,18 +175,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     }
   });
 
-  // Submission management
-  const { handleFinalSubmit } = useSubmissionManager({
-    assignment,
-    assignmentId: id || 'preview',
-    userId,
-    sessionRecordings,
-    recordingsData: (recordingsData || {}) as Record<string, { uploadedUrl: string }>
-  });
-
-  // Prep time management (test mode only)
-  const isTestMode = assignment?.metadata?.isTest ?? false;
-  
   // Helper function to convert time string to seconds
   const timeStringToSeconds = (timeString: string): number => {
     if (!timeString) return 15; // default 15 seconds
@@ -186,14 +196,10 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   
   const {
     isPrepTimeActive,
-    isRecordingPhaseActive,
     prepTimeRemaining,
-    recordingTimeRemaining,
     startPrepTimePhase,
-    startRecordingTimePhase,
     resetAllTimers,
     formatTime: formatPrepTime,
-    canStartRecording,
   } = usePrepTime({
     assignmentId: id || 'preview',
     questionIndex: currentQuestionIndex,
@@ -201,13 +207,18 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     recordingTimeDuration: timeLimit,
     isTestMode,
     onPrepTimeEnd: () => {
-      toast({
-        title: "Preparation time finished!",
-        description: "You can now start recording your answer.",
-      });
+      // Auto-start recording when prep time ends (only if not already recording)
+      if (!isRecording && isTestMode && hasStarted) {
+        baseToggleRecording();
+        toast({
+          title: "Preparation time finished!",
+          description: "Recording started automatically.",
+        });
+      }
     },
     onRecordingTimeEnd: () => {
-      if (isRecording) {
+      // Stop recording when recording time ends
+      if (isRecording && isTestMode) {
         baseToggleRecording();
         toast({
           title: "Recording time finished!",
@@ -217,8 +228,17 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     },
   });
 
-  // Local state for recording status
-  const [hasRecorded, setHasRecorded] = useState(false);
+  // Reset when question changes in test mode
+  useEffect(() => {
+    if (isTestMode) {
+      setHasStarted(false);
+      resetAllTimers();
+      // Important: Also reset hasRecorded when changing questions in test mode
+      setHasRecorded(false);
+      // Reset the main timer when changing questions
+      setTimerResetTrigger(prev => prev + 1);
+    }
+  }, [currentQuestionIndex, isTestMode, resetAllTimers]);
 
   // Get user ID on mount
   useEffect(() => {
@@ -236,17 +256,30 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     loadExistingSubmission();
   }, [loadExistingSubmission]);
 
+  // Cleanup effect for test mode
+  useEffect(() => {
+    return () => {
+      // Cleanup when component unmounts or assignment changes
+      if (isTestMode) {
+        resetAllTimers();
+      }
+    };
+  }, [id, isTestMode, resetAllTimers]);
+
   // Update hasRecorded when question changes
   useEffect(() => {
     if (assignment) {
-      setHasRecorded(hasRecordingForQuestion(currentQuestionIndex));
+      // In test mode, hasRecorded is managed by the test state, not by existing recordings
+      if (!isTestMode) {
+        setHasRecorded(hasRecordingForQuestion(currentQuestionIndex));
+      }
       
       // Stop playback when changing questions
       if (isPlaying) {
         pauseAudio();
       }
     }
-  }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio]);
+  }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio, isTestMode]);
 
   // Enhanced toggle recording with timer handling
   const toggleRecording = () => {
@@ -258,14 +291,14 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       return;
     }
 
-    // Test mode prep time logic
-    if (isTestMode && !canStartRecording) {
-      toast({
-        title: "Preparation Time Required",
-        description: "Please complete preparation time before recording.",
-        variant: "destructive",
-      });
-      return;
+    // In test mode, if we're retrying (already recorded), reset to start screen
+    if (isTestMode && hasRecorded) {
+      setHasStarted(false);
+      setHasRecorded(false); // Reset recording state
+      resetAllTimers();
+      // Reset the main timer as well
+      setTimerResetTrigger(prev => prev + 1);
+      return; // Don't call baseToggleRecording() when resetting
     }
 
     baseToggleRecording();
@@ -362,10 +395,15 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   // Loading and error states
   if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
   if (!assignment) return <div>Assignment not found</div>;
 
-  const showRecordButton = !previewMode && (!hasRecorded || isRecording);
+  // Fix showRecordButton logic for test mode
+  const showRecordButton = !previewMode && 
+    (isTestMode ? 
+      (hasStarted && !isPrepTimeActive && (!hasRecorded || isRecording)) : 
+      (!hasRecorded || isRecording)
+    ) && 
+    !isPrepTimeActive;
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
@@ -383,21 +421,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       <div className="flex-1 flex items-center">
         <div className="max-w-6xl mx-auto w-full">
           <div className="flex flex-col gap-6">
-            {/* Prep Time Timer (Test Mode Only) */}
-            {isTestMode && (
-              <PrepTimeTimer
-                isPrepTimeActive={isPrepTimeActive}
-                isRecordingPhaseActive={isRecordingPhaseActive}
-                prepTimeRemaining={prepTimeRemaining}
-                recordingTimeRemaining={recordingTimeRemaining}
-                formatTime={formatPrepTime}
-                onStartPrepTime={startPrepTimePhase}
-                onStartRecording={startRecordingTimePhase}
-                canStartRecording={canStartRecording}
-                isTestMode={isTestMode}
-              />
-            )}
-            
             <div>
               <TooltipProvider>
                 {currentQuestion && (
@@ -432,6 +455,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     isUploading={isQuestionUploading(currentQuestionIndex)}
                     hasUploadError={hasUploadError(currentQuestionIndex)}
                     isTest={assignment.metadata?.isTest ?? false}
+                    isPrepTimeActive={isPrepTimeActive}
+                    prepTimeRemaining={prepTimeRemaining}
+                    formatPrepTime={formatPrepTime}
+                    onStartPrepTime={handleStartTest}
+                    showStartButton={isTestMode && !hasStarted}
                   />
                 )}
               </TooltipProvider>
@@ -443,7 +471,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                 currentQuestionIndex={currentQuestionIndex}
                 onQuestionSelect={goToQuestion}
                 recordings={recordingsData}
-                disabled={isRecording || isPlaying}
+                disabled={isRecording || isPlaying || (isTestMode && (isPrepTimeActive || !hasStarted))}
               />
             </div>
           </div>
