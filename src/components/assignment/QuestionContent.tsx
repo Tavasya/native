@@ -7,6 +7,7 @@ import RecordingControls from './RecordingControls';
 import AudioPlayer from './AudioPlayer';
 import NavigationButton from './NavigationButton';
 import AudioVisualizer from './AudioVisualizer';
+import { cn } from '@/lib/utils';
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
@@ -67,7 +68,10 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   isTest = false
 }) => {
   return (
-    <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
+    <div className={cn(
+      "bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col",
+      isTest && "ring-4 ring-orange-500"
+    )}>
       <TooltipProvider>
         <AssignmentHeader
           assignmentTitle={assignmentTitle}
@@ -82,7 +86,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           totalQuestions={totalQuestions}
         />
         
-        <QuestionDisplay currentQuestion={currentQuestion} />
+        <QuestionDisplay currentQuestion={currentQuestion} isTest={isTest} />
         
         {/* Audio Visualizer */}
         {isRecording && mediaStream && (
