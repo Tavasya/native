@@ -29,13 +29,15 @@ const CompletedAssignments: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch submissions for each assignment
-        for (const assignment of assignments) {
-          await dispatch(fetchSubmissionsByAssignmentAndStudent({
+        // Fetch all submissions in parallel
+        const submissionPromises = assignments.map(assignment => 
+          dispatch(fetchSubmissionsByAssignmentAndStudent({
             assignment_id: assignment.id,
             student_id: user.id
-          }));
-        }
+          }))
+        );
+
+        await Promise.all(submissionPromises);
       } catch (error) {
         console.error('Error fetching submissions:', error);
       }

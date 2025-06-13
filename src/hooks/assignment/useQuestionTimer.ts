@@ -4,14 +4,16 @@ interface UseQuestionTimerProps {
   timeLimit: number; // in seconds
   isRecording: boolean;
   onTimeUp: () => void;
+  questionId: string; // Add questionId to track question changes
 }
 
-export const useQuestionTimer = ({ timeLimit, isRecording, onTimeUp }: UseQuestionTimerProps) => {
+export const useQuestionTimer = ({ timeLimit, isRecording, onTimeUp, questionId }: UseQuestionTimerProps) => {
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
 
+  // Reset timer when timeLimit or questionId changes
   useEffect(() => {
     setTimeRemaining(timeLimit);
-  }, [timeLimit]);
+  }, [timeLimit, questionId]);
 
   useEffect(() => {
     if (timeRemaining > -15 && isRecording) {

@@ -75,18 +75,26 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
       if (!user || !assignments.length) return;
       
       setIsLoadingSubmissions(true);
-      const submissions: Record<string, { isCompleted: boolean; isInProgress: boolean }> = {};
       
       try {
-        for (const assignment of assignments) {
-          const { data, error } = await supabase
+        // Get all submission statuses in parallel
+        const submissionPromises = assignments.map(assignment => 
+          supabase
             .from('submissions')
             .select('status')
             .eq('assignment_id', assignment.id)
             .eq('student_id', user.id)
             .order('submitted_at', { ascending: false })
-            .limit(1);
+            .limit(1)
+        );
 
+        const results = await Promise.all(submissionPromises);
+        
+        // Process all results at once
+        const submissions: Record<string, { isCompleted: boolean; isInProgress: boolean }> = {};
+        
+        assignments.forEach((assignment, index) => {
+          const { data, error } = results[index];
           if (!error && data && data.length > 0) {
             const status = data[0].status;
             submissions[assignment.id] = {
@@ -99,15 +107,23 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
               isInProgress: false
             };
           }
-        }
-      } finally {
+        });
+
         setAssignmentSubmissions(submissions);
+      } catch (error) {
+        console.error('Error checking submissions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load submission statuses",
+          variant: "destructive",
+        });
+      } finally {
         setIsLoadingSubmissions(false);
       }
     };
 
     checkSubmissions();
-  }, [user, assignments]);
+  }, [user, assignments, toast]);
 
   // Filter assignments to only show those that are not completed
   const activeAssignments = assignments.filter(assignment => {

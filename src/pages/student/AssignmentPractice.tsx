@@ -130,7 +130,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           description: "Recording stopped automatically",
         });
       }
-    }
+    },
+    questionId: currentQuestion?.id || ''
   });
 
   // Audio playback

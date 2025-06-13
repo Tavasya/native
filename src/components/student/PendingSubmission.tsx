@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { Submission } from '@/features/submissions/types';
+import AnalysisStatus from './feedback/AnalysisStatus';
 
 interface PendingSubmissionProps {
   submission: Submission;
@@ -58,6 +59,7 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
 
     return () => {
       clearInterval(pollInterval);
+      setIsPolling(false);
     };
   }, [submission.id, isPolling, currentSubmission.status]);
 
@@ -135,34 +137,39 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
                   </p>
                 )}
               </div>
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
+              {currentSubmission.status === 'pending' && (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
+              )}
             </div>
           </div>
 
-          {/* Recordings Section */}
-          <div className="space-y-6">
-            <h3 className="text-lg font-medium text-gray-900">Your Recordings</h3>
-            {submission.recordings?.map((recording, index) => {
-              const audioUrl = getAudioUrl(recording);
-              if (!audioUrl) return null;
+          {/* Analysis Status Section */}
+          {currentSubmission.status === 'pending' && (
+            <div className="mb-6">
+              <AnalysisStatus submissionUrl={currentSubmission.id} />
+            </div>
+          )}
 
-              return (
-                <div key={index} className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">
-                    Question {index + 1}
-                  </h4>
-                  <audio 
-                    controls 
-                    className="w-full h-12"
-                    src={audioUrl}
-                    preload="metadata"
-                  >
-                    Your browser does not support the audio element.
-                  </audio>
-                </div>
-              );
-            })}
-          </div>
+          {/* Recordings Section */}
+          {currentSubmission.recordings && currentSubmission.recordings.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Recordings</h3>
+              <div className="space-y-4">
+                {currentSubmission.recordings.map((recording, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium mb-2">Question {index + 1}</h4>
+                    <audio
+                      controls
+                      className="w-full"
+                      src={getAudioUrl(recording)}
+                    >
+                      Your browser does not support the audio element.
+                    </audio>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
