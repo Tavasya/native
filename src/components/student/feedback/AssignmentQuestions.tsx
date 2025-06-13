@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Assignment } from '@/features/assignments/types';
+import { Button } from "@/components/ui/button";
+import { Play } from "lucide-react";
+import { generateTTSAudio } from "@/features/tts/ttsService";
+import { useAppDispatch } from "@/app/hooks";
+import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
 
 interface AssignmentQuestionsProps {
   assignment: Assignment;
@@ -8,6 +13,9 @@ interface AssignmentQuestionsProps {
 }
 
 const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, selectedQuestionIndex }) => {
+  const dispatch = useAppDispatch();
+  const [isLoading, setIsLoading] = useState(false);
+
   // Parse questions if they're stored as a string
   let questions = assignment.questions;
   if (typeof questions === 'string') {
@@ -31,6 +39,39 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     console.log('No question at index:', { selectedQuestionIndex, totalQuestions: questions.length });
     return null;
   }
+
+  const handlePlayQuestion = async () => {
+    try {
+      setIsLoading(true);
+      const cacheKey = `question_${currentQuestion.id}`;
+      
+      // Set loading state in Redux
+      dispatch(setLoading({ key: cacheKey, loading: true }));
+      
+      // Prepare the text to be read
+      let textToRead = currentQuestion.question;
+      
+      // Add bullet points if they exist
+      if (currentQuestion.bulletPoints && currentQuestion.bulletPoints.length > 0) {
+        textToRead += ". You should say: " + currentQuestion.bulletPoints.join(". ");
+      }
+      
+      // Generate audio for the question and bullet points
+      const audioUrl = await generateTTSAudio(textToRead);
+      
+      // Store in Redux
+      dispatch(setTTSAudio({ key: cacheKey, url: audioUrl }));
+      
+      // Play the audio
+      const audio = new Audio(audioUrl);
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing question audio:', error);
+    } finally {
+      setIsLoading(false);
+      dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));
+    }
+  };
   
   console.log('Displaying question:', { 
     selectedQuestionIndex, 
@@ -43,9 +84,24 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     <Card className="shadow-sm border border-slate-200 bg-white">
       <CardContent className="p-4">
         <div className="space-y-3">
-          <p className="text-slate-900 font-medium leading-relaxed">
-            {currentQuestion.question || 'No question text available'}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-slate-900 font-medium leading-relaxed">
+              {currentQuestion.question || 'No question text available'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={handlePlayQuestion}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
           
           {currentQuestion.bulletPoints && currentQuestion.bulletPoints.length > 0 && (
             <div className="bg-slate-50 rounded-lg p-3">
