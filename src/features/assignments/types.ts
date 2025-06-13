@@ -10,6 +10,7 @@ export interface QuestionCard {
   bulletPoints?: string[];
   speakAloud: boolean;
   timeLimit: string;          // in minutes, e.g. "5"
+  prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
 }
 
 export interface Assignment {
@@ -23,7 +24,7 @@ export interface Assignment {
   metadata: {
     autoGrade?: boolean;
     isTest?: boolean;
-    [key: string]: any;       // for future flags
+    [key: string]: unknown;       // for future flags
   };
   status: AssignmentStatus;
   view?: boolean;            // for hiding assignments
@@ -46,7 +47,7 @@ export interface CreateAssignmentDto {
   metadata?: {
     autoGrade?: boolean;
     isTest?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   status?: AssignmentStatus;
 }

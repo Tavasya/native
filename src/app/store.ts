@@ -9,6 +9,7 @@ import submissionsReducer from '@/features/submissions/submissionsSlice'
 import assignmentTemplateReducer from '@/features/assignmentTemplates/assignmentTemplateSlice'
 import ttsReducer from '@/features/tts/ttsSlice'
 import metricsReducer from '@/features/metrics/metricsSlice'
+import prepTimeReducer from '@/features/assignments/prepTimeSlice'
 
 // Configure persist options
 const persistConfig = {
@@ -26,10 +27,11 @@ const rootReducer = combineReducers({
   assignmentTemplates: assignmentTemplateReducer,
   tts: ttsReducer,
   metrics: metricsReducer,
+  prepTime: prepTimeReducer,
 });
 
 // Create a root reducer that handles clearing all state
-const rootReducerWithReset = (state: any, action: any) => {
+const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined, action: { type: string }) => {
   if (action.type === 'auth/clearAuth') {
     // Reset all state to initial values
     return {
@@ -40,6 +42,7 @@ const rootReducerWithReset = (state: any, action: any) => {
       assignmentTemplates: assignmentTemplateReducer(undefined, action),
       tts: ttsReducer(undefined, action),
       metrics: metricsReducer(undefined, action),
+      prepTime: prepTimeReducer(undefined, action),
     };
   }
   return rootReducer(state, action);

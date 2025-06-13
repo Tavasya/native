@@ -18,6 +18,10 @@ import { useQuestionTimer } from '@/hooks/assignment/useQuestionTimer';
 import { useRecordingSession } from '@/hooks/assignment/useRecordingSession';
 import { useQuestionNavigation } from '@/hooks/assignment/useQuestionNavigation';
 import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
+import { usePrepTime } from '@/hooks/assignment/usePrepTime';
+
+// Components
+import PrepTimeTimer from '@/components/assignment/PrepTimeTimer';
 
 interface PreviewData {
   title: string;
@@ -158,6 +162,61 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     recordingsData: (recordingsData || {}) as Record<string, { uploadedUrl: string }>
   });
 
+  // Prep time management (test mode only)
+  const isTestMode = assignment?.metadata?.isTest ?? false;
+  
+  // Helper function to convert time string to seconds
+  const timeStringToSeconds = (timeString: string): number => {
+    if (!timeString) return 15; // default 15 seconds
+    
+    // Handle M:SS format
+    if (timeString.includes(':')) {
+      const parts = timeString.split(':');
+      const minutes = Math.min(parseInt(parts[0]) || 0, 9); // max 9 minutes
+      const seconds = parseInt(parts[1]) || 0;
+      return minutes * 60 + seconds;
+    }
+    
+    // Handle old format (just minutes as decimal)
+    const minutes = Math.min(parseFloat(timeString) || 1, 9); // max 9 minutes
+    return minutes * 60;
+  };
+  
+  const prepTimeDuration = currentQuestion?.prepTime ? timeStringToSeconds(currentQuestion.prepTime) : 15;
+  
+  const {
+    isPrepTimeActive,
+    isRecordingPhaseActive,
+    prepTimeRemaining,
+    recordingTimeRemaining,
+    startPrepTimePhase,
+    startRecordingTimePhase,
+    resetAllTimers,
+    formatTime: formatPrepTime,
+    canStartRecording,
+  } = usePrepTime({
+    assignmentId: id || 'preview',
+    questionIndex: currentQuestionIndex,
+    prepTimeDuration,
+    recordingTimeDuration: timeLimit,
+    isTestMode,
+    onPrepTimeEnd: () => {
+      toast({
+        title: "Preparation time finished!",
+        description: "You can now start recording your answer.",
+      });
+    },
+    onRecordingTimeEnd: () => {
+      if (isRecording) {
+        baseToggleRecording();
+        toast({
+          title: "Recording time finished!",
+          description: "Recording stopped automatically.",
+        });
+      }
+    },
+  });
+
   // Local state for recording status
   const [hasRecorded, setHasRecorded] = useState(false);
 
@@ -198,6 +257,17 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       });
       return;
     }
+
+    // Test mode prep time logic
+    if (isTestMode && !canStartRecording) {
+      toast({
+        title: "Preparation Time Required",
+        description: "Please complete preparation time before recording.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     baseToggleRecording();
   };
 
@@ -313,6 +383,21 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       <div className="flex-1 flex items-center">
         <div className="max-w-6xl mx-auto w-full">
           <div className="flex flex-col gap-6">
+            {/* Prep Time Timer (Test Mode Only) */}
+            {isTestMode && (
+              <PrepTimeTimer
+                isPrepTimeActive={isPrepTimeActive}
+                isRecordingPhaseActive={isRecordingPhaseActive}
+                prepTimeRemaining={prepTimeRemaining}
+                recordingTimeRemaining={recordingTimeRemaining}
+                formatTime={formatPrepTime}
+                onStartPrepTime={startPrepTimePhase}
+                onStartRecording={startRecordingTimePhase}
+                canStartRecording={canStartRecording}
+                isTestMode={isTestMode}
+              />
+            )}
+            
             <div>
               <TooltipProvider>
                 {currentQuestion && (

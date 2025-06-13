@@ -27,6 +27,7 @@ interface QuestionCard {
   bulletPoints?: string[];
   speakAloud: boolean;
   timeLimit: string;
+  prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
 }
 
 const CreateAssignmentPage: React.FC = () => {
@@ -49,7 +50,8 @@ const CreateAssignmentPage: React.FC = () => {
       type: 'normal',
       question: '',
       speakAloud: false,
-      timeLimit: '1'
+      timeLimit: '1',
+      prepTime: '0:15'
     }
   ]);
   const [activeCardId, setActiveCardId] = useState('1');
@@ -69,6 +71,8 @@ const CreateAssignmentPage: React.FC = () => {
     { value: "3", label: "3 minutes" },
   ];
 
+
+
   useEffect(() => {
     if (user) {
       dispatch(fetchAssignmentTemplates(user));
@@ -82,7 +86,8 @@ const CreateAssignmentPage: React.FC = () => {
       type,
       question: '',
       speakAloud: false,
-      timeLimit: '1'
+      timeLimit: '1',
+      prepTime: '0:15'
     };
 
     if (type === 'bulletPoints') {
@@ -117,6 +122,33 @@ const CreateAssignmentPage: React.FC = () => {
     setQuestionCards(questionCards.map(card =>
       card.id === id ? { ...card, ...updates } : card
     ));
+  };
+
+  // Helper functions for time format conversion
+  const timeToSeconds = (timeString: string): number => {
+    const parts = timeString.split(':');
+    if (parts.length === 2) {
+      const minutes = parseInt(parts[0]) || 0;
+      const seconds = parseInt(parts[1]) || 0;
+      return minutes * 60 + seconds;
+    }
+    // Fallback for old format (just minutes)
+    return (parseFloat(timeString) || 0) * 60;
+  };
+
+  const secondsToTime = (totalSeconds: number): string => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const formatPrepTime = (prepTime?: string): string => {
+    if (!prepTime) return '0:15';
+    // If it's already in M:SS format, return as is
+    if (prepTime.includes(':')) return prepTime;
+    // Convert from old minutes format to M:SS
+    const seconds = parseFloat(prepTime) * 60;
+    return secondsToTime(seconds);
   };
 
   // Bullet point operations
@@ -754,23 +786,66 @@ const CreateAssignmentPage: React.FC = () => {
                                               </SelectItem>
                                             </SelectContent>
                                           </Select>
-                                          <Select
-                                            value={card.timeLimit}
-                                            onValueChange={value =>
-                                              updateQuestionCard(card.id, { timeLimit: value })
-                                            }
-                                          >
-                                            <SelectTrigger className="w-32">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {timeLimits.map(t => (
-                                                <SelectItem key={t.value} value={t.value}>
-                                                  {t.label}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
+                                          
+                                          <div className="flex items-center gap-4">
+                                            {isTest && (
+                                              <div className="flex flex-col">
+                                                <label className="text-xs text-gray-500 mb-1">Prep Time (M:SS)</label>
+                                                <Input
+                                                  type="text"
+                                                  pattern="[0-9]:[0-9]{2}"
+                                                  placeholder="0:15"
+                                                  value={formatPrepTime(card.prepTime)}
+                                                  onChange={(e) => {
+                                                    const timeValue = e.target.value;
+                                                    // Validate M:SS format and max 9:59
+                                                    if (/^[0-9]?:?[0-9]{0,2}$/.test(timeValue)) {
+                                                      updateQuestionCard(card.id, { prepTime: timeValue });
+                                                    }
+                                                  }}
+                                                  onBlur={(e) => {
+                                                    const timeValue = e.target.value;
+                                                    // Ensure proper format on blur
+                                                    if (timeValue && !timeValue.includes(':')) {
+                                                      // If only numbers, treat as minutes (max 9)
+                                                      const minutes = Math.min(parseInt(timeValue) || 1, 9);
+                                                      const formatted = secondsToTime(minutes * 60);
+                                                      updateQuestionCard(card.id, { prepTime: formatted });
+                                                    } else if (timeValue.includes(':')) {
+                                                      // Validate and fix M:SS format
+                                                      const parts = timeValue.split(':');
+                                                      const minutes = Math.min(parseInt(parts[0]) || 0, 9);
+                                                      const seconds = Math.min(parseInt(parts[1]) || 0, 59);
+                                                      const formatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                                      updateQuestionCard(card.id, { prepTime: formatted });
+                                                    }
+                                                  }}
+                                                  className="w-16 text-center text-sm"
+                                                />
+                                              </div>
+                                            )}
+                                            
+                                            <div className="flex flex-col">
+                                              <label className="text-xs text-gray-500 mb-1">Recording Time</label>
+                                              <Select
+                                                value={card.timeLimit}
+                                                onValueChange={value =>
+                                                  updateQuestionCard(card.id, { timeLimit: value })
+                                                }
+                                              >
+                                                <SelectTrigger className="w-32">
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  {timeLimits.map(t => (
+                                                    <SelectItem key={t.value} value={t.value}>
+                                                      {t.label}
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                          </div>
                                         </div>
                                         <div className="flex items-center justify-end">
                                           <Button
