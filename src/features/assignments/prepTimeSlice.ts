@@ -41,16 +41,25 @@ const prepTimeSlice = createSlice({
       questionIndex: number;
       prepTimeDuration: number; // in seconds
       recordingTimeDuration: number; // in seconds
+      preserveActiveState?: boolean; // Whether to preserve active states when changing questions
     }>) => {
-      const { assignmentId, questionIndex, prepTimeDuration, recordingTimeDuration } = action.payload;
+      const { assignmentId, questionIndex, prepTimeDuration, recordingTimeDuration, preserveActiveState = false } = action.payload;
+      
+      // Update assignment and question info
       state.currentAssignmentId = assignmentId;
       state.currentQuestionIndex = questionIndex;
       state.prepTimeDuration = prepTimeDuration;
       state.recordingTimeDuration = recordingTimeDuration;
+      
+      // Reset timers to full duration
       state.prepTimeRemaining = prepTimeDuration;
       state.recordingTimeRemaining = recordingTimeDuration;
-      state.isPrepTimeActive = false;
-      state.isRecordingPhaseActive = false;
+      
+      // Only reset active states if not preserving them (for question changes in ongoing tests)
+      if (!preserveActiveState) {
+        state.isPrepTimeActive = false;
+        state.isRecordingPhaseActive = false;
+      }
     },
 
     // Start prep time phase

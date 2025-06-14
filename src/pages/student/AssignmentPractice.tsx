@@ -131,17 +131,38 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Test mode and prep time management
   const isTestMode = assignment?.metadata?.isTest ?? false;
   
+  // Debug logging
+  console.log('🔍 Debug - isTestMode:', isTestMode);
+  console.log('🔍 Debug - assignment metadata:', assignment?.metadata);
+  
   // Local state for recording status
   const [hasRecorded, setHasRecorded] = useState(false);
 
   // Test mode state management
-  const [hasStarted, setHasStarted] = useState(!isTestMode); // Non-test mode starts immediately
+  const [hasStarted, setHasStarted] = useState(false); // Always start as false, will be set correctly after assignment loads
   const [timerResetTrigger, setTimerResetTrigger] = useState(0); // For resetting the main timer
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the initial load
+  
+  // Debug logging for state
+  console.log('🔍 Debug - hasStarted:', hasStarted);
+  console.log('🔍 Debug - showStartButton condition:', isTestMode && !hasStarted);
   
   const handleStartTest = () => {
+    console.log('🚀 Starting test...');
     setHasStarted(true);
+    setIsInitialLoad(false);
     startPrepTimePhase();
   };
+
+  // Set initial hasStarted state based on test mode after assignment loads
+  useEffect(() => {
+    if (assignment) {
+      const isTest = assignment.metadata?.isTest ?? false;
+      // For non-test mode, start immediately. For test mode, wait for user to click start
+      setHasStarted(!isTest);
+      console.log('🔍 Assignment loaded - isTest:', isTest, 'setting hasStarted to:', !isTest);
+    }
+  }, [assignment]);
 
   // Question timer (now using actual isRecording state)
   const { timeRemaining, formatTime } = useQuestionTimer({
@@ -231,14 +252,31 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Reset when question changes in test mode
   useEffect(() => {
     if (isTestMode) {
-      setHasStarted(false);
+      // On initial load, don't auto-start anything - show start button
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+        return;
+      }
+      
+      // For question navigation (not initial load), maintain test flow
+      // Reset the timers for the new question
       resetAllTimers();
-      // Important: Also reset hasRecorded when changing questions in test mode
+      
+      // Reset hasRecorded for the new question
       setHasRecorded(false);
+      
       // Reset the main timer when changing questions
       setTimerResetTrigger(prev => prev + 1);
+      
+      // In test mode, if the test was already started, automatically start prep time for new question
+      if (hasStarted) {
+        // Small delay to ensure state is updated before starting prep time
+        setTimeout(() => {
+          startPrepTimePhase();
+        }, 100);
+      }
     }
-  }, [currentQuestionIndex, isTestMode, resetAllTimers]);
+  }, [currentQuestionIndex, isTestMode, resetAllTimers, hasStarted, startPrepTimePhase, isInitialLoad]);
 
   // Get user ID on mount
   useEffect(() => {
@@ -291,10 +329,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       return;
     }
 
-    // In test mode, if we're retrying (already recorded), reset to start screen
+    // In test mode, if we're retrying (already recorded), reset to start screen for current question
     if (isTestMode && hasRecorded) {
+      // Reset to start screen for the current question only
       setHasStarted(false);
-      setHasRecorded(false); // Reset recording state
+      setHasRecorded(false); // Reset recording state for current question
       resetAllTimers();
       // Reset the main timer as well
       setTimerResetTrigger(prev => prev + 1);
