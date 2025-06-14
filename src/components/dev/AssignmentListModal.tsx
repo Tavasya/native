@@ -202,13 +202,13 @@ const AssignmentListModal: React.FC<AssignmentListModalProps> = ({
                     <h3 className="font-medium text-gray-900">{assignment.title}</h3>
                     <div className="mt-1 text-sm text-gray-500">
                       Created: {new Date(assignment.created_at).toLocaleDateString()}
-                      {assignment.metadata?.total_students && (
+                      {typeof assignment.metadata?.total_students === 'number' && (
                         <>
                           <span className="mx-2">•</span>
                           {assignment.metadata.total_students} students
                         </>
                       )}
-                      {assignment.metadata?.submissions && (
+                      {typeof assignment.metadata?.submissions === 'number' && (
                         <>
                           <span className="mx-2">•</span>
                           {assignment.metadata.submissions} submissions

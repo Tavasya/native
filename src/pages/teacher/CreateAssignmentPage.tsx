@@ -125,16 +125,6 @@ const CreateAssignmentPage: React.FC = () => {
   };
 
   // Helper functions for time format conversion
-  const timeToSeconds = (timeString: string): number => {
-    const parts = timeString.split(':');
-    if (parts.length === 2) {
-      const minutes = parseInt(parts[0]) || 0;
-      const seconds = parseInt(parts[1]) || 0;
-      return minutes * 60 + seconds;
-    }
-    // Fallback for old format (just minutes)
-    return (parseFloat(timeString) || 0) * 60;
-  };
 
   const secondsToTime = (totalSeconds: number): string => {
     const minutes = Math.floor(totalSeconds / 60);
