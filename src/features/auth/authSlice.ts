@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { loadSession, signInWithEmail, signUpWithEmail, verifyEmailChange, initiateEmailChange, verifyEmail } from './authThunks';
+import { loadSession, signInWithEmail, signUpWithEmail, verifyEmailChange, initiateEmailChange, verifyEmail, changePassword } from './authThunks';
 import { AuthState, UserRole } from './types';   // single source of truth
 
 /* ---------- initial state ---------- */
@@ -143,6 +143,20 @@ const authSlice = createSlice({
     .addCase(verifyEmail.rejected, (state, action) => {
       state.loading = false;
       state.error = action.error.message ?? 'Email verification failed';
+    })
+
+    /* ---- changePassword ---- */
+    .addCase(changePassword.pending, state => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(changePassword.fulfilled, state => {
+      state.loading = false;
+      state.error = null;
+    })
+    .addCase(changePassword.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message ?? 'Password change failed';
     });
   }
 });

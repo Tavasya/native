@@ -37,7 +37,6 @@ export const useSubmissionManager = ({
     }
 
     setIsSubmitting(true);
-    navigate('/student/dashboard');
 
     const { dismiss } = toast({
       title: "Processing submission...",
@@ -107,6 +106,9 @@ export const useSubmissionManager = ({
         submissionId = newSubmission.id;
       }
 
+      // Navigate to submission page
+      navigate(`/student/submission/${submissionId}/feedback`);
+
       // Analyze audio
       try {
         await submissionService.analyzeAudio(
@@ -137,9 +139,8 @@ export const useSubmissionManager = ({
         variant: "destructive",
         duration: 8000,
       });
-    } finally {
-      setIsSubmitting(false);
     }
+    setIsSubmitting(false);
   }, [assignment, assignmentId, userId, isSubmitting, sessionRecordings, recordingsData, navigate, toast]);
 
   return {

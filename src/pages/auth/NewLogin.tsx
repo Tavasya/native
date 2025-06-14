@@ -108,6 +108,11 @@ export default function NewLogin() {
                 required
                 className="w-full"
               />
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-sm text-[#272A69] hover:text-[#272A69]/90">
+                  Forgot Password
+                </Link>
+              </div>
             </div>
 
             <Button

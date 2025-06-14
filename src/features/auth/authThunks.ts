@@ -432,3 +432,33 @@ export const savePartialStudentData = createAsyncThunk<
     // Silent fail
   }
 });
+
+/* ---------- thunk: change password ---------- */
+export const changePassword = createAsyncThunk<
+  void,
+  { currentPassword: string; newPassword: string },
+  { rejectValue: string }
+>(
+  'auth/changePassword',
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      // First verify the current password by attempting to sign in
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return rejectWithValue('Failed to get current user');
+      }
+
+      // Update the password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        return rejectWithValue(error.message || 'Failed to update password');
+      }
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'An unexpected error occurred while changing password');
+    }
+  }
+);

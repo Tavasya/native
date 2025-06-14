@@ -164,15 +164,17 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
 
   const renderSkeletonLoader = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <Card className="overflow-hidden shadow-sm h-full flex flex-col rounded-lg">
-        <div className="p-5 bg-white flex flex-col h-full">
-          <Skeleton className="h-6 w-3/4 mb-3" />
-          <Skeleton className="h-4 w-1/2 mb-4" />
-          <div className="mt-auto">
-            <Skeleton className="h-10 w-full rounded-lg" />
+      {[1, 2, 3].map((index) => (
+        <Card key={index} className="overflow-hidden shadow-sm h-full flex flex-col rounded-lg">
+          <div className="p-5 bg-white flex flex-col h-full">
+            <Skeleton className="h-6 w-3/4 mb-3" />
+            <Skeleton className="h-4 w-1/2 mb-4" />
+            <div className="mt-auto">
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ))}
     </div>
   );
 
