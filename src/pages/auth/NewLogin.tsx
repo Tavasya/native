@@ -55,9 +55,12 @@ export default function NewLogin() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <div className="text-center mb-8">
-            <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
-            <h2 className="text-2xl font-semibold text-gray-900">Welcome Back</h2>
-            <p className="mt-2 text-gray-600">Sign in to your account</p>
+            <img 
+              src={NativeLogo} 
+              alt="Native" 
+              className="h-12 mx-auto mb-6 cursor-pointer" 
+              onClick={() => navigate('/landing-page')}
+            />
           </div>
 
           {(error || authError) && (

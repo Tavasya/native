@@ -66,7 +66,7 @@ function StudentSignUpAgreementModal({ open, onClose }: { open: boolean, onClose
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 bg-[#272A69] rounded-full mt-2 flex-shrink-0"></div>
             <p className="text-gray-700 leading-relaxed">
-              If I am <strong>under 18 years old</strong>, my teacher has received permission from my parent or legal guardian to let me use Native.
+              If I am <strong>under 18 years old</strong>, I have received permission from my parent or legal guardian to use Native.
             </p>
           </div>
           
@@ -580,7 +580,12 @@ export default function NewSignUp() {
         <div className="w-full max-w-md">
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <div className="text-center mb-8">
-              <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
+              <img 
+                src={NativeLogo} 
+                alt="Native" 
+                className="h-12 mx-auto mb-6 cursor-pointer" 
+                onClick={() => navigate('/landing-page')}
+              />
               <h2 className="text-2xl font-semibold text-gray-900">Check Your Email</h2>
               <p className="mt-2 text-gray-600">
                 We've sent a verification link to {email}. Please check your email and click the link to verify your account.
@@ -633,7 +638,12 @@ export default function NewSignUp() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <div className="text-center mb-8">
-            <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
+            <img 
+              src={NativeLogo} 
+              alt="Native" 
+              className="h-12 mx-auto mb-6 cursor-pointer" 
+              onClick={() => navigate('/landing-page')}
+            />
           </div>
 
           {/* Debug Panel */}
