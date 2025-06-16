@@ -85,4 +85,9 @@ export interface AssignmentState {
       completedQuestions: string[];
     };
   };
+  testMode: {
+    hasGloballyStarted: {
+      [assignmentId: string]: boolean;
+    };
+  };
 }

@@ -9,6 +9,9 @@ interface UseQuestionNavigationProps {
   initialQuestionIndex?: number;
   isCompleted: boolean;
   completedQuestions: string[];
+  // ADD (optional to maintain backward compatibility):
+  isTestMode?: boolean;
+  hasTestStarted?: boolean;
 }
 
 export const useQuestionNavigation = ({
@@ -16,7 +19,9 @@ export const useQuestionNavigation = ({
   totalQuestions,
   initialQuestionIndex = 0,
   isCompleted,
-  completedQuestions
+  completedQuestions,
+  isTestMode = false,
+  hasTestStarted = false
 }: UseQuestionNavigationProps) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
   const dispatch = useAppDispatch();
@@ -39,10 +44,17 @@ export const useQuestionNavigation = ({
   }, [assignmentId, currentQuestionIndex, isCompleted, completedQuestions, dispatch]);
 
   const goToQuestion = useCallback((index: number) => {
+    // SAFE: Only block in test mode when test is active
+    if (isTestMode && hasTestStarted) {
+      console.log('Manual navigation blocked during active test');
+      return;
+    }
+    
+    // Normal navigation logic (unchanged)
     if (index >= 0 && index < totalQuestions) {
       setCurrentQuestionIndex(index);
     }
-  }, [totalQuestions]);
+  }, [totalQuestions, isTestMode, hasTestStarted]);
 
   const goToNextQuestion = useCallback(() => {
     if (currentQuestionIndex < totalQuestions - 1) {

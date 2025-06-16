@@ -1,7 +1,6 @@
 // 📁 src/components/assignment/RecordingControls.tsx
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
 import MicIcon from "@/lib/images/mic.svg";
 import {
   Tooltip,
@@ -11,26 +10,20 @@ import {
 
 interface RecordingControlsProps {
   isRecording: boolean;
-  hasRecorded: boolean;
   isPlaying: boolean;
-  isProcessing: boolean;
   showRecordButton: boolean;
   isPreviewMode: boolean;
   onToggleRecording: () => void;
   onPlayRecording: () => void;
-  onRetryRecording: () => void;
   isPrepTimeActive?: boolean;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
   isRecording,
-  hasRecorded,
   isPlaying,
-  isProcessing,
   showRecordButton,
   isPreviewMode,
   onToggleRecording,
-  onRetryRecording,
   isPrepTimeActive = false
 }) => {
   return (
@@ -77,29 +70,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         </div>
       </div>
 
-      {/* Retry Button */}
-      {hasRecorded && !isRecording && !isPrepTimeActive && (
-        <div className="flex justify-center pb-4">
-          <div className="flex space-x-3">
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={onRetryRecording}
-                  variant="outline"
-                  className="text-gray-700 hover:bg-gray-50"
-                  disabled={isProcessing || isPlaying}
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
-                <p>Reset and try again</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

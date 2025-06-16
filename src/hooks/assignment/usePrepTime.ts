@@ -37,8 +37,8 @@ export const usePrepTime = ({
   // Initialize prep time when question changes
   useEffect(() => {
     if (isTestMode) {
-      // When changing questions, preserve active state if we're in the middle of a test
-      const preserveActiveState = prepTimeState.isPrepTimeActive || prepTimeState.isRecordingPhaseActive;
+      // Never preserve active state for test mode - each question gets fresh timers
+      const preserveActiveState = false;
       
       dispatch(initializePrepTime({
         assignmentId,
@@ -50,7 +50,7 @@ export const usePrepTime = ({
     } else {
       dispatch(clearPrepTime());
     }
-  }, [dispatch, assignmentId, questionIndex, prepTimeDuration, recordingTimeDuration, isTestMode, prepTimeState.isPrepTimeActive, prepTimeState.isRecordingPhaseActive]);
+  }, [dispatch, assignmentId, questionIndex, prepTimeDuration, recordingTimeDuration, isTestMode]);
 
   // Handle prep time countdown
   useEffect(() => {

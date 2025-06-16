@@ -33,13 +33,13 @@ interface QuestionContentProps {
   currentTime?: number;
   duration?: number;
   onTimeUpdate?: (time: number) => void;
-  isProcessing?: boolean;
   mediaStream?: MediaStream | null;
   onNextQuestion?: () => void;
   isPreviewMode?: boolean;
   getRecordingForQuestion: (index: number) => { url: string } | undefined;
   isUploading?: boolean;
   hasUploadError?: boolean;
+  isAutoAdvancing?: boolean;
   isTest?: boolean;
   // Test mode prep time props
   isPrepTimeActive?: boolean;
@@ -66,13 +66,13 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   currentQuestionIndex,
   showRecordButton,
   onTimeUpdate,
-  isProcessing = false,
   mediaStream = null,
   onNextQuestion,
   isPreviewMode = false,
   getRecordingForQuestion,
   isUploading = false,
   hasUploadError = false,
+  isAutoAdvancing = false,
   isTest = false,
   // Test mode prep time props
   isPrepTimeActive = false,
@@ -136,14 +136,11 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
 
             <RecordingControls
               isRecording={isRecording}
-              hasRecorded={hasRecorded}
               isPlaying={isPlaying}
-              isProcessing={isProcessing}
               showRecordButton={showRecordButton}
               isPreviewMode={isPreviewMode}
               onToggleRecording={toggleRecording}
               onPlayRecording={playRecording}
-              onRetryRecording={toggleRecording}
               isPrepTimeActive={isPrepTimeActive}
             />
 
@@ -161,6 +158,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
               isPreviewMode={isPreviewMode}
               isUploading={isUploading}
               hasUploadError={hasUploadError}
+              isAutoAdvancing={isAutoAdvancing}
               onComplete={completeQuestion}
               onNext={onNextQuestion}
             />

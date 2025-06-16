@@ -19,6 +19,8 @@ import { useRecordingSession } from '@/hooks/assignment/useRecordingSession';
 import { useQuestionNavigation } from '@/hooks/assignment/useQuestionNavigation';
 import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { startTestGlobally } from '@/features/assignments/assignmentSlice';
 
 interface PreviewData {
   title: string;
@@ -45,6 +47,10 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const dispatch = useAppDispatch();
+  const hasGloballyStarted = useAppSelector(state => 
+    state.assignments.testMode?.hasGloballyStarted?.[id || ''] || false
+  );
   
   // User authentication
   const [userId, setUserId] = useState<string | null>(null);
@@ -57,20 +63,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     previewData
   });
 
-  // Question navigation
-  const {
-    currentQuestionIndex,
-    isLastQuestion,
-    goToQuestion,
-    goToNextQuestion
-  } = useQuestionNavigation({
-    assignmentId: id || 'preview',
-    totalQuestions: assignment?.questions.length || 0,
-    isCompleted,
-    completedQuestions: assignment?.questions.filter(q => q.isCompleted).map(q => q.id) || []
-  });
-
-  // Recording session management
+  // Recording session management (using placeholder for now)
   const {
     sessionRecordings,
     recordingsData,
@@ -87,10 +80,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     toast
   });
 
-  // Question timer
-  const currentQuestion = assignment?.questions[currentQuestionIndex];
-  const timeLimit = currentQuestion ? Number(currentQuestion.timeLimit) * 60 : 0;
-
   // Audio recording
   const {
     isRecording,
@@ -102,6 +91,15 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       try {
         await saveNewRecording(currentQuestionIndex, audioBlob);
         setHasRecorded(true);
+        
+        // ADD: Auto-progression for test mode (but not auto-submit)
+        if (isTestMode && hasGloballyStarted && !isLastQuestion) {
+          setIsAutoAdvancing(true);
+          setTimeout(() => {
+            goToNextQuestion();
+            setIsAutoAdvancing(false);
+          }, 2000); // 2 second delay to show completion
+        }
       } catch (error) {
         toast({
           title: "Recording Error",
@@ -131,18 +129,37 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Test mode and prep time management
   const isTestMode = assignment?.metadata?.isTest ?? false;
   
+  // Question navigation (moved here after isTestMode is defined)
+  const {
+    currentQuestionIndex,
+    isLastQuestion,
+    goToQuestion,
+    goToNextQuestion
+  } = useQuestionNavigation({
+    assignmentId: id || 'preview',
+    totalQuestions: assignment?.questions.length || 0,
+    isCompleted,
+    completedQuestions: assignment?.questions.filter(q => q.isCompleted).map(q => q.id) || [],
+    isTestMode,
+    hasTestStarted: hasGloballyStarted
+  });
+
+  // Question timer (now that currentQuestionIndex is available)
+  const currentQuestion = assignment?.questions[currentQuestionIndex];
+  const timeLimit = currentQuestion ? Number(currentQuestion.timeLimit) * 60 : 0;
+  
   // Local state for recording status
   const [hasRecorded, setHasRecorded] = useState(false);
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(false); // Track when auto-advancing to next question
 
   // Test mode state management
   const [hasStarted, setHasStarted] = useState(false); // Always start as false, will be set correctly after assignment loads
   const [timerResetTrigger, setTimerResetTrigger] = useState(0); // For resetting the main timer
-  const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the initial load
   
   const handleStartTest = () => {
     console.log('🚀 Starting test...');
+    dispatch(startTestGlobally({ assignmentId: id }));
     setHasStarted(true);
-    setIsInitialLoad(false);
     startPrepTimePhase();
   };
 
@@ -240,34 +257,20 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     },
   });
 
-  // Reset when question changes in test mode
+  // Clean test progression effect
   useEffect(() => {
-    if (isTestMode) {
-      // On initial load, don't auto-start anything - show start button
-      if (isInitialLoad) {
-        setIsInitialLoad(false);
-        return;
-      }
-      
-      // For question navigation (not initial load), maintain test flow
-      // Reset the timers for the new question
+    if (isTestMode && hasGloballyStarted && currentQuestionIndex > 0) {
+      // Reset for new question
       resetAllTimers();
-      
-      // Reset hasRecorded for the new question
       setHasRecorded(false);
-      
-      // Reset the main timer when changing questions
       setTimerResetTrigger(prev => prev + 1);
       
-      // In test mode, if the test was already started, automatically start prep time for new question
-      if (hasStarted) {
-        // Small delay to ensure state is updated before starting prep time
-        setTimeout(() => {
-          startPrepTimePhase();
-        }, 100);
-      }
+      // Auto-start prep time for subsequent questions
+      setTimeout(() => {
+        startPrepTimePhase();
+      }, 100);
     }
-  }, [currentQuestionIndex, isTestMode, resetAllTimers, hasStarted, startPrepTimePhase, isInitialLoad]);
+  }, [currentQuestionIndex, isTestMode, hasGloballyStarted, resetAllTimers, startPrepTimePhase]);
 
   // Get user ID on mount
   useEffect(() => {
@@ -484,12 +487,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     getRecordingForQuestion={getRecordingForQuestion}
                     isUploading={isQuestionUploading(currentQuestionIndex)}
                     hasUploadError={hasUploadError(currentQuestionIndex)}
+                    isAutoAdvancing={isAutoAdvancing}
                     isTest={assignment.metadata?.isTest ?? false}
                     isPrepTimeActive={isPrepTimeActive}
                     prepTimeRemaining={prepTimeRemaining}
                     formatPrepTime={formatPrepTime}
                     onStartPrepTime={handleStartTest}
-                    showStartButton={isTestMode && !hasStarted}
+                    showStartButton={isTestMode && !hasGloballyStarted && currentQuestionIndex === 0}
                   />
                 )}
               </TooltipProvider>
@@ -501,7 +505,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                 currentQuestionIndex={currentQuestionIndex}
                 onQuestionSelect={goToQuestion}
                 recordings={recordingsData}
-                disabled={isRecording || isPlaying || (isTestMode && (isPrepTimeActive || !hasStarted))}
+                disabled={isRecording || isPlaying || isTestMode}
               />
             </div>
           </div>

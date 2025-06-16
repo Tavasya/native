@@ -22,7 +22,10 @@ const initialState: AssignmentState = {
   submissions: {},
   loadingSubmissions: false,
   classStats: undefined,
-  practiceProgress: {}
+  practiceProgress: {},
+  testMode: {
+    hasGloballyStarted: {}
+  }
 };
 
 const assignmentSlice = createSlice({
@@ -35,6 +38,14 @@ const assignmentSlice = createSlice({
         currentQuestionIndex,
         completedQuestions
       };
+    },
+    startTestGlobally: (state, action) => {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = true;
+    },
+    resetTestState: (state, action) => {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = false;
     }
   },
   extraReducers: (builder) => {
@@ -181,5 +192,5 @@ const assignmentSlice = createSlice({
   }
 });
 
-export const { updatePracticeProgress } = assignmentSlice.actions;
+export const { updatePracticeProgress, startTestGlobally, resetTestState } = assignmentSlice.actions;
 export default assignmentSlice.reducer;

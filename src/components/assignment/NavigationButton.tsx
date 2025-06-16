@@ -10,6 +10,7 @@ interface NavigationButtonProps {
   isPreviewMode: boolean;
   isUploading?: boolean;
   hasUploadError?: boolean;
+  isAutoAdvancing?: boolean;
   onComplete: () => void;
   onNext?: () => void;
 }
@@ -21,6 +22,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
   isPreviewMode,
   isUploading = false,
   hasUploadError = false,
+  isAutoAdvancing = false,
   onComplete,
   onNext
 }) => {
@@ -34,10 +36,13 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
 
   const isDisabled = isPreviewMode 
     ? isLastQuestion 
-    : (!hasRecorded || isPlaying || isUploading || hasUploadError);
+    : (!hasRecorded || isPlaying || isUploading || hasUploadError || isAutoAdvancing);
 
+  const isLoading = isUploading || isAutoAdvancing;
   const buttonText = isUploading 
     ? (isLastQuestion ? "Uploading..." : "Uploading...") 
+    : isAutoAdvancing
+    ? "Moving to next question..."
     : (isLastQuestion ? "Finish" : "Next");
 
   return (
@@ -47,9 +52,9 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
         disabled={isDisabled}
         className="flex items-center bg-[#272A69] hover:bg-[#272A69]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {buttonText}
-        {!isUploading && <ArrowRight className="ml-2 h-4 w-4" />}
+        {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
       </Button>
       {hasUploadError && (
         <p className="text-sm text-red-600 mt-2">
