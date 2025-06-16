@@ -125,7 +125,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         {/* Normal Mode or Test Mode After Start */}
         {(!isTest || !showStartButton) && (
           <>
-            <QuestionDisplay currentQuestion={currentQuestion} />
+            <QuestionDisplay currentQuestion={currentQuestion} isTestMode={isTest} />
             
             {/* Audio Visualizer */}
             {isRecording && mediaStream && (

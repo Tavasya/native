@@ -1,5 +1,5 @@
 // 📁 src/components/assignment/QuestionDisplay.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,18 @@ import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
 
 interface QuestionDisplayProps {
   currentQuestion: QuestionCard & { isCompleted?: boolean };
+  isTestMode?: boolean;
 }
 
 const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
-  currentQuestion
+  currentQuestion,
+  isTestMode = false
 }) => {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
 
-  const handlePlayQuestion = async () => {
+  const handlePlayQuestion = useCallback(async () => {
     try {
       setIsLoading(true);
       const cacheKey = `question_${currentQuestion.id}`;
@@ -49,7 +52,25 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
       setIsLoading(false);
       dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));
     }
-  };
+  }, [currentQuestion.id, currentQuestion.question, currentQuestion.bulletPoints, dispatch]);
+
+  // Helper function to determine if question text should be hidden
+  const shouldHideQuestionText = isTestMode && currentQuestion.type === 'normal';
+
+  // Auto-play audio for Part 1/3 questions in test mode
+  useEffect(() => {
+    const shouldAutoPlay = isTestMode && currentQuestion.type === 'normal';
+    
+    if (shouldAutoPlay && !hasAutoPlayed) {
+      setHasAutoPlayed(true);
+      handlePlayQuestion();
+    }
+  }, [currentQuestion.id, isTestMode, hasAutoPlayed, handlePlayQuestion]);
+
+  // Reset auto-play flag when question changes
+  useEffect(() => {
+    setHasAutoPlayed(false);
+  }, [currentQuestion.id]);
 
   return (
     <ScrollArea className="bg-white rounded-xl p-4 sm:p-6 mb-4 flex-grow overflow-auto" style={{ maxHeight: "420px" }}>
@@ -97,7 +118,19 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
               )}
             </Button>
           </div>
-          <p className="text-gray-800">{currentQuestion.question}</p>
+          {shouldHideQuestionText ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500 mb-4">
+                <Play className="h-8 w-8 mx-auto mb-2" />
+                <p className="text-lg font-medium">Audio Only Question</p>
+                <p className="text-sm">
+                  {isLoading ? "Playing question audio..." : "Click the play button above to replay the question"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-800">{currentQuestion.question}</p>
+          )}
         </div>
       )}
     </ScrollArea>
