@@ -131,10 +131,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Test mode and prep time management
   const isTestMode = assignment?.metadata?.isTest ?? false;
   
-  // Debug logging
-  console.log('🔍 Debug - isTestMode:', isTestMode);
-  console.log('🔍 Debug - assignment metadata:', assignment?.metadata);
-  
   // Local state for recording status
   const [hasRecorded, setHasRecorded] = useState(false);
 
@@ -142,10 +138,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const [hasStarted, setHasStarted] = useState(false); // Always start as false, will be set correctly after assignment loads
   const [timerResetTrigger, setTimerResetTrigger] = useState(0); // For resetting the main timer
   const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the initial load
-  
-  // Debug logging for state
-  console.log('🔍 Debug - hasStarted:', hasStarted);
-  console.log('🔍 Debug - showStartButton condition:', isTestMode && !hasStarted);
   
   const handleStartTest = () => {
     console.log('🚀 Starting test...');
@@ -160,7 +152,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       const isTest = assignment.metadata?.isTest ?? false;
       // For non-test mode, start immediately. For test mode, wait for user to click start
       setHasStarted(!isTest);
-      console.log('🔍 Assignment loaded - isTest:', isTest, 'setting hasStarted to:', !isTest);
     }
   }, [assignment]);
 
