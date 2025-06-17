@@ -5,13 +5,11 @@ export default {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react-jsx',
-        esModuleInterop: true,
-      },
+      tsconfig: './tsconfig.test.json',
     }],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
@@ -27,5 +25,14 @@ export default {
     '!src/**/*.d.ts',
     '!src/main.tsx',
     '!src/vite-env.d.ts',
+    '!src/**/*.stories.*',
+    '!src/**/*.test.*',
+    '!src/**/index.ts',
+  ],
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/',
+    '/coverage/',
+    '\\.d\\.ts$',
   ],
 }; 

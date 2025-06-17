@@ -1,0 +1,29 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["jest", "node", "vite/client"],
+    "moduleResolution": "node",
+    "module": "esnext",
+    "target": "esnext",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "jest.setup.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build"
+  ]
+} 
