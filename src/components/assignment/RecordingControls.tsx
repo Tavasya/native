@@ -35,7 +35,7 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
         <div className="flex justify-center">
           <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
             <p className="text-orange-800 font-medium">Preparation Time</p>
-            <p className="text-orange-600 text-sm">Recording will start automatically when prep time ends</p>
+            <p className="text-orange-600 text-sm">You can start recording anytime or wait for prep time to end</p>
           </div>
         </div>
       )}

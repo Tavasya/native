@@ -127,7 +127,7 @@ export const usePrepTime = ({
     // Computed values
     isPrepTimeComplete: isTestMode ? (prepTimeState.prepTimeRemaining === 0 && !prepTimeState.isPrepTimeActive) : true,
     canStartRecording: isTestMode ? 
-      (prepTimeState.prepTimeRemaining === 0 || prepTimeState.isRecordingPhaseActive) : 
+      (prepTimeState.isPrepTimeActive || prepTimeState.isRecordingPhaseActive) : 
       true,
   };
 };

@@ -227,8 +227,10 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     isPrepTimeActive,
     prepTimeRemaining,
     startPrepTimePhase,
+    startRecordingTimePhase,
     resetAllTimers,
     formatTime: formatPrepTime,
+    canStartRecording,
   } = usePrepTime({
     assignmentId: id || 'preview',
     questionIndex: currentQuestionIndex,
@@ -334,6 +336,15 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       return; // Don't call baseToggleRecording() when resetting
     }
 
+    // In test mode, if prep time is active and user starts recording early, transition to recording phase
+    if (isTestMode && isPrepTimeActive && !isRecording) {
+      startRecordingTimePhase();
+      toast({
+        title: "Started recording early!",
+        description: "Prep time has ended and recording has begun.",
+      });
+    }
+
     baseToggleRecording();
   };
 
@@ -430,13 +441,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   if (loading) return <div>Loading...</div>;
   if (!assignment) return <div>Assignment not found</div>;
 
-  // Fix showRecordButton logic for test mode
+  // Fix showRecordButton logic for test mode - now allows recording during prep time
   const showRecordButton = !previewMode && 
     (isTestMode ? 
-      (hasStarted && !isPrepTimeActive && (!hasRecorded || isRecording)) : 
+      (hasStarted && canStartRecording && (!hasRecorded || isRecording)) : 
       (!hasRecorded || isRecording)
-    ) && 
-    !isPrepTimeActive;
+    );
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
