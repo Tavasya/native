@@ -16,6 +16,7 @@ interface RecordingControlsProps {
   onToggleRecording: () => void;
   onPlayRecording: () => void;
   isPrepTimeActive?: boolean;
+  isProcessing?: boolean;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -24,7 +25,8 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   showRecordButton,
   isPreviewMode,
   onToggleRecording,
-  isPrepTimeActive = false
+  isPrepTimeActive = false,
+  isProcessing = false
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -48,22 +50,34 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
                   onClick={onToggleRecording}
                   className="rounded-full w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center bg-[#272A69] hover:bg-[#272A69]/90"
                   aria-label={isRecording ? "Stop recording" : "Start recording"}
-                  disabled={isPlaying}
+                  disabled={isPlaying || isProcessing}
                 >
                   <img 
                     src={MicIcon} 
                     alt="Microphone" 
                     className={`w-6 h-6 transition-all duration-200 ${
-                      isRecording || isPlaying ? 'hidden' : 'opacity-100'
+                      isRecording || isPlaying || isProcessing ? 'hidden' : 'opacity-100'
                     }`}
                   />
                   {(isPlaying || isRecording) && (
                     <div className="w-8 h-8 bg-white border-2 border-[#272A69] rounded-[7px]" />
                   )}
+                  {isProcessing && (
+                    <div className="w-6 h-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" align="center">
-                <p>{isPreviewMode ? "Recording disabled in preview mode" : (isRecording ? "Stop recording" : "Start recording")}</p>
+                <p>
+                  {isPreviewMode 
+                    ? "Recording disabled in preview mode" 
+                    : isProcessing 
+                      ? "Processing recording..."
+                      : isRecording 
+                        ? "Stop recording" 
+                        : "Start recording"
+                  }
+                </p>
               </TooltipContent>
             </Tooltip>
           )}

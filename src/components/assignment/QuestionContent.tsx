@@ -41,6 +41,7 @@ interface QuestionContentProps {
   hasUploadError?: boolean;
   isAutoAdvancing?: boolean;
   isTest?: boolean;
+  isProcessing?: boolean;
   // Test mode prep time props
   isPrepTimeActive?: boolean;
   prepTimeRemaining?: number;
@@ -74,6 +75,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   hasUploadError = false,
   isAutoAdvancing = false,
   isTest = false,
+  isProcessing = false,
   // Test mode prep time props
   isPrepTimeActive = false,
   prepTimeRemaining = 0,
@@ -142,6 +144,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
               onToggleRecording={toggleRecording}
               onPlayRecording={playRecording}
               isPrepTimeActive={isPrepTimeActive}
+              isProcessing={isProcessing}
             />
 
             <AudioPlayer
