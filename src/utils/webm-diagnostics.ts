@@ -21,8 +21,8 @@ export async function validateAudioBlob(blob: Blob): Promise<{
       return { 
         valid: false, 
         error: 'Empty audio file',
-        size: 0,
-        type: blob.type
+        size: blob?.size || 0,
+        type: blob?.type || 'unknown'
       };
     }
 
@@ -90,8 +90,8 @@ export async function validateAudioBlob(blob: Blob): Promise<{
     return { 
       valid: false, 
       error: `Validation error: ${error instanceof Error ? error.message : String(error)}`,
-      size: blob.size,
-      type: blob.type
+      size: blob?.size || 0,
+      type: blob?.type || 'unknown'
     };
   }
 }
