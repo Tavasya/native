@@ -323,7 +323,7 @@ describe('useQuestionTimer', () => {
 
     it('should handle multiple onTimeUp calls', () => {
       const onTimeUp = jest.fn();
-      const { result } = renderHook(() => 
+      renderHook(() => 
         useQuestionTimer({ 
           ...defaultProps, 
           timeLimit: 5, 
