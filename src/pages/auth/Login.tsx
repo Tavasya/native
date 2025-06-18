@@ -3,6 +3,7 @@ import { signInWithEmail } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useNavigate, Link } from 'react-router-dom';
 import { clearAuth } from '@/features/auth/authSlice';
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 
 // Quick login presets for development
 const DEV_ACCOUNTS = {
@@ -18,6 +19,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [googleError, setGoogleError] = useState('');
 
     // Clear error when component mounts or when typing
     useEffect(() => {
@@ -139,7 +141,7 @@ export default function Login() {
                 </div>
             </div>
 
-            {auth.error && (
+            {(auth.error || googleError) && (
                 <div style={{ 
                     color: '#ff4d4f',
                     background: '#2c1618',
@@ -148,7 +150,7 @@ export default function Login() {
                     marginBottom: '20px',
                     fontSize: '14px'
                 }}>
-                    {auth.error}
+                    {auth.error || googleError}
                 </div>
             )}
             
@@ -215,6 +217,45 @@ export default function Login() {
                     {auth.loading ? 'Logging in...' : 'Login'}
                 </button>
             </form>
+
+            {/* Google OAuth Section */}
+            <div style={{ marginTop: '24px' }}>
+                <div style={{ 
+                    position: 'relative',
+                    marginBottom: '16px'
+                }}>
+                    <div style={{ 
+                        position: 'absolute',
+                        top: '50%',
+                        left: 0,
+                        right: 0,
+                        height: '1px',
+                        background: '#404040'
+                    }}></div>
+                    <div style={{ 
+                        position: 'relative',
+                        textAlign: 'center'
+                    }}>
+                        <span style={{ 
+                            background: '#2a2a2a',
+                            padding: '0 12px',
+                            color: '#ccc',
+                            fontSize: '14px'
+                        }}>
+                            Or continue with
+                        </span>
+                    </div>
+                </div>
+                
+                <div style={{ marginTop: '16px' }}>
+                    <GoogleAuthButton 
+                        mode="login" 
+                        theme="dark"
+                        onError={(error) => setGoogleError(error)} 
+                    />
+                </div>
+            </div>
+
             <p style={{ 
                 marginTop: '24px', 
                 textAlign: 'center',

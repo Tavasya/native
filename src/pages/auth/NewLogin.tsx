@@ -6,26 +6,36 @@ import { clearAuth } from '@/features/auth/authSlice';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 import NativeLogo from '@/lib/images/Native Logo.png';
 
 export default function NewLogin() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error: authError, user, role } = useAppSelector(state => state.auth);
+  const { loading, error: authError, user, profile } = useAppSelector(state => state.auth);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [googleError, setGoogleError] = useState('');
 
   useEffect(() => {
     dispatch(clearAuth());
   }, [dispatch]);
 
   useEffect(() => {
-    if (user && role) {
-      navigate(`/${role}/dashboard`);
+    // Debug logging
+    console.log('Auth state:', { user, profile, loading });
+    
+    // ✅ NEW - Check profile completion before redirecting
+    if (user && profile?.profile_complete && profile.role) {
+      console.log('Redirecting to dashboard:', profile.role);
+      navigate(`/${profile.role}/dashboard`);
+    } else if (user && profile && !profile.profile_complete) {
+      console.log('Redirecting to onboarding - profile incomplete');
+      navigate('/onboarding');
     }
-  }, [user, role, navigate]);
+  }, [user, profile, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,9 +73,9 @@ export default function NewLogin() {
             />
           </div>
 
-          {(error || authError) && (
+          {(error || authError || googleError) && (
             <div className="mb-4 p-4 text-sm text-red-700 bg-red-50 rounded-lg">
-              {error || authError}
+              {error || authError || googleError}
               {error?.includes('verify your email') && (
                 <div className="mt-2">
                   <Button
@@ -121,6 +131,24 @@ export default function NewLogin() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <GoogleAuthButton 
+                mode="login" 
+                onError={(error) => setGoogleError(error)} 
+              />
+            </div>
+          </div>
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Don't have an account?{' '}

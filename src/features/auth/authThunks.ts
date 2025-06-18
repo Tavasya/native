@@ -1,11 +1,11 @@
 // src/features/auth/authThunks.ts
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { supabase } from '@/integrations/supabase/client';
-import { UserRole, AuthUser } from './types'; 
+import { UserRole, AuthUser, UserProfile, OnboardingData, AuthState } from './types'; 
 
 /* ---------- helpers ---------- */
 type EmailCreds      = { email: string; password: string; selectedRole?: UserRole };
-type SessionPayload  = { user: any; role: UserRole };
+type SessionPayload  = { user: any; role: UserRole | null; profile: UserProfile };
 type SignupCreds = {
     email: string;
     password: string;
@@ -15,10 +15,17 @@ type SignupCreds = {
     date_of_birth?: string;
 };
 
-async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: string }> {
+async function fetchUserProfile(id: string): Promise<{
+  role: UserRole | null;
+  name: string;
+  profile: UserProfile;
+}> {
   const { data, error } = await supabase
     .from('users')
-    .select('role, name, email')  // Now fetching role, name, and email
+    .select(`
+      role, name, email, phone_number, date_of_birth, 
+      agreed_to_terms, profile_complete, auth_provider, onboarding_completed_at
+    `)
     .eq('id', id)
     .single();
   
@@ -28,10 +35,39 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
   if (!data) {
     throw new Error('User record not found');
   }
+
+  // Fetch teacher metadata if user is a teacher
+  let teacherMetadata = undefined;
+  if (data.role === 'teacher') {
+    const { data: metaData } = await supabase
+      .from('teachers_metadata')
+      .select('active_student_count, avg_tuition_per_student, referral_source')
+      .eq('teacher_id', id)
+      .single();
+    
+    if (metaData) {
+      teacherMetadata = {
+        active_student_count: metaData.active_student_count,
+        avg_tuition_per_student: metaData.avg_tuition_per_student,
+        referral_source: metaData.referral_source
+      };
+    }
+  }
   
   return {
-    role: data.role as UserRole,
-    name: data.name || data.email // Now email is properly typed
+    role: data.role as UserRole | null,
+    name: data.name || data.email,
+    profile: {
+      id,
+      role: data.role,
+      phone_number: data.phone_number,
+      date_of_birth: data.date_of_birth,
+      agreed_to_terms: data.agreed_to_terms || false,
+      profile_complete: data.profile_complete || false,
+      auth_provider: data.auth_provider || 'email',
+      onboarding_completed_at: data.onboarding_completed_at,
+      teacherMetadata  // ✅ Include teacher metadata
+    }
   };
 }
 
@@ -40,7 +76,7 @@ async function fetchUserProfile(id: string): Promise<{ role: UserRole; name: str
 
   /* ---------- thunk: signup with email ---------- */
 export const signUpWithEmail = createAsyncThunk<
-  { user: AuthUser; role: UserRole },
+  { user: AuthUser; role: UserRole; profile: UserProfile },
   SignupCreds & {
     teacherMetadata?: {
       active_student_count?: number | null;
@@ -161,6 +197,9 @@ export const signUpWithEmail = createAsyncThunk<
         }
       }
 
+      // Fetch the created profile
+      const profile = await fetchUserProfile(authData.user.id);
+
       // Return the new user and role, but mark as unverified
       const authUser: AuthUser = {
         id: authData.user.id,
@@ -171,7 +210,8 @@ export const signUpWithEmail = createAsyncThunk<
 
       return {
         user: authUser,
-        role: creds.role
+        role: creds.role,
+        profile: profile.profile
       };
     } catch (err: any) {
       return rejectWithValue(err.message || 'An unexpected error occurred during signup');
@@ -181,7 +221,7 @@ export const signUpWithEmail = createAsyncThunk<
 
 /* ---------- thunk: verify email ---------- */
 export const verifyEmail = createAsyncThunk<
-  { user: AuthUser; role: UserRole },
+  { user: AuthUser; role: UserRole | null; profile: UserProfile },
   { email: string; token: string },
   { rejectValue: string }
 >(
@@ -229,7 +269,8 @@ export const verifyEmail = createAsyncThunk<
 
       return {
         user: authUser,
-        role: profile.role
+        role: profile.role,
+        profile: profile.profile
       };
     } catch (err: any) {
       return rejectWithValue(err.message || 'An unexpected error occurred during email verification');
@@ -254,7 +295,8 @@ export const loadSession = createAsyncThunk<
           ...session.user,
           name: profile.name
         },
-        role: profile.role 
+        role: profile.role,
+        profile: profile.profile
       };
     } catch (err: any) {
       return rejectWithValue(err.message);
@@ -303,7 +345,8 @@ export const signInWithEmail = createAsyncThunk<
           ...data.user,
           name: profile.name
         },
-        role: profile.role 
+        role: profile.role,
+        profile: profile.profile
       };
     } catch (err: any) {
       return rejectWithValue(err.message || 'Failed to fetch user profile');
@@ -334,7 +377,7 @@ export const initiateEmailChange = createAsyncThunk<
 
 /* ---------- thunk: verify email change OTP ---------- */
 export const verifyEmailChange = createAsyncThunk<
-  { user: AuthUser; role: UserRole },
+  { user: AuthUser; role: UserRole | null; profile: UserProfile },
   { newEmail: string; otp: string },
   { rejectValue: string }
 >(
@@ -378,7 +421,8 @@ export const verifyEmailChange = createAsyncThunk<
 
       return {
         user: authUser,
-        role: profile.role
+        role: profile.role,
+        profile: profile.profile
       };
     } catch (err: any) {
       return rejectWithValue(err.message || 'An unexpected error occurred during email change verification');
@@ -432,3 +476,194 @@ export const savePartialStudentData = createAsyncThunk<
     // Silent fail
   }
 });
+
+// NEW: Simplified signup thunk
+export const signUpSimple = createAsyncThunk<
+  { user: AuthUser; profile: UserProfile },
+  { email: string; password: string; name: string },
+  { rejectValue: string }
+>(
+  'auth/signUpSimple',
+  async (creds, { rejectWithValue }) => {
+    try {
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', creds.email)
+        .single();
+
+      if (existingUser?.email_verified) {
+        return rejectWithValue('Email already registered. Please log in.');
+      }
+
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: creds.email,
+        password: creds.password,
+        options: {
+          data: { name: creds.name },
+          emailRedirectTo: `${window.location.origin}/auth/verify`
+        }
+      });
+
+      if (authError || !authData.user) {
+        return rejectWithValue(authError?.message || 'Signup failed');
+      }
+
+      // Create minimal user profile
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({
+          id: authData.user.id,
+          email: authData.user.email,
+          name: creds.name,
+          email_verified: false,
+          profile_complete: false,
+          auth_provider: 'email',
+          agreed_to_terms: false
+        });
+
+      if (userError) {
+        return rejectWithValue(`Profile creation failed: ${userError.message}`);
+      }
+
+      const authUser: AuthUser = {
+        id: authData.user.id,
+        email: authData.user.email as string,
+        name: creds.name,
+        email_verified: false
+      };
+
+      const profile: UserProfile = {
+        id: authData.user.id,
+        role: null,
+        agreed_to_terms: false,
+        profile_complete: false,
+        auth_provider: 'email'
+      };
+
+      return { user: authUser, profile };
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'Signup failed');
+    }
+  }
+);
+
+// NEW: Complete onboarding thunk
+export const completeOnboarding = createAsyncThunk<
+  { user: AuthUser; profile: UserProfile },
+  OnboardingData,
+  { rejectValue: string }
+>(
+  'auth/completeOnboarding',
+  async (data, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as { auth: AuthState };
+      const currentUser = state.auth.user;
+      
+      if (!currentUser) {
+        return rejectWithValue('No authenticated user found');
+      }
+
+      // Prepare update data (remove non-existent field)
+      const updateData = {
+        role: data.role,
+        phone_number: data.phone_number || null,  // ✅ Convert empty string to null for database
+        date_of_birth: data.date_of_birth || null,  // ✅ Convert empty string to null for database
+        agreed_to_terms: data.agreed_to_terms,
+        profile_complete: true,
+        onboarding_completed_at: new Date().toISOString()  // ✅ Track when onboarding finished
+      };
+
+      // Debug logging
+      console.log('Updating user:', currentUser.id, 'with data:', updateData);
+
+      // Update user profile
+      const { error: updateError } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', currentUser.id);
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        return rejectWithValue(`Profile update failed: ${updateError.message}`);
+      }
+
+      console.log('User profile updated successfully');
+
+      // Save teacher metadata if applicable
+      if (data.role === 'teacher' && data.teacherMetadata) {
+        console.log('Saving teacher metadata:', data.teacherMetadata);
+        
+        const { error: metaError } = await supabase
+          .from('teachers_metadata')
+          .upsert({
+            teacher_id: currentUser.id,
+            active_student_count: data.teacherMetadata.active_student_count,
+            avg_tuition_per_student: data.teacherMetadata.avg_tuition_per_student,
+            referral_source: data.teacherMetadata.referral_source
+          });
+
+        if (metaError) {
+          console.warn('Failed to save teacher metadata:', metaError.message);
+        } else {
+          console.log('Teacher metadata saved successfully');
+        }
+      }
+
+      // Return updated user and profile
+      const updatedProfile: UserProfile = {
+        id: currentUser.id,
+        role: data.role,
+        phone_number: data.phone_number || undefined,  // ✅ Convert empty string to undefined for type compatibility
+        date_of_birth: data.date_of_birth || undefined,  // ✅ Convert empty string to undefined for type compatibility
+        agreed_to_terms: data.agreed_to_terms,
+        profile_complete: true,
+        auth_provider: state.auth.profile?.auth_provider || 'email',
+        onboarding_completed_at: new Date().toISOString(),  // ✅ Include timestamp in returned profile
+        teacherMetadata: data.teacherMetadata  // ✅ Include teacher metadata in returned profile
+      };
+
+      console.log('Onboarding completed successfully, returning profile:', updatedProfile);
+
+      return { user: currentUser, profile: updatedProfile };
+    } catch (err: any) {
+      console.error('Onboarding error:', err);
+      return rejectWithValue(err.message || 'Onboarding failed');
+    }
+  }
+);
+
+// NEW: Google OAuth thunk
+export const signUpWithGoogle = createAsyncThunk<
+  { user: AuthUser; profile: UserProfile },
+  void,
+  { rejectValue: string }
+>(
+  'auth/signUpWithGoogle',
+  async (_, { rejectWithValue }) => {
+    try {
+      // This will be called from the callback page
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        return rejectWithValue('Google authentication failed');
+      }
+
+      // Get the user profile data
+      const profileData = await fetchUserProfile(user.id);
+      
+      const authUser: AuthUser = {
+        id: user.id,
+        email: user.email as string,
+        name: profileData.name,
+        email_verified: true
+      };
+
+      return { user: authUser, profile: profileData.profile };
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'Google authentication failed');
+    }
+  }
+);
