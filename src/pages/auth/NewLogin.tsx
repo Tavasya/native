@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmail } from '@/features/auth/authThunks';
+import { signInWithEmail, signInWithGoogle } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useNavigate, Link } from 'react-router-dom';
 import { clearAuth } from '@/features/auth/authSlice';
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import NativeLogo from '@/lib/images/Native Logo.png';
+import GoogleOAuthButton from '@/components/auth/GoogleOAuthButton';
 
 export default function NewLogin() {
   const dispatch = useAppDispatch();
@@ -50,6 +51,17 @@ export default function NewLogin() {
     }
   };
 
+  // Google OAuth login handler
+  const handleGoogleLogin = async () => {
+    setError('');
+    try {
+      const result = await dispatch(signInWithGoogle());
+      // No error handling needed for OAuth flow initiation
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-in failed');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
@@ -79,6 +91,22 @@ export default function NewLogin() {
               )}
             </div>
           )}
+
+          {/* Google OAuth Button */}
+          <GoogleOAuthButton
+            onClick={handleGoogleLogin}
+            buttonText="Sign in with Google"
+            className="mb-4"
+          />
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-gray-500">Or continue with email</span>
+            </div>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">

@@ -1,5 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { loadSession, signInWithEmail, signUpWithEmail, verifyEmailChange, initiateEmailChange, verifyEmail } from './authThunks';
+import { 
+  loadSession, 
+  signInWithEmail, 
+  signUpWithEmail, 
+  verifyEmailChange, 
+  initiateEmailChange, 
+  verifyEmail,
+  signUpWithGoogle,
+  signInWithGoogle,
+  completeOnboarding
+} from './authThunks';
 import { AuthState, UserRole } from './types';   // single source of truth
 
 /* ---------- initial state ---------- */
@@ -8,7 +18,10 @@ const initialState: AuthState = {
   role:   null,
   loading:false,
   error:  null,
-  emailChangeInProgress: false
+  emailChangeInProgress: false,
+  onboardingCompleted: false,
+  tempRole: null,
+  authMethod: null
 };
 
 /* ---------- slice ---------- */
@@ -143,7 +156,60 @@ const authSlice = createSlice({
     .addCase(verifyEmail.rejected, (state, action) => {
       state.loading = false;
       state.error = action.error.message ?? 'Email verification failed';
-    });
+    })
+
+    /* ---- signUpWithGoogle ---- */
+    .addCase(signUpWithGoogle.pending, state => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(signUpWithGoogle.fulfilled, (state, action) => {
+      state.loading = false;
+      state.user = action.payload.user;
+      state.role = action.payload.role;
+      state.error = null;
+    })
+    .addCase(signUpWithGoogle.rejected, (state, action) => {
+      state.loading = false;
+      // Don't set error if OAuth flow was initiated (this is expected behavior)
+      if (action.payload !== 'OAuth flow initiated') {
+        state.error = action.error.message ?? 'Sign Up with Google failed';
+      }
+    })
+
+    /* ---- signInWithGoogle ---- */
+    .addCase(signInWithGoogle.pending, state => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(signInWithGoogle.fulfilled, (state, action) => {
+      state.loading = false;
+      state.user = action.payload.user;
+      state.role = action.payload.role;
+      state.error = null;
+    })
+    .addCase(signInWithGoogle.rejected, (state, action) => {
+      state.loading = false;
+      // Don't set error if OAuth flow was initiated (this is expected behavior)
+      if (action.payload !== 'OAuth flow initiated') {
+        state.error = action.error.message ?? 'Sign In with Google failed';
+      }
+    })
+
+    /* ---- completeOnboarding ---- */
+    .addCase(completeOnboarding.pending, state => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(completeOnboarding.fulfilled, state => {
+      state.loading = false;
+      state.error = null;
+      state.onboardingCompleted = true;
+    })
+    .addCase(completeOnboarding.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message ?? 'Onboarding completion failed';
+    })
   }
 });
 

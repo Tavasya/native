@@ -386,6 +386,132 @@ export const verifyEmailChange = createAsyncThunk<
   }
 );
 
+/* ---------- thunk: sign up with Google ---------- */
+export const signUpWithGoogle = createAsyncThunk<
+  { user: AuthUser; role: UserRole },
+  { role: UserRole },
+  { rejectValue: string }
+>(
+  'auth/signUpWithGoogle',
+  async ({ role }, { rejectWithValue }) => {
+    try {
+      const state = btoa(JSON.stringify({ role, timestamp: Date.now() }));
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+            state
+          },
+        },
+      });
+      if (error) {
+        return rejectWithValue(error.message || 'Google sign-up failed');
+      }
+      return rejectWithValue('OAuth flow initiated');
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'An unexpected error occurred during Google sign-up');
+    }
+  }
+);
+
+/* ---------- thunk: sign in with Google ---------- */
+export const signInWithGoogle = createAsyncThunk<
+  { user: AuthUser; role: UserRole },
+  void,
+  { rejectValue: string }
+>(
+  'auth/signInWithGoogle',
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/onboarding`,
+        },
+      });
+
+      if (error) {
+        return rejectWithValue(error.message || 'Google sign-in failed');
+      }
+
+      // Note: The actual sign-in will happen in the OAuth callback
+      return rejectWithValue('OAuth flow initiated');
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'An unexpected error occurred during Google sign-in');
+    }
+  }
+);
+
+/* ---------- thunk: complete onboarding ---------- */
+export const completeOnboarding = createAsyncThunk<
+  { user: AuthUser; role: UserRole },
+  { onboardingData: any; role: UserRole },
+  { rejectValue: string }
+>(
+  'auth/completeOnboarding',
+  async ({ onboardingData, role }, { rejectWithValue }) => {
+    try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return rejectWithValue('User not authenticated');
+      }
+
+      // Update user profile with onboarding data
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          phone_number: onboardingData.phone_number,
+          date_of_birth: onboardingData.date_of_birth,
+          role: role,
+          onboarding_completed: true,
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        return rejectWithValue(`Failed to update user profile: ${updateError.message}`);
+      }
+
+      // If teacher, save teacher metadata
+      if (role === 'teacher' && onboardingData.teacherMetadata) {
+        const { error: metaError } = await supabase
+          .from('teachers_metadata')
+          .insert({
+            teacher_id: user.id,
+            active_student_count: onboardingData.teacherMetadata.active_student_count,
+            avg_tuition_per_student: onboardingData.teacherMetadata.avg_tuition_per_student,
+            referral_source: onboardingData.teacherMetadata.referral_source,
+          });
+
+        if (metaError) {
+          return rejectWithValue(`Failed to save teacher metadata: ${metaError.message}`);
+        }
+      }
+
+      // Fetch updated profile
+      const profile = await fetchUserProfile(user.id);
+
+      // Create AuthUser object
+      const authUser: AuthUser = {
+        id: user.id,
+        email: user.email || '',
+        name: profile.name,
+        email_verified: true, // Google users are pre-verified
+      };
+
+      return {
+        user: authUser,
+        role: profile.role,
+      };
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'An unexpected error occurred during onboarding completion');
+    }
+  }
+);
+
 /* ---------- helper: sign-out ---------- */
 export async function signOut(dispatch: any) {
   await supabase.auth.signOut();
@@ -432,3 +558,75 @@ export const savePartialStudentData = createAsyncThunk<
     // Silent fail
   }
 });
+
+// Handle OAuth callback
+export const handleOAuthCallback = createAsyncThunk(
+  'auth/handleOAuthCallback',
+  async ({ code, state }: { code: string; state?: string | null }, { rejectWithValue }) => {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+      if (sessionError) throw sessionError;
+      if (!session?.user) throw new Error('No user found in session');
+
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError && profileError.code !== 'PGRST116') throw profileError;
+
+      let role: UserRole = 'student';
+      if (state) {
+        try {
+          const stateData = JSON.parse(atob(state));
+          role = stateData.role || 'student';
+        } catch {
+          // fallback to default
+        }
+      }
+
+      if (!userProfile) {
+        const { data: newProfile, error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+            role: role,
+            auth_method: 'google',
+            email_verified: true
+          })
+          .select()
+          .single();
+        if (createError) throw createError;
+        return {
+          user: {
+            id: session.user.id,
+            email: session.user.email!,
+            name: newProfile.name,
+            email_verified: true
+          },
+          role: role,
+          authMethod: 'google' as const,
+          onboardingCompleted: false
+        };
+      }
+
+      return {
+        user: {
+          id: session.user.id,
+          email: session.user.email!,
+          name: userProfile.name,
+          email_verified: true
+        },
+        role: userProfile.role,
+        authMethod: 'google' as const,
+        onboardingCompleted: userProfile.onboarding_completed || false
+      };
+    } catch (error: any) {
+      console.error('OAuth callback error:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
