@@ -278,7 +278,7 @@ npm test -- --watch
 # Run tests with coverage
 npm test -- --coverage
 ```
-
+zx
 ## Test Coverage Areas
 
 The test suite provides comprehensive coverage of:
