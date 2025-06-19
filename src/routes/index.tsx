@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import RequireAuth from '@/components/RequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -15,12 +15,16 @@ import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
 import NewLogin from '@/pages/auth/NewLogin'
-import NewSignUp from '@/pages/auth/NewSignUp'
+import SignUpSimple from '@/pages/auth/SignUpSimple'
+import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import JoinClass from '@/pages/student/JoinClass'
 import SubmissionFeedback from '@/pages/student/SubmissionFeedback'
 import VerificationSuccess from '@/pages/auth/VerificationSuccess'
+import AuthCallback from '@/pages/auth/AuthCallback'
 import TermsAndConditions from '@/pages/legal/TermsAndConditions'
 import PrivacyPolicy from '@/pages/legal/PrivacyPolicy'
+import { useAppSelector } from '@/app/hooks'
+import { isProfileComplete } from '@/utils/profileValidation'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -42,6 +46,30 @@ const EnhancedLoadingSpinner = () => (
   </div>
 );
 
+// Onboarding Guard - prevents users with complete profiles from accessing onboarding
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAppSelector(state => state.auth);
+  const location = useLocation();
+
+  // Show loading while checking auth state
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // Not authenticated - redirect to login
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Profile is complete - redirect to dashboard
+  if (profile && isProfileComplete(profile) && profile.role) {
+    return <Navigate to={`/${profile.role}/dashboard`} replace />;
+  }
+
+  // Profile is incomplete - allow access to onboarding
+  return <>{children}</>;
+}
+
 export default function AppRoutes() {
   
   useEffect(() => {
@@ -57,11 +85,21 @@ export default function AppRoutes() {
         <Route path="/legal/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
         
+        {/* -------- AUTH ROUTES (outside Layout - no navbar) -------- */}
+        <Route path="/login" element={<NewLogin />} />
+        <Route path="/sign-up" element={<SignUpSimple />} />
+        <Route path="/auth/verify" element={<VerificationSuccess />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        
+        {/* -------- ONBOARDING ROUTE (outside Layout - no navbar) -------- */}
+        <Route path="/onboarding" element={
+          <OnboardingGuard>
+            <OnboardingPage />
+          </OnboardingGuard>
+        } />
+        
         <Route element={<Layout />}>
-          {/* -------- PUBLIC -------- */}
-          <Route path="/login" element={<NewLogin />} />
-          <Route path="/sign-up" element={<NewSignUp />} />
-          <Route path="/auth/verify" element={<VerificationSuccess />} />
+          {/* -------- APP ROUTES (with navbar) -------- */}
           <Route path="/flow" element={<FlowEditor />} />
           
           {/* -------- STUDENT ROUTES -------- */}

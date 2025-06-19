@@ -78,7 +78,7 @@ describe('validateAudioBlob', () => {
       const result = await validateAudioBlob(invalidBlob);
       
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Invalid MIME type: application/pdf');
+      expect(result.error).toBe('Unsupported MIME type: application/pdf. Supported: WebM, MP4, MPEG, WAV, OGG');
       expect(result.type).toBe('application/pdf');
     });
 

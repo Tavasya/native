@@ -145,6 +145,9 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
               onPlayRecording={playRecording}
               isPrepTimeActive={isPrepTimeActive}
               isProcessing={isProcessing}
+              isTest={isTest}
+              hasRecorded={hasRecorded}
+              onRedo={toggleRecording}
             />
 
             <AudioPlayer

@@ -17,11 +17,12 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   // Get the best supported MIME type
   const getSupportedMimeType = (): string => {
     const types = [
-      'audio/mp4;codecs=mp4a.40.2',  // Better metadata support
+      'audio/mp4;codecs=mp4a.40.2',  // Better metadata support and compatibility
       'audio/webm;codecs=opus',      // Great compression
       'audio/webm',
       'audio/mp4',
-      'audio/ogg;codecs=opus'
+      'audio/ogg;codecs=opus',
+      'audio/mpeg'                   // Widely supported fallback
     ];
     
     for (const type of types) {
@@ -31,8 +32,17 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       }
     }
     
-    console.log('⚠️ Falling back to default MIME type');
-    return 'audio/webm';
+    // Try to find any supported audio type
+    const fallbackTypes = ['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/mpeg'];
+    for (const type of fallbackTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log('⚠️ Falling back to MIME type:', type);
+        return type;
+      }
+    }
+    
+    console.warn('⚠️ No supported audio formats found, using audio/mp4 as last resort');
+    return 'audio/mp4'; // MP4 has better compatibility than WebM
   };
 
   const startRecording = useCallback(async () => {

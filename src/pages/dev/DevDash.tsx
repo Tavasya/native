@@ -8,6 +8,7 @@ import {
   fetchTeacherAssignmentsWeekly,
   fetchStudentEngagement,
   fetchInactiveUsers,
+  fetchUserCreationData,
   hideUserById,
   loadMoreUsers,
   setSelectedTeacher,
@@ -21,6 +22,7 @@ import type {
 } from '@/features/metrics/metricsTypes';
 import AssignmentAnalyticsGraph from '@/components/dev/AssignmentAnalyticsGraph';
 import AssignmentListModal from '@/components/dev/AssignmentListModal';
+import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
 
 // Icon component types
 interface IconProps {
@@ -198,6 +200,7 @@ export default function DashboardPage() {
     dispatch(fetchTeacherAssignmentsWeekly());
     dispatch(fetchStudentEngagement());
     dispatch(fetchInactiveUsers());
+    dispatch(fetchUserCreationData());
   }, [dispatch, activeTab]);
 
   // Load class data separately
@@ -517,6 +520,9 @@ export default function DashboardPage() {
                     assignments: [] // This is no longer used as we get data from Redux
                   }))}
                 />
+
+                {/* User Growth Graph */}
+                <UserGrowthGraph />
 
                 {/* Assignment List Modal */}
                 {selectedTeacher && (

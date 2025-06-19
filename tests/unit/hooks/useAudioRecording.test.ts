@@ -135,7 +135,7 @@ describe('useAudioRecording Hook', () => {
       expect(global.MediaRecorder).toHaveBeenCalledWith(
         mockMediaStream,
         expect.objectContaining({
-          mimeType: 'audio/webm',
+          mimeType: 'audio/mp4',
         })
       );
     });
