@@ -6,15 +6,32 @@ import { validateAudioBlob } from "@/utils/webm-diagnostics";
  * Gets the appropriate file extension based on MIME type
  */
 function getFileExtension(mimeType: string): string {
+  // Handle codec-specific MIME types by checking the base type
+  const baseType = mimeType.split(';')[0].toLowerCase();
+  
   const extensionMap: Record<string, string> = {
-    'audio/webm;codecs=opus': 'webm',
     'audio/webm': 'webm',
-    'audio/mp4': 'mp4',
+    'audio/mp4': 'm4a',  // Use .m4a for audio-only MP4
     'audio/mpeg': 'mp3',
-    'audio/wav': 'wav'
+    'audio/wav': 'wav',
+    'audio/ogg': 'ogg'
   };
   
-  return extensionMap[mimeType] || 'webm';
+  const extension = extensionMap[baseType];
+  if (extension) {
+    return extension;
+  }
+  
+  // Try to infer from the full MIME type if base type didn't match
+  if (mimeType.includes('webm')) return 'webm';
+  if (mimeType.includes('mp4')) return 'm4a';
+  if (mimeType.includes('mpeg')) return 'mp3';
+  if (mimeType.includes('wav')) return 'wav';
+  if (mimeType.includes('ogg')) return 'ogg';
+  
+  // Log unknown MIME type for debugging
+  console.warn(`Unknown MIME type: ${mimeType}, defaulting to .m4a`);
+  return 'm4a'; // Default to m4a instead of webm for better compatibility
 }
 
 /**

@@ -48,11 +48,19 @@ export const calculateOverallPronunciationScore = (wordDetails: any[]): number =
 export const getWordsToShow = (wordDetails: any[]): any[] => {
   if (!wordDetails || wordDetails.length === 0) return [];
   
+  // Blacklist of words to exclude
+  const blacklistedWords = ['vietnam', 'hanoi'];
+  
   // First, filter out words that are 2 letters or less
   const validWords = wordDetails.filter(word => word.word.length > 2);
   
-  // Then filter out words with scores above 80
-  const filteredWords = validWords.filter(word => word.accuracy_score < 80);
+  // Then filter out blacklisted words
+  const nonBlacklistedWords = validWords.filter(word => 
+    !blacklistedWords.includes(word.word.toLowerCase())
+  );
+  
+  // Then filter out words with scores above 70
+  const filteredWords = nonBlacklistedWords.filter(word => word.accuracy_score < 70);
   
   // Always return filtered words, even if empty
   return filteredWords;

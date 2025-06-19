@@ -253,3 +253,41 @@ export async function hideAssignment(assignmentId: string): Promise<void> {
 
   if (error) throw error;
 }
+
+/**
+ * Fetches user creation data for growth analytics.
+ */
+export async function getUserCreationData(): Promise<{
+  user_id: string;
+  name: string;
+  email: string;
+  role: 'teacher' | 'student' | string;
+  created_at: string;
+  onboarding_completed_at?: string;
+  view?: boolean;
+}[]> {
+  const { data, error } = await supabase
+    .from('users')
+    .select(`
+      id,
+      name,
+      email,
+      role,
+      created_at,
+      onboarding_completed_at,
+      view
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  
+  return data.map(user => ({
+    user_id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    created_at: user.created_at,
+    onboarding_completed_at: user.onboarding_completed_at,
+    view: user.view
+  }));
+}

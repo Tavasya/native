@@ -87,6 +87,9 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const overrideTeacherId = sessionStorage.getItem('overrideTeacherId');
   const effectiveUserId = overrideTeacherId || user?.id;
 
+  // State for tracking back button clicks
+  const [backButtonClicked, setBackButtonClicked] = useState(false);
+
   // Clear override if we're in a normal view (not injected)
   useEffect(() => {
     // If we have a user ID and it matches the override, we're in a normal view
@@ -97,11 +100,12 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     // Cleanup when navigating away
     return () => {
       // If we're not in an injected view (override doesn't match current user)
-      if (user?.id && overrideTeacherId !== user.id) {
+      // AND the back button wasn't clicked, then clear the overrideTeacherId
+      if (user?.id && overrideTeacherId !== user.id && !backButtonClicked) {
         sessionStorage.removeItem('overrideTeacherId');
       }
     };
-  }, [overrideTeacherId, user?.id]);
+  }, [overrideTeacherId, user?.id, backButtonClicked]);
 
   // Initialize expanded state from sessionStorage
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -239,8 +243,8 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     // Check if we're viewing as another teacher
     const overrideTeacherId = sessionStorage.getItem('overrideTeacherId');
     if (overrideTeacherId) {
-      // Clear the override teacher ID
-      sessionStorage.removeItem('overrideTeacherId');
+      // Set the back button clicked flag to prevent cleanup from clearing overrideTeacherId
+      setBackButtonClicked(true);
       
       // Get the teacher's name from the metrics data
       const teacherMetric = assignmentMetrics.find(m => m.teacher_id === overrideTeacherId);

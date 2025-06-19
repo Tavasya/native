@@ -20,6 +20,9 @@ async function fetchUserProfile(id: string): Promise<{
   name: string;
   profile: UserProfile;
 }> {
+  console.log('🔍 ===== FETCH USER PROFILE DEBUG START =====');
+  console.log('🔍 Fetching profile for user ID:', id);
+  
   const { data, error } = await supabase
     .from('users')
     .select(`
@@ -29,12 +32,23 @@ async function fetchUserProfile(id: string): Promise<{
     .eq('id', id)
     .single();
   
+  console.log('🔍 Database query result:', { data, error });
+  
   if (error) {
+    console.error('🔍 Database query error:', error);
     throw new Error(error.message || 'Profile not found');
   }
   if (!data) {
+    console.error('🔍 No data returned from database');
     throw new Error('User record not found');
   }
+
+  console.log('🔍 ===== DATABASE DATA DEBUG =====');
+  console.log('🔍 Raw database data:', data);
+  console.log('🔍 Database name field:', data.name);
+  console.log('🔍 Database email field:', data.email);
+  console.log('🔍 Database auth_provider:', data.auth_provider);
+  console.log('🔍 Database profile_complete:', data.profile_complete);
 
   // Fetch teacher metadata if user is a teacher
   let teacherMetadata = undefined;
@@ -54,9 +68,23 @@ async function fetchUserProfile(id: string): Promise<{
     }
   }
   
-  return {
+  const finalName = data.name || data.email;
+  
+  console.log('🔍 ===== NAME PROCESSING DEBUG =====');
+  console.log('🔍 Database name:', data.name);
+  console.log('🔍 Database email:', data.email);
+  console.log('🔍 Final name (data.name || data.email):', finalName);
+  console.log('🔍 Name processing logic:', {
+    hasDatabaseName: !!data.name,
+    hasDatabaseEmail: !!data.email,
+    fallbackUsed: !data.name && !!data.email,
+    finalNameType: typeof finalName,
+    finalNameLength: finalName?.length
+  });
+  
+  const result = {
     role: data.role as UserRole | null,
-    name: data.name || data.email,
+    name: finalName,
     profile: {
       id,
       role: data.role,
@@ -69,6 +97,13 @@ async function fetchUserProfile(id: string): Promise<{
       teacherMetadata  // ✅ Include teacher metadata
     }
   };
+  
+  console.log('🔍 ===== FINAL RESULT DEBUG =====');
+  console.log('🔍 Final result object:', result);
+  console.log('🔍 Final name in result:', result.name);
+  console.log('🔍 ===== FETCH USER PROFILE DEBUG END =====');
+  
+  return result;
 }
 
 

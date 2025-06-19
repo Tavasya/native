@@ -88,21 +88,21 @@ describe('Score Calculation Utilities', () => {
 
     it('should filter out words with 2 letters or less', () => {
       const wordDetails = [
-        { word: 'a', accuracy_score: 70 },
-        { word: 'to', accuracy_score: 70 },
-        { word: 'the', accuracy_score: 70 },
-        { word: 'hello', accuracy_score: 70 }
+        { word: 'a', accuracy_score: 60 },
+        { word: 'to', accuracy_score: 60 },
+        { word: 'the', accuracy_score: 60 },
+        { word: 'hello', accuracy_score: 60 }
       ];
       const result = getWordsToShow(wordDetails);
       expect(result).toHaveLength(2);
       expect(result.map(w => w.word)).toEqual(['the', 'hello']);
     });
 
-    it('should filter out words with scores 80 or above', () => {
+    it('should filter out words with scores 70 or above', () => {
       const wordDetails = [
         { word: 'excellent', accuracy_score: 90 },
         { word: 'good', accuracy_score: 80 },
-        { word: 'needs_work', accuracy_score: 75 },
+        { word: 'needs_work', accuracy_score: 65 },
         { word: 'poor', accuracy_score: 60 }
       ];
       const result = getWordsToShow(wordDetails);
@@ -112,10 +112,10 @@ describe('Score Calculation Utilities', () => {
 
     it('should apply both filters: length and score', () => {
       const wordDetails = [
-        { word: 'a', accuracy_score: 70 }, // Too short
+        { word: 'a', accuracy_score: 60 }, // Too short
         { word: 'excellent', accuracy_score: 90 }, // Score too high
         { word: 'the', accuracy_score: 85 }, // Score too high
-        { word: 'needs_work', accuracy_score: 75 }, // Should show
+        { word: 'needs_work', accuracy_score: 65 }, // Should show
         { word: 'bad', accuracy_score: 60 } // Should show
       ];
       const result = getWordsToShow(wordDetails);
@@ -125,8 +125,8 @@ describe('Score Calculation Utilities', () => {
 
     it('should return empty array if all words are filtered out', () => {
       const wordDetails = [
-        { word: 'a', accuracy_score: 70 }, // Too short
-        { word: 'to', accuracy_score: 70 }, // Too short
+        { word: 'a', accuracy_score: 60 }, // Too short
+        { word: 'to', accuracy_score: 60 }, // Too short
         { word: 'excellent', accuracy_score: 90 }, // Score too high
         { word: 'perfect', accuracy_score: 95 } // Score too high
       ];
@@ -134,18 +134,18 @@ describe('Score Calculation Utilities', () => {
       expect(result).toEqual([]);
     });
 
-    it('should handle edge case: exactly 79 score (should show)', () => {
+    it('should handle edge case: exactly 69 score (should show)', () => {
       const wordDetails = [
-        { word: 'borderline', accuracy_score: 79 }
+        { word: 'borderline', accuracy_score: 69 }
       ];
       const result = getWordsToShow(wordDetails);
       expect(result).toHaveLength(1);
       expect(result[0].word).toBe('borderline');
     });
 
-    it('should handle edge case: exactly 80 score (should not show)', () => {
+    it('should handle edge case: exactly 70 score (should not show)', () => {
       const wordDetails = [
-        { word: 'borderline', accuracy_score: 80 }
+        { word: 'borderline', accuracy_score: 70 }
       ];
       const result = getWordsToShow(wordDetails);
       expect(result).toEqual([]);
@@ -324,34 +324,34 @@ describe('Score Calculation Utilities', () => {
     it('should work correctly with realistic pronunciation data', () => {
       const wordDetails = [
         { word: 'hello', accuracy_score: 85 },
-        { word: 'pronunciation', accuracy_score: 72 },
+        { word: 'pronunciation', accuracy_score: 62 },
         { word: 'excellent', accuracy_score: 92 }, // Won't show (score too high)
-        { word: 'the', accuracy_score: 65 }, // Won't show (score too high but let's test)
+        { word: 'the', accuracy_score: 65 }, // Will show (score < 70)
         { word: 'difficult', accuracy_score: 58 }
       ];
 
       // Test overall score calculation
       const overallScore = calculateOverallPronunciationScore(wordDetails);
-      expect(overallScore).toBe(74); // (85+72+92+65+58)/5 = 74.4 → 74
+      expect(overallScore).toBe(72); // (85+62+92+65+58)/5 = 72.4 → 72
 
              // Test words to show filtering
        const wordsToShow = getWordsToShow(wordDetails);
-       expect(wordsToShow).toHaveLength(3); // 'pronunciation', 'the', and 'difficult' (all < 80)
+       expect(wordsToShow).toHaveLength(3); // 'pronunciation', 'the', and 'difficult' (all < 70)
        expect(wordsToShow.map(w => w.word)).toEqual(['pronunciation', 'the', 'difficult']);
 
       // Test color coding
-      expect(getScoreColor(overallScore)).toBe('text-yellow-400'); // 74 is in 70-79 range
+      expect(getScoreColor(overallScore)).toBe('text-yellow-400'); // 72 is in 70-79 range
     });
 
     it('should handle mixed quality pronunciation results', () => {
       const wordDetails = [
         { word: 'perfect', accuracy_score: 98 },
         { word: 'struggles', accuracy_score: 45 },
-        { word: 'average', accuracy_score: 76 }
+        { word: 'average', accuracy_score: 65 }
       ];
 
       const overallScore = calculateOverallPronunciationScore(wordDetails);
-      expect(overallScore).toBe(73); // (98+45+76)/3 = 73
+      expect(overallScore).toBe(69); // (98+45+65)/3 = 69.33 → 69
 
       const wordsToShow = getWordsToShow(wordDetails);
       expect(wordsToShow).toHaveLength(2); // 'struggles' and 'average'
@@ -359,7 +359,7 @@ describe('Score Calculation Utilities', () => {
       // Verify color coding for different scores
       expect(getScoreColor(98)).toBe('text-green-500');
       expect(getScoreColor(45)).toBe('text-red-400');
-      expect(getScoreColor(76)).toBe('text-yellow-400');
+      expect(getScoreColor(65)).toBe('text-orange-400');
     });
   });
 }); 

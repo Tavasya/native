@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import MicIcon from "@/lib/images/mic.svg";
+import { RotateCcw } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +18,9 @@ interface RecordingControlsProps {
   onPlayRecording: () => void;
   isPrepTimeActive?: boolean;
   isProcessing?: boolean;
+  isTest?: boolean;
+  hasRecorded?: boolean;
+  onRedo?: () => void;
 }
 
 const RecordingControls: React.FC<RecordingControlsProps> = ({
@@ -26,7 +30,10 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
   isPreviewMode,
   onToggleRecording,
   isPrepTimeActive = false,
-  isProcessing = false
+  isProcessing = false,
+  isTest = false,
+  hasRecorded = false,
+  onRedo
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -81,10 +88,28 @@ const RecordingControls: React.FC<RecordingControlsProps> = ({
               </TooltipContent>
             </Tooltip>
           )}
+
+          {/* Redo Button - Only show in practice mode when has recorded */}
+          {!isTest && hasRecorded && !isRecording && onRedo && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={onRedo}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center justify-center w-8 h-8 p-0 text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                  disabled={isPlaying || isProcessing}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
+                <p>Retry</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
-
-
     </div>
   );
 };

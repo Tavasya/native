@@ -19,6 +19,15 @@ interface MetricsState {
   studentEngagement: StudentEngagement[];
   inactiveUsers: InactiveUser[];
   selectedTeacher: AssignmentMetric | null;
+  userCreationData: {
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'teacher' | 'student' | string;
+    created_at: string;
+    onboarding_completed_at?: string;
+    view?: boolean;
+  }[];
 
   // loading / error flags for each fetch
   loadingLastLogins: boolean;
@@ -28,6 +37,7 @@ interface MetricsState {
   loadingTeacherAssignmentsWeekly: boolean;
   loadingStudentEngagement: boolean;
   loadingInactiveUsers: boolean;
+  loadingUserCreationData: boolean;
 
   errorLastLogins: string | null;
   errorAllLastLogins: string | null;
@@ -36,6 +46,7 @@ interface MetricsState {
   errorTeacherAssignmentsWeekly: string | null;
   errorStudentEngagement: string | null;
   errorInactiveUsers: string | null;
+  errorUserCreationData: string | null;
 
   // hideUser
   hidingUser: boolean;
@@ -59,6 +70,7 @@ const initialState: MetricsState = {
   studentEngagement: [],
   inactiveUsers: [],
   selectedTeacher: null,
+  userCreationData: [],
 
   loadingLastLogins: false,
   loadingAllLastLogins: false,
@@ -67,6 +79,7 @@ const initialState: MetricsState = {
   loadingTeacherAssignmentsWeekly: false,
   loadingStudentEngagement: false,
   loadingInactiveUsers: false,
+  loadingUserCreationData: false,
 
   errorLastLogins: null,
   errorAllLastLogins: null,
@@ -75,6 +88,7 @@ const initialState: MetricsState = {
   errorTeacherAssignmentsWeekly: null,
   errorStudentEngagement: null,
   errorInactiveUsers: null,
+  errorUserCreationData: null,
 
   hidingUser: false,
   errorHidingUser: null,
@@ -173,6 +187,26 @@ export const fetchAllLastLogins = createAsyncThunk<
   }
 });
 
+export const fetchUserCreationData = createAsyncThunk<
+  {
+    user_id: string;
+    name: string;
+    email: string;
+    role: 'teacher' | 'student' | string;
+    created_at: string;
+    onboarding_completed_at?: string;
+    view?: boolean;
+  }[],
+  void,
+  { rejectValue: string }
+>('metrics/fetchUserCreationData', async (_, { rejectWithValue }) => {
+  try {
+    return await service.getUserCreationData();
+  } catch (err: any) {
+    return rejectWithValue(err.message);
+  }
+});
+
 /**
  * New thunk: hide a user by ID, then re-fetch lastLogins table.
  */
@@ -222,6 +256,7 @@ const metricsSlice = createSlice({
       state.teacherAssignmentsWeekly = [];
       state.studentEngagement = [];
       state.inactiveUsers = [];
+      state.userCreationData = [];
 
       state.loadingLastLogins = false;
       state.loadingAllLastLogins = false;
@@ -230,6 +265,7 @@ const metricsSlice = createSlice({
       state.loadingTeacherAssignmentsWeekly = false;
       state.loadingStudentEngagement = false;
       state.loadingInactiveUsers = false;
+      state.loadingUserCreationData = false;
 
       state.errorLastLogins = null;
       state.errorAllLastLogins = null;
@@ -238,6 +274,7 @@ const metricsSlice = createSlice({
       state.errorTeacherAssignmentsWeekly = null;
       state.errorStudentEngagement = null;
       state.errorInactiveUsers = null;
+      state.errorUserCreationData = null;
 
       state.hidingUser = false;
       state.errorHidingUser = null;
@@ -389,6 +426,32 @@ const metricsSlice = createSlice({
       .addCase(fetchAllLastLogins.rejected, (state, action) => {
         state.loadingAllLastLogins = false;
         state.errorAllLastLogins = action.payload || action.error.message || 'Error';
+      });
+
+    /** fetchUserCreationData **/
+    builder
+      .addCase(fetchUserCreationData.pending, (state) => {
+        state.loadingUserCreationData = true;
+        state.errorUserCreationData = null;
+      })
+      .addCase(
+        fetchUserCreationData.fulfilled,
+        (state, action: PayloadAction<{
+          user_id: string;
+          name: string;
+          email: string;
+          role: 'teacher' | 'student' | string;
+          created_at: string;
+          onboarding_completed_at?: string;
+          view?: boolean;
+        }[]>) => {
+          state.loadingUserCreationData = false;
+          state.userCreationData = action.payload;
+        }
+      )
+      .addCase(fetchUserCreationData.rejected, (state, action) => {
+        state.loadingUserCreationData = false;
+        state.errorUserCreationData = action.payload || action.error.message || 'Error';
       });
 
     /** hideUserById **/
