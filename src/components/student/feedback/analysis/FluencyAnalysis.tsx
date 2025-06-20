@@ -44,16 +44,21 @@ const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
         <div className="relative">
           <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="absolute inset-0 flex">
-              <div className="w-1/5 bg-[#ef5136]"></div>
-              <div className="w-1/5 bg-[#feb622]"></div>
-              <div className="w-1/5 bg-green-500"></div>
-              <div className="w-1/5 bg-[#feb622]"></div>
-              <div className="w-1/5 bg-[#ef5136]"></div>
+              {/* Too Slow: 0-69 */}
+              <div className="w-[17.5%] bg-[#ef5136]"></div>
+              {/* Slow: 70-99 */}
+              <div className="w-[17.5%] bg-[#feb622]"></div>
+              {/* Good: 100-139 */}
+              <div className="w-[30%] bg-green-500"></div>
+              {/* Fast: 140-169 */}
+              <div className="w-[17.5%] bg-[#feb622]"></div>
+              {/* Too Fast: 170+ */}
+              <div className="w-[17.5%] bg-[#ef5136]"></div>
             </div>
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-black"
               style={{
-                left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 200 * 100))}%`
+                left: `${Math.min(95, Math.max(2, ((currentFeedback?.fluency?.wpm || 0) - 50) / 170 * 100))}%`
               }}
             ></div>
           </div>

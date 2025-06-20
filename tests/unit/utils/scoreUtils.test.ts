@@ -162,7 +162,7 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should categorize slow speech correctly', () => {
-      const result = getSpeedCategory(120);
+      const result = getSpeedCategory(90);
       expect(result).toEqual({
         category: 'Slow',
         color: 'bg-[#feb622]'
@@ -170,7 +170,7 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should categorize good speech speed correctly', () => {
-      const result = getSpeedCategory(150);
+      const result = getSpeedCategory(120);
       expect(result).toEqual({
         category: 'Good',
         color: 'bg-green-500'
@@ -178,7 +178,7 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should categorize fast speech correctly', () => {
-      const result = getSpeedCategory(180);
+      const result = getSpeedCategory(150);
       expect(result).toEqual({
         category: 'Fast',
         color: 'bg-[#feb622]'
@@ -186,7 +186,7 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should categorize very fast speech correctly', () => {
-      const result = getSpeedCategory(250);
+      const result = getSpeedCategory(180);
       expect(result).toEqual({
         category: 'Too Fast',
         color: 'bg-[#ef5136]'
@@ -195,27 +195,42 @@ describe('Score Calculation Utilities', () => {
 
     it('should handle boundary cases correctly', () => {
       // Test exact boundaries
-      expect(getSpeedCategory(99)).toEqual({
+      expect(getSpeedCategory(69)).toEqual({
         category: 'Too Slow',
         color: 'bg-[#ef5136]'
       });
       
-      expect(getSpeedCategory(100)).toEqual({
+      expect(getSpeedCategory(70)).toEqual({
         category: 'Slow',
         color: 'bg-[#feb622]'
       });
       
-      expect(getSpeedCategory(130)).toEqual({
+      expect(getSpeedCategory(99)).toEqual({
+        category: 'Slow',
+        color: 'bg-[#feb622]'
+      });
+      
+      expect(getSpeedCategory(100)).toEqual({
         category: 'Good',
         color: 'bg-green-500'
       });
       
-      expect(getSpeedCategory(170)).toEqual({
+      expect(getSpeedCategory(139)).toEqual({
+        category: 'Good',
+        color: 'bg-green-500'
+      });
+      
+      expect(getSpeedCategory(140)).toEqual({
         category: 'Fast',
         color: 'bg-[#feb622]'
       });
       
-      expect(getSpeedCategory(200)).toEqual({
+      expect(getSpeedCategory(169)).toEqual({
+        category: 'Fast',
+        color: 'bg-[#feb622]'
+      });
+      
+      expect(getSpeedCategory(170)).toEqual({
         category: 'Too Fast',
         color: 'bg-[#ef5136]'
       });

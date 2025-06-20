@@ -25,6 +25,8 @@ import TermsAndConditions from '@/pages/legal/TermsAndConditions'
 import PrivacyPolicy from '@/pages/legal/PrivacyPolicy'
 import { useAppSelector } from '@/app/hooks'
 import { isProfileComplete } from '@/utils/profileValidation'
+import ForgotPassword from '@/pages/auth/ForgotPassword'
+import ResetPassword from '@/pages/auth/ResetPassword'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -99,7 +101,8 @@ export default function AppRoutes() {
         } />
         
         <Route element={<Layout />}>
-          {/* -------- APP ROUTES (with navbar) -------- */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/flow" element={<FlowEditor />} />
           
           {/* -------- STUDENT ROUTES -------- */}

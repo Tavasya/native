@@ -584,7 +584,6 @@ export const signUpSimple = createAsyncThunk<
     }
   }
 );
-
 // NEW: Complete onboarding thunk
 export const completeOnboarding = createAsyncThunk<
   { user: AuthUser; profile: UserProfile },
@@ -699,6 +698,46 @@ export const signUpWithGoogle = createAsyncThunk<
       return { user: authUser, profile: profileData.profile };
     } catch (err: any) {
       return rejectWithValue(err.message || 'Google authentication failed');
+    }
+  }
+);
+
+// Change password thunk
+export const changePassword = createAsyncThunk<
+  void,
+  { currentPassword: string; newPassword: string },
+  { rejectValue: string }
+>(
+  'auth/changePassword',
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+    try {
+      // First verify the current password by attempting to sign in
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return rejectWithValue('Failed to get current user');
+      }
+
+      // Verify current password by attempting to sign in with it
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword
+      });
+
+      if (verifyError) {
+        return rejectWithValue('Current password is incorrect');
+      }
+
+      // Update the password
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        return rejectWithValue(error.message || 'Failed to update password');
+      }
+    } catch (err: any) {
+      return rejectWithValue(err.message || 'An unexpected error occurred while changing password');
     }
   }
 );

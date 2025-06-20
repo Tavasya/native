@@ -25,10 +25,10 @@ export const getPhonemeColor = (score: number): string => {
 };
 
 export const getSpeedCategory = (wpm: number): SpeedCategory => {
-  if (wpm < 100) return { category: 'Too Slow', color: 'bg-[#ef5136]' };
-  if (wpm < 130) return { category: 'Slow', color: 'bg-[#feb622]' };
-  if (wpm < 170) return { category: 'Good', color: 'bg-green-500' };
-  if (wpm < 200) return { category: 'Fast', color: 'bg-[#feb622]' };
+  if (wpm < 70) return { category: 'Too Slow', color: 'bg-[#ef5136]' };
+  if (wpm < 100) return { category: 'Slow', color: 'bg-[#feb622]' };
+  if (wpm < 140) return { category: 'Good', color: 'bg-green-500' };
+  if (wpm < 170) return { category: 'Fast', color: 'bg-[#feb622]' };
   return { category: 'Too Fast', color: 'bg-[#ef5136]' };
 };
 
