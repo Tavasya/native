@@ -416,7 +416,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                           {[
                             { header: 'Student', width: 'w-1/4' },
                             { header: 'Status', width: 'w-1/5' },
-                            { header: 'Submitted At', width: 'w-1/4' },
+                            { header: 'Last Updated', width: 'w-1/4' },
                             { header: 'Grade', width: 'w-1/6' },
                             { header: 'Action', width: 'w-1/6' }
                           ].map(({ header, width }) => (
@@ -461,7 +461,9 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                               })()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/4">
-                              {st.submitted_at
+                              {st.status === 'in_progress' 
+                                ? 'Not Submitted'
+                                : st.submitted_at
                                 ? new Date(st.submitted_at).toLocaleString(undefined, {
                                     day: '2-digit',
                                     month: 'short',

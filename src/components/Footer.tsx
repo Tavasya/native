@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 import NativeLogo from '@/lib/images/Native Logo.png';
@@ -57,7 +56,7 @@ const Footer = () => {
               {["Features", "How It Works", "Pricing", "FAQ"].map((item) => (
                 <li key={item}>
                   <FooterLink href={
-                    item === "How It Works" ? "/landing-page#how-it-works" : 
+                    item === "How It Works" ? "/#how-it-works" : 
                     `#${item.toLowerCase().replace(' ', '-')}`
                   }>
                     {item}
