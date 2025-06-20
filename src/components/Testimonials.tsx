@@ -4,12 +4,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Quote, ChevronLeft, ChevronRight, Circle, CircleDot } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 
+// Import teacher images
+import teach2 from '@/lib/images/teachers/teach2.png';
+import phuong_nguyen from '@/lib/images/teachers/phuong_nguyen.png';
+import teach1 from '@/lib/images/teachers/teach1.png';
+import ha_hoang from '@/lib/images/teachers/ha_hoang.png';
+import van_vu from '@/lib/images/teachers/van_vu.png';
+import suzie_nguyen from '@/lib/images/teachers/suzie_nguyen.png';
+
 interface TestimonialProps {
   quote: string;
   name: string;
   role: string;
   location: string;
-  image: string;
+  image: any; // Changed from string to any to accept imported image modules
   className?: string;
   style?: React.CSSProperties;
 }
@@ -61,37 +69,37 @@ const Testimonials = () => {
       name: "Min-Ji Park",
       role: "IELTS Coach",
       location: "Seoul",
-      image: "/src/lib/images/teachers/teach2.png"
+      image: teach2
     }, {
       quote: "I was spending 15+ hours a week just grading speaking assignments. With Native, that's down to just 4 hours, and my students are seeing better results.",
       name: "Phuong Nguyen",
       role: "Senior Instructor",
       location: "Ho Chi Minh City",
-      image: "/src/lib/images/teachers/phuong_nguyen.png"
+      image: phuong_nguyen
     }, {
       quote: "The AI feedback is remarkably accurate. It catches the same issues I would, but provides students with immediate guidance instead of waiting for our next session.",
       name: "Hiroshi Tanaka",
       role: "Language Center Director",
       location: "Tokyo",
-      image: "/src/lib/images/teachers/teach1.png"
+      image: teach1
     }, {
       quote: "My students love getting instant feedback after practice. It's helping them gain confidence much faster than traditional methods.",
       name: "Ha Hoang",
       role: "Lecturer",
       location: "Hanoi",
-      image: "/src/lib/images/teachers/ha_hoang.png"
+      image: ha_hoang
     }, {
       quote: "The reporting dashboard is a game-changer. I can quickly see which students need extra attention and where the whole class is struggling.",
       name: "Van Vu",
       role: "IELTS Instructor",
       location: "Hanoi",
-      image: "/src/lib/images/teachers/van_vu.png"
+      image: van_vu
     }, {
-      quote: "Native has helped me scale my tutoring business from 30 to over 100 students without sacrificing quality. The ROI is incredible.",
+      quote: "Native has been a game-changer in how I assign speaking practice. My students no longer wait for class to get feedback—they get it immediately from the app, aligned with IELTS criteria. It's helped them build autonomy and confidence, especially those who used to be afraid of making mistakes.",
       name: "Suzie Nguyen",
       role: "IELTS Instructor",
-      location: "Hanoi",
-      image: "/src/lib/images/teachers/suzie_nguyen.png"
+      location: "Ho Chi Minh City",
+      image: suzie_nguyen
     }
   ];
 
