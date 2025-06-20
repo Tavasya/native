@@ -82,8 +82,7 @@ export default function AppRoutes() {
     <Suspense fallback={<EnhancedLoadingSpinner />}>
       <Routes>
         {/* Landing page route outside of Layout */}
-        <Route path="/" element={<Navigate to="/sign-up" replace />} />
-        <Route path="/landing-page" element={<Index />} />
+        <Route path="/" element={<Index />} />
         <Route path="/legal/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
         

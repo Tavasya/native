@@ -11,6 +11,16 @@ interface NavBarProps {
 const NavBar = ({ hideNavItems = false }: NavBarProps) => {
   const navigate = useNavigate();
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
   return <header className="py-4 border-b border-gray-100 bg-white/95 backdrop-blur-sm sticky top-0 z-50">
       <div className="container flex items-center justify-between">
         <div className="flex items-center">
@@ -21,11 +31,10 @@ const NavBar = ({ hideNavItems = false }: NavBarProps) => {
 
         {!hideNavItems && (
           <nav className="hidden md:flex items-center gap-8">
-            <NavLink href="#features">Features</NavLink>
-            <NavLink href="#how-it-works">How it works</NavLink>
-            <NavLink href="#testimonials">Testimonials</NavLink>
-            <NavLink href="#pricing">Pricing</NavLink>
-            <NavLink href="#faq">FAQ</NavLink>
+            <NavLink onClick={() => scrollToSection('features')}>Features</NavLink>
+            <NavLink onClick={() => scrollToSection('value')}>How Native Works</NavLink>
+            <NavLink onClick={() => scrollToSection('testimonials')}>Testimonials</NavLink>
+            <NavLink onClick={() => scrollToSection('faq')}>FAQ</NavLink>
           </nav>
         )}
 
@@ -49,17 +58,22 @@ const NavBar = ({ hideNavItems = false }: NavBarProps) => {
 };
 
 interface NavLinkProps {
-  href: string;
+  onClick: () => void;
   children: React.ReactNode;
   className?: string;
 }
 
 const NavLink = ({
-  href,
+  onClick,
   children,
   className
-}: NavLinkProps) => <a href={href} className={cn("text-brand-text hover:text-brand-primary transition-colors font-medium text-sm", className)}>
+}: NavLinkProps) => (
+  <button 
+    onClick={onClick} 
+    className={cn("text-brand-text hover:text-brand-primary transition-colors font-medium text-sm bg-transparent border-none cursor-pointer", className)}
+  >
     {children}
-  </a>;
+  </button>
+);
 
 export default NavBar;

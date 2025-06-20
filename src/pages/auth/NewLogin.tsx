@@ -69,7 +69,7 @@ export default function NewLogin() {
               src={NativeLogo} 
               alt="Native" 
               className="h-12 mx-auto mb-6 cursor-pointer" 
-              onClick={() => navigate('/landing-page')}
+              onClick={() => navigate('/')}
             />
           </div>
 

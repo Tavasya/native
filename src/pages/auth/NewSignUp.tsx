@@ -584,7 +584,7 @@ export default function NewSignUp() {
                 src={NativeLogo} 
                 alt="Native" 
                 className="h-12 mx-auto mb-6 cursor-pointer" 
-                onClick={() => navigate('/landing-page')}
+                onClick={() => navigate('/')}
               />
               <h2 className="text-2xl font-semibold text-gray-900">Check Your Email</h2>
               <p className="mt-2 text-gray-600">
@@ -642,7 +642,7 @@ export default function NewSignUp() {
               src={NativeLogo} 
               alt="Native" 
               className="h-12 mx-auto mb-6 cursor-pointer" 
-              onClick={() => navigate('/landing-page')}
+              onClick={() => navigate('/')}
             />
           </div>
 
