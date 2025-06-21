@@ -14,6 +14,7 @@ import TeacherDash from '@/components/teacher/TeacherDash'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
+import Practice from "@/pages/student/Practice"
 import NewLogin from '@/pages/auth/NewLogin'
 import SignUpSimple from '@/pages/auth/SignUpSimple'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
@@ -108,6 +109,7 @@ export default function AppRoutes() {
           <Route element={<RequireAuth allowedRoles={['student']} />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/join-class" element={<JoinClass />} />
+            <Route path="/student/practice/:submissionId" element={<Practice />} />
             {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
           </Route>
           

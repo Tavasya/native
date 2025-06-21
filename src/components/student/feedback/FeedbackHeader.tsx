@@ -1,8 +1,9 @@
 // components/student/feedback/FeedbackHeader.tsx
 
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 interface FeedbackHeaderProps {
   assignmentTitle: string;
@@ -11,14 +12,25 @@ interface FeedbackHeaderProps {
   isAwaitingReview: boolean;
   onBack: () => void;
   onSubmitAndSend: () => void;
+  submissionId?: string;
 }
 
 const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   studentName,
   isAwaitingReview,
   onBack,
-  onSubmitAndSend
+  onSubmitAndSend,
+  submissionId
 }) => {
+  const navigate = useNavigate();
+
+  const handlePracticeClick = () => {
+    if (submissionId) {
+      navigate(`/student/practice/${submissionId}`);
+    } else {
+      navigate('/student/practice');
+    }
+  };
   
   return (
     <div className="flex items-center justify-between">
@@ -30,15 +42,25 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         <ArrowLeft className="h-4 w-4" />
         Back
       </Button>
-      {isAwaitingReview && (
+      <div className="flex items-center gap-2">
         <Button
-          variant="default"
+          variant="outline"
           className="flex items-center gap-2"
-          onClick={onSubmitAndSend}
+          onClick={handlePracticeClick}
         >
-          Submit & Send to {studentName}
+          <BookOpen className="h-4 w-4" />
+          Practice
         </Button>
-      )}
+        {isAwaitingReview && (
+          <Button
+            variant="default"
+            className="flex items-center gap-2"
+            onClick={onSubmitAndSend}
+          >
+            Submit & Send to {studentName}
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

@@ -10,6 +10,7 @@ import assignmentTemplateReducer from '@/features/assignmentTemplates/assignment
 import ttsReducer from '@/features/tts/ttsSlice'
 import metricsReducer from '@/features/metrics/metricsSlice'
 import prepTimeReducer from '@/features/assignments/prepTimeSlice'
+import practiceReducer from '@/features/practice/practiceSlice'
 
 // Configure persist options
 const persistConfig = {
@@ -28,6 +29,7 @@ const rootReducer = combineReducers({
   tts: ttsReducer,
   metrics: metricsReducer,
   prepTime: prepTimeReducer,
+  practice: practiceReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -43,6 +45,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       tts: ttsReducer(undefined, action),
       metrics: metricsReducer(undefined, action),
       prepTime: prepTimeReducer(undefined, action),
+      practice: practiceReducer(undefined, action),
     };
   }
   return rootReducer(state, action);
