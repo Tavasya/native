@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import SubmissionFeedback from '@/pages/student/SubmissionFeedback';
 
 interface AnalysisStatusProps {
   submissionUrl: string;
@@ -24,10 +26,31 @@ interface StatusResponse {
   };
 }
 
+// Wrapper component that accepts submissionId as prop
+const SubmissionFeedbackWrapper: React.FC<{ submissionId: string }> = ({ submissionId }) => {
+  // Mock the useParams hook by creating a context or using a different approach
+  // For now, let's use a simple approach by modifying the URL temporarily
+  React.useEffect(() => {
+    // Store the current URL
+    const currentUrl = window.location.pathname;
+    // Update the URL to include the submission ID
+    window.history.replaceState(null, '', `/student/submission/${submissionId}/feedback`);
+    
+    // Cleanup function to restore the original URL when component unmounts
+    return () => {
+      window.history.replaceState(null, '', currentUrl);
+    };
+  }, [submissionId]);
+
+  return <SubmissionFeedback />;
+};
+
 const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const navigate = useNavigate();
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -57,14 +80,14 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
     console.log('New Status from Payload:', JSON.stringify(payload.new.status_logs, null, 2));
 
     setStatus(prevStatus => {
-      if (prevStatus?.status_logs) {
+      if (prevStatus?.status_logs?.questions) {
         // Preserve completed statuses
         const newStatusLogs = { ...payload.new.status_logs };
         
         // Log changes before preservation
         console.log('=== Status Changes Before Preservation ===');
         Object.entries(prevStatus.status_logs.questions).forEach(([questionId, oldQuestion]) => {
-          if (newStatusLogs.questions[questionId]) {
+          if (newStatusLogs.questions?.[questionId]) {
             Object.entries(oldQuestion).forEach(([aspect, oldStatus]) => {
               if (aspect !== 'started_at') {
                 const newStatus = newStatusLogs.questions[questionId][aspect as keyof typeof oldQuestion];
@@ -77,7 +100,7 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
         });
 
         Object.entries(prevStatus.status_logs.questions).forEach(([questionId, oldQuestion]) => {
-          if (newStatusLogs.questions[questionId]) {
+          if (newStatusLogs.questions?.[questionId]) {
             Object.entries(oldQuestion).forEach(([aspect, oldStatus]) => {
               if (oldStatus === 'completed' && aspect !== 'started_at') {
                 const before = newStatusLogs.questions[questionId][aspect as keyof typeof oldQuestion];
@@ -112,9 +135,22 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
   };
 
   const calculateTotalProgress = () => {
-    if (!status?.status_logs.questions) return 0;
+    // Add comprehensive null checks
+    if (!status || !status.status_logs || !status.status_logs.questions) {
+      return 0;
+    }
+    
     const questions = Object.values(status.status_logs.questions);
-    const totalProgress = questions.reduce((sum, question) => sum + calculateProgress(question), 0);
+    if (questions.length === 0) {
+      return 0;
+    }
+    
+    const totalProgress = questions.reduce((sum, question) => {
+      // Add null check for question
+      if (!question) return sum;
+      return sum + calculateProgress(question);
+    }, 0);
+    
     return totalProgress / questions.length;
   };
 
@@ -150,37 +186,29 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
 
   // Effect to handle refresh when progress reaches 100%
   useEffect(() => {
-    const totalProgress = calculateTotalProgress();    console.log('Current Progress:', totalProgress, 'Is Refreshing:', isRefreshing);
+    const totalProgress = calculateTotalProgress();
+    console.log('Current Progress:', totalProgress, 'Is Refreshing:', isRefreshing);
     
     if (totalProgress === 100 && !isRefreshing) {
-      console.log('Progress reached 100%, initiating refresh...');
-      const refreshData = async () => {
+      console.log('Progress reached 100%, showing feedback component...');
+      const showFeedback = async () => {
         setIsRefreshing(true);
         try {
-          console.log('Waiting 2 seconds before refresh...');
+          console.log('Waiting 2 seconds before showing feedback...');
           await new Promise(resolve => setTimeout(resolve, 2000));
-          console.log('Fetching fresh status...');
-          const newStatus = await fetchStatus();
-          console.log('New status fetched:', newStatus);
+          console.log('Setting analysis complete, showing feedback component...');
           
-          // Force a re-render with the new status
-          if (newStatus) {
-            setStatus(prevStatus => {
-              console.log('Updating status with new data');
-              return { status_logs: newStatus };
-            });
-          }
+          // Set analysis complete to show feedback component
+          setAnalysisComplete(true);
         } catch (error) {
-          console.error('Error during refresh:', error);
-        } finally {
-          console.log('Refresh complete');
+          console.error('Error during feedback transition:', error);
           setIsRefreshing(false);
         }
       };
       
-      refreshData();
+      showFeedback();
     }
-  }, [status?.status_logs, isRefreshing, fetchStatus]);
+  }, [status?.status_logs, isRefreshing]);
 
   const getStatusIcon = (status: 'not_started' | 'in_progress' | 'completed') => {
     switch (status) {
@@ -204,6 +232,11 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
         </CardContent>
       </Card>
     );
+  }
+
+  // Show feedback component when analysis is complete
+  if (analysisComplete) {
+    return <SubmissionFeedbackWrapper submissionId={submissionUrl} />;
   }
 
   if (!status) {
@@ -234,7 +267,7 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Question Analysis</h3>
-            {Object.entries(status.status_logs.questions).map(([questionId, question]) => (
+            {status.status_logs?.questions && Object.entries(status.status_logs.questions).map(([questionId, question]) => (
               <div key={questionId} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Question {questionId}</h4>
@@ -255,6 +288,11 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
                 </div>
               </div>
             ))}
+            {!status.status_logs?.questions && (
+              <div className="text-center text-gray-500 py-4">
+                <p>No question analysis data available yet.</p>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

@@ -28,9 +28,26 @@ const FAQSection = () => {
       answer: "Students receive detailed AI feedback up to 30 minutes of submitting—eliminating delays from manual grading."
     },
     {
-      question: "Can I use Native on my phone?",
-      answer: "Not yet. Native is currently optimized for laptop or desktop use via Google Chrome to ensure the best recording and feedback experience."
-    }
+      question: "What is the speaking evaluation based on?",
+      answer: "Our AI evaluates fluency and coherence, grammar accuracy, pronunciation, and vocabulary to ensure consistent and objective scoring. Upon request, we can provide estimated benchmark scores for IELTS, TOEFL, and TOEIC."
+    },
+    {
+      question: "Can I review or override AI-generated scores?",
+      answer: "Absolutely. Teachers have full control to review recordings, make edits on feedback to maintain teaching standards and flexibility."
+    },
+    {
+      question: "How do I add my students? Are there any limits?",
+      answer: "Students can easily join your class using a class code—no setup needed. You can add as many students as you like without any limits."
+    },
+    {
+      question: "Can I assign a full mock speaking test for my students using Native?",
+      answer: "Yes, you can assign a full mock test experience. Native supports English Proficiency Speaking Test simulations such as IELTS, TOEFL, and TOEIC—provided the assignment is set up correctly. This gives students the opportunity to experience the actual test format along with detailed AI feedback"
+    },
+    {
+      question: "How quickly do students receive their speaking feedback?",
+      answer: "Students receive detailed AI feedback instantly, eliminating delays from manual grading."
+    },
+ 
   ];
 
   return (
