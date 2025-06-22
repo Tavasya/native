@@ -15,11 +15,8 @@ export const highlightText = (text: string, highlightedWords: string[]): string 
   return highlightedText;
 };
 
-export const extractHighlightedWords = (text: string): string[] => {
-  const words = text.split(/\s+/);
-  const highlightedWords: string[] = [];
-  
+export const extractHighlightedWords = (): string[] => {
   // This is a simple heuristic - in practice, the GPT response will provide the highlighted words
   // For now, we'll return an empty array and let the GPT response handle it
-  return highlightedWords;
+  return [];
 }; 

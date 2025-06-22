@@ -65,7 +65,7 @@ export class AzureSpeechService {
 
       const data = await response.json();
       console.log('Azure Speech API Response:', data);
-      return this.parsePronunciationResult(data, referenceText);
+      return this.parsePronunciationResult(data);
     } catch (error) {
       console.error('Pronunciation assessment error:', error);
       throw new Error('Failed to assess pronunciation');
@@ -105,8 +105,6 @@ export class AzureSpeechService {
   }
 
   private async resampleAndConvertToMono(audioBuffer: AudioBuffer, targetSampleRate: number): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    
     // Create offline context for resampling
     const offlineContext = new OfflineAudioContext(
       1, // mono
@@ -182,7 +180,7 @@ export class AzureSpeechService {
     return arrayBuffer;
   }
 
-  private parsePronunciationResult(data: any, referenceText: string): PronunciationAssessmentResult {
+  private parsePronunciationResult(data: any): PronunciationAssessmentResult {
     console.log('Parsing Azure response:', data);
     
     const wordScores: Array<{ word: string; score: number; phonemes: any[] }> = [];

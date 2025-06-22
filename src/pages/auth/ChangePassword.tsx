@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 export default function ChangePassword() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error, user } = useAppSelector(state => state.auth);
+  const { loading, error, user, role } = useAppSelector(state => state.auth);
   
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -50,7 +50,7 @@ export default function ChangePassword() {
       
       // Show success message and redirect
       alert('Password changed successfully');
-      navigate(`/${user?.role}/dashboard`);
+      navigate(`/${role}/dashboard`);
     }
   };
 

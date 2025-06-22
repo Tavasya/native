@@ -6,7 +6,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { improveTranscript, clearPractice, startRecording, stopRecording, setRecordingError, assessPronunciation } from '@/features/practice/practiceSlice';
-import { practiceService } from '@/features/practice/practiceService';
 import { RecordingService } from '@/features/practice/recordingService';
 
 interface SectionFeedback {

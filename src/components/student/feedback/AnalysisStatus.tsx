@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from "@/components/ui/progress";
@@ -50,7 +49,6 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
-  const navigate = useNavigate();
 
   const fetchStatus = useCallback(async () => {
     try {

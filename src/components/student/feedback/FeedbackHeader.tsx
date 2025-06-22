@@ -1,9 +1,8 @@
 // components/student/feedback/FeedbackHeader.tsx
 
 import React from 'react';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
 
 interface FeedbackHeaderProps {
   assignmentTitle: string;
@@ -19,19 +18,8 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   studentName,
   isAwaitingReview,
   onBack,
-  onSubmitAndSend,
-  submissionId
+  onSubmitAndSend
 }) => {
-  const navigate = useNavigate();
-
-  const handlePracticeClick = () => {
-    if (submissionId) {
-      navigate(`/student/practice/${submissionId}`);
-    } else {
-      navigate('/student/practice');
-    }
-  };
-  
   return (
     <div className="flex items-center justify-between">
       <Button
@@ -43,14 +31,6 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         Back
       </Button>
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          className="flex items-center gap-2"
-          onClick={handlePracticeClick}
-        >
-          <BookOpen className="h-4 w-4" />
-          Practice
-        </Button>
         {isAwaitingReview && (
           <Button
             variant="default"

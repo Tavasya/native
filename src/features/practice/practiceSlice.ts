@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PracticeState, PracticeRequest, PracticeResponse, PronunciationAssessmentState } from './practiceTypes';
+import { PracticeState, PracticeRequest, PracticeResponse } from './practiceTypes';
 import { practiceService } from './practiceService';
 
 const initialState: PracticeState = {
