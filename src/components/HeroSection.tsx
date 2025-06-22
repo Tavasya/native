@@ -1,6 +1,19 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { useAppSelector } from '@/app/hooks';
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const { user, role } = useAppSelector((state) => state.auth);
+
+  const handleTryNativeClick = () => {
+    if (user && role) {
+      navigate(`/${role}/dashboard`);
+    } else {
+      navigate('/sign-up');
+    }
+  };
+
   return (
     <section className="py-20 md:py-32 relative overflow-hidden">
       {/* Grid Background with Subtle Edge Fades */}
@@ -63,7 +76,7 @@ const HeroSection = () => {
             }}
           >
             <Button
-              onClick={() => window.location.href = "/sign-up"}
+              onClick={handleTryNativeClick}
               className="bg-brand-primary hover:bg-brand-primary/90 text-white px-8 text-lg py-[24px] transition-all duration-300 hover:scale-105"
             >
               Try Native Free

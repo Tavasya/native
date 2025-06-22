@@ -1,4 +1,4 @@
-import victoria from '@/lib/images/school/victoria.png';
+
 import sfsu from '@/lib/images/school/sfsu.png';
 import ucla from '@/lib/images/school/ucla.png';
 import lloyd from '@/lib/images/school/lloyd.png';
@@ -7,7 +7,6 @@ import viterbi from '@/lib/images/school/viterbi.png';
 
 const UniversityLogos = () => {
   const universities = [
-    { name: 'Victoria University', logo: victoria },
     { name: 'Lloyd Grief Center', logo: lloyd },
     { name: 'San Francisco State University', logo: sfsu, size: 'h-20 md:h-32 lg:h-44' },
     { name: 'USC', logo: usc },

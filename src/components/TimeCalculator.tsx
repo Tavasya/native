@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Clock } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
+import { useAppSelector } from '@/app/hooks';
+
 const TimeCalculator = () => {
   const [studentCount, setStudentCount] = useState(50);
+  const navigate = useNavigate();
+  const { user, role } = useAppSelector((state) => state.auth);
 
   // Calculate time saved based on 20 minutes per student per week
   const timePerStudent = 20; // minutes
   const totalMinutesSaved = studentCount * timePerStudent;
   const hoursSaved = Math.floor(totalMinutesSaved / 60);
   const minutesSaved = totalMinutesSaved % 60;
+  
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setStudentCount(parseInt(e.target.value));
   };
+
+  const handleStartSavingClick = () => {
+    if (user && role) {
+      navigate(`/${role}/dashboard`);
+    } else {
+      navigate('/sign-up');
+    }
+  };
+
   return <section className="bg-gradient-to-br from-brand-secondary/5 to-brand-primary/5 bg-inherit py-[30px]">
       <div className="container">
         <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -57,7 +72,7 @@ const TimeCalculator = () => {
               </ul>
 
               <div className="mt-8">
-                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={() => window.location.href = "/sign-up"}>
+                <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white w-full md:w-auto" onClick={handleStartSavingClick}>
                   Start Saving Time Today
                 </Button>
               </div>
