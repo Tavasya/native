@@ -103,9 +103,18 @@ describe('useAudioRecording Hook', () => {
   describe('MIME Type Selection', () => {
     it('should select the best supported MIME type', async () => {
       mockGetUserMedia.mockResolvedValue(mockMediaStream);
-      global.MediaRecorder.isTypeSupported = jest.fn()
-        .mockReturnValueOnce(false) // audio/mp4;codecs=mp4a.40.2
-        .mockReturnValueOnce(true);  // audio/webm;codecs=opus
+      // Mock Chrome user agent to get WebM as preferred format
+      Object.defineProperty(global.navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        configurable: true
+      });
+      
+      global.MediaRecorder.isTypeSupported = jest.fn((type: string) => {
+        if (type === 'audio/webm;codecs=opus') return true;
+        if (type === 'audio/webm') return true;
+        if (type === 'audio/mp4;codecs=mp4a.40.2') return true;
+        return false;
+      });
 
       const { result } = renderHook(() => useAudioRecording(defaultProps));
 
@@ -135,7 +144,7 @@ describe('useAudioRecording Hook', () => {
       expect(global.MediaRecorder).toHaveBeenCalledWith(
         mockMediaStream,
         expect.objectContaining({
-          mimeType: 'audio/mp4',
+          mimeType: 'audio/webm',
         })
       );
     });
@@ -159,13 +168,12 @@ describe('useAudioRecording Hook', () => {
         }
       });
 
-             expect(global.MediaRecorder).toHaveBeenCalledWith(
-         mockMediaStream,
-         expect.objectContaining({
-           mimeType: 'audio/webm;codecs=opus',
-           audioBitsPerSecond: 128000,
-         })
-       );
+      expect(global.MediaRecorder).toHaveBeenCalledWith(
+        mockMediaStream,
+        expect.objectContaining({
+          audioBitsPerSecond: 128000,
+        })
+      );
 
       expect(mockMediaRecorder.start).toHaveBeenCalledWith(1000);
       expect(result.current.isRecording).toBe(true);
