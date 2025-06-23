@@ -15,6 +15,11 @@ export interface SectionFeedback {
   review_status?: ReviewStatus;
   audio_url?: string;
   transcript?: string;
+  paragraph_restructuring?: {
+    target_band: string;
+    original_band: string;
+    improved_transcript: string;
+  };
   pronunciation?: {
     grade: number;
     issues: {

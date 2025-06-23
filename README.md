@@ -216,6 +216,43 @@ For technical support or questions:
 - Contact the development team
 - Check the documentation wiki
 
+## Improved Transcript Feature
+
+The improved transcript feature allows users to view an enhanced version of their original transcript. The enhanced version shows more sophisticated vocabulary and grammar structures.
+
+### How it works
+
+1. **Toggle Button**: When viewing feedback for a submission, if an improved transcript is available, a "Show Improved" button with a sparkles icon appears in the transcript section.
+
+2. **Enhanced Display**: When toggled on, the transcript shows:
+   - The improved version of the text
+   - A visual indicator showing the band level improvement (e.g., B2 → C1)
+   - A note explaining this is an enhanced version
+
+3. **Data Structure**: The improved transcript data should be included in the submission JSON under:
+   ```json
+   {
+     "section_feedback": {
+       "paragraph_restructuring": {
+         "target_band": "C1",
+         "original_band": "B2", 
+         "improved_transcript": "Enhanced version of the transcript..."
+       }
+     }
+   }
+   ```
+
+### Features
+
+- **Lightweight Toggle**: Simple button to switch between original and improved versions
+- **Visual Indicators**: Clear labeling and visual cues for the enhanced version
+- **Responsive Design**: Works on both desktop and mobile interfaces
+- **Backwards Compatible**: Gracefully handles submissions without improved transcripts
+
+### Usage
+
+The feature automatically detects when improved transcript data is available and shows the toggle button. Users can click to switch between versions at any time while viewing their feedback.
+
 ---
 
 **Native** - Transforming language education through intelligent assessment technology.
