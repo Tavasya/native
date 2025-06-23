@@ -198,6 +198,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
         }
       }));
 
+      // Only update database with real Supabase URL (not blob URL)
       await handleRecordingUpdate(questionId, uploadedUrl);
       
       // Mark upload as complete

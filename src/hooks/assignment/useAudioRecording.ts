@@ -14,35 +14,70 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   const audioChunks = useRef<Blob[]>([]);
   const recordingStartTime = useRef<number>(0);
 
-  // Get the best supported MIME type
+  // Get the best supported MIME type based on browser capabilities
   const getSupportedMimeType = (): string => {
-    const types = [
-      'audio/mp4;codecs=mp4a.40.2',  // Better metadata support and compatibility
-      'audio/webm;codecs=opus',      // Great compression
-      'audio/webm',
-      'audio/mp4',
-      'audio/ogg;codecs=opus',
-      'audio/mpeg'                   // Widely supported fallback
-    ];
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
+    const isChrome = userAgent.includes('chrome');
+    const isFirefox = userAgent.includes('firefox');
+    const isIOS = /iphone|ipad|ipod/.test(userAgent);
     
-    for (const type of types) {
+    // Browser-optimized format priority
+    let preferredTypes: string[] = [];
+    
+    if (isSafari || isIOS) {
+      // Safari/iOS handles MP4 natively and efficiently
+      preferredTypes = [
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4',
+        'audio/webm;codecs=opus',
+        'audio/webm'
+      ];
+    } else if (isChrome) {
+      // Chrome excels at WebM/Opus
+      preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/mp4'
+      ];
+    } else if (isFirefox) {
+      // Firefox prefers WebM/Opus and OGG
+      preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/ogg;codecs=opus',
+        'audio/webm',
+        'audio/mp4'
+      ];
+    } else {
+      // Default fallback priority
+      preferredTypes = [
+        'audio/webm;codecs=opus',
+        'audio/mp4;codecs=mp4a.40.2',
+        'audio/webm',
+        'audio/mp4'
+      ];
+    }
+    
+    // Find the best supported type for this browser
+    for (const type of preferredTypes) {
       if (MediaRecorder.isTypeSupported(type)) {
-        console.log('🎵 Using MIME type:', type);
+        console.log(`🎵 Using browser-optimized MIME type for ${isSafari ? 'Safari' : isChrome ? 'Chrome' : isFirefox ? 'Firefox' : 'Unknown'}:`, type);
         return type;
       }
     }
     
-    // Try to find any supported audio type
-    const fallbackTypes = ['audio/mp4', 'audio/webm', 'audio/ogg', 'audio/mpeg'];
+    // Final fallback - try any supported audio type
+    const fallbackTypes = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/mpeg'];
     for (const type of fallbackTypes) {
       if (MediaRecorder.isTypeSupported(type)) {
-        console.log('⚠️ Falling back to MIME type:', type);
+        console.log('⚠️ Using fallback MIME type:', type);
         return type;
       }
     }
     
-    console.warn('⚠️ No supported audio formats found, using audio/mp4 as last resort');
-    return 'audio/mp4'; // MP4 has better compatibility than WebM
+    console.warn('⚠️ No supported audio formats found, using audio/webm as last resort');
+    return 'audio/webm'; // WebM is most widely supported as fallback
   };
 
   const startRecording = useCallback(async () => {
