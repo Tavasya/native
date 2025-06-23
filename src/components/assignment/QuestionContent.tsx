@@ -42,6 +42,8 @@ interface QuestionContentProps {
   isAutoAdvancing?: boolean;
   isTest?: boolean;
   isProcessing?: boolean;
+  onRetry?: () => void;
+  hasRetried?: boolean;
   // Test mode prep time props
   isPrepTimeActive?: boolean;
   prepTimeRemaining?: number;
@@ -76,6 +78,8 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   isAutoAdvancing = false,
   isTest = false,
   isProcessing = false,
+  onRetry,
+  hasRetried = false,
   // Test mode prep time props
   isPrepTimeActive = false,
   prepTimeRemaining = 0,
@@ -165,8 +169,11 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
               isUploading={isUploading}
               hasUploadError={hasUploadError}
               isAutoAdvancing={isAutoAdvancing}
+              isTest={isTest}
+              hasRetried={hasRetried}
               onComplete={completeQuestion}
               onNext={onNextQuestion}
+              onRetry={onRetry}
             />
           </>
         )}

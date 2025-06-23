@@ -1,7 +1,7 @@
 // 📁 src/components/assignment/NavigationButton.tsx
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, RotateCcw } from "lucide-react";
 
 interface NavigationButtonProps {
   isLastQuestion: boolean;
@@ -11,8 +11,11 @@ interface NavigationButtonProps {
   isUploading?: boolean;
   hasUploadError?: boolean;
   isAutoAdvancing?: boolean;
+  isTest?: boolean;
+  hasRetried?: boolean;
   onComplete: () => void;
   onNext?: () => void;
+  onRetry?: () => void;
 }
 
 const NavigationButton: React.FC<NavigationButtonProps> = ({
@@ -23,8 +26,11 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
   isUploading = false,
   hasUploadError = false,
   isAutoAdvancing = false,
+  isTest = false,
+  hasRetried = false,
   onComplete,
-  onNext
+  onNext,
+  onRetry
 }) => {
   const handleClick = () => {
     if (isPreviewMode && !isLastQuestion && onNext) {
@@ -47,20 +53,34 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
 
   return (
     <div className="flex justify-end mt-4">
-      <Button
-        onClick={handleClick}
-        disabled={isDisabled}
-        className="flex items-center bg-[#272A69] hover:bg-[#272A69]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {buttonText}
-        {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
-      </Button>
-      {hasUploadError && (
-        <p className="text-sm text-red-600 mt-2">
-          Please retry recording - upload failed
-        </p>
-      )}
+      <div className="flex flex-col items-end">
+        <div className="flex space-x-2">
+          {hasUploadError && isTest && onRetry && !hasRetried && (
+            <Button
+              onClick={onRetry}
+              variant="outline"
+              className="flex items-center border-red-500 text-red-600 hover:bg-red-50"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Retry Question
+            </Button>
+          )}
+          <Button
+            onClick={handleClick}
+            disabled={isDisabled}
+            className="flex items-center bg-[#272A69] hover:bg-[#272A69]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {buttonText}
+            {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
+        </div>
+        {hasUploadError && (
+          <p className="text-sm text-red-600 mt-2">
+            {isTest ? "Network error - please retry this question" : "Please retry recording - upload failed"}
+          </p>
+        )}
+      </div>
     </div>
   );
 };

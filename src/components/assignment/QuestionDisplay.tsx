@@ -1,5 +1,5 @@
 // 📁 src/components/assignment/QuestionDisplay.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,16 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
+  const isGeneratingAudio = useRef(false);
 
   const handlePlayQuestion = useCallback(async () => {
+    // Prevent duplicate audio generation
+    if (isGeneratingAudio.current) {
+      return;
+    }
+    
     try {
+      isGeneratingAudio.current = true;
       setIsLoading(true);
       const cacheKey = `question_${currentQuestion.id}`;
       
@@ -49,6 +56,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
     } catch (error) {
       console.error('Error playing question audio:', error);
     } finally {
+      isGeneratingAudio.current = false;
       setIsLoading(false);
       dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));
     }
@@ -63,9 +71,10 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
     
     if (shouldAutoPlay && !hasAutoPlayed) {
       setHasAutoPlayed(true);
+      // Call handlePlayQuestion directly without dependency
       handlePlayQuestion();
     }
-  }, [currentQuestion.id, isTestMode, hasAutoPlayed, handlePlayQuestion]);
+  }, [currentQuestion.id, isTestMode, hasAutoPlayed]); // Removed handlePlayQuestion from dependencies
 
   // Reset auto-play flag when question changes
   useEffect(() => {

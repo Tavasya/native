@@ -20,7 +20,7 @@ import { useQuestionNavigation } from '@/hooks/assignment/useQuestionNavigation'
 import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { startTestGlobally } from '@/features/assignments/assignmentSlice';
+import { startTestGlobally, resetTestState } from '@/features/assignments/assignmentSlice';
 
 interface PreviewData {
   title: string;
@@ -93,14 +93,25 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         setHasRecorded(true);
         
         // ADD: Auto-progression for test mode (but not auto-submit)
+        // Wait a moment to allow upload status to update, then check for errors
         if (isTestMode && hasGloballyStarted && !isLastQuestion) {
           setIsAutoAdvancing(true);
           setTimeout(() => {
-            goToNextQuestion();
-            setIsAutoAdvancing(false);
-          }, 2000); // 2 second delay to show completion
+            // Check if upload succeeded before advancing
+            if (hasUploadError(currentQuestionIndex)) {
+              setIsAutoAdvancing(false);
+              toast({
+                title: "Upload Failed",
+                description: "Recording upload failed. Please retry before proceeding.",
+                variant: "destructive",
+              });
+            } else {
+              goToNextQuestion();
+              setIsAutoAdvancing(false);
+            }
+          }, 2000); // 2 second delay to show completion and allow upload status to update
         }
-      } catch (error) {
+      } catch {
         toast({
           title: "Recording Error",
           description: "Failed to save recording. Please try again.",
@@ -151,6 +162,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Local state for recording status
   const [hasRecorded, setHasRecorded] = useState(false);
   const [isAutoAdvancing, setIsAutoAdvancing] = useState(false); // Track when auto-advancing to next question
+  const [hasRetried, setHasRetried] = useState<Record<number, boolean>>({}); // Track which questions have been retried
 
   // Test mode state management
   const [hasStarted, setHasStarted] = useState(false); // Always start as false, will be set correctly after assignment loads
@@ -169,8 +181,14 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       const isTest = assignment.metadata?.isTest ?? false;
       // For non-test mode, start immediately. For test mode, wait for user to click start
       setHasStarted(!isTest);
+      
+      // Reset global test state for test mode assignments to always show start button
+      if (isTest && id) {
+        // This ensures the start button always shows when entering test mode
+        dispatch(resetTestState({ assignmentId: id }));
+      }
     }
-  }, [assignment]);
+  }, [assignment, id, dispatch]);
 
   // Question timer (now using actual isRecording state)
   const { timeRemaining, formatTime } = useQuestionTimer({
@@ -306,6 +324,9 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       // In test mode, hasRecorded is managed by the test state, not by existing recordings
       if (!isTestMode) {
         setHasRecorded(hasRecordingForQuestion(currentQuestionIndex));
+      } else {
+        // In test mode, reset hasRecorded for new questions (but not on first load)
+        setHasRecorded(false);
       }
       
       // Stop playback when changing questions
@@ -385,6 +406,46 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         variant: "destructive",
       });
     }
+  };
+
+  // Retry question handler for network errors
+  const retryQuestion = () => {
+    if (previewMode) {
+      toast({
+        title: "Preview Mode",
+        description: "Retry is disabled in preview mode",
+      });
+      return;
+    }
+
+    // Mark this question as retried (no more retries allowed)
+    setHasRetried(prev => ({
+      ...prev,
+      [currentQuestionIndex]: true
+    }));
+
+    // Reset recording state for current question
+    setHasRecorded(false);
+    
+    // In test mode, reset to prep time phase for current question
+    if (isTestMode && hasGloballyStarted) {
+      // Reset all timers and start prep time for this question
+      resetAllTimers();
+      setTimerResetTrigger(prev => prev + 1);
+      
+      // Set hasStarted to true so record button shows
+      setHasStarted(true);
+      
+      // Start prep time phase for the current question
+      setTimeout(() => {
+        startPrepTimePhase();
+      }, 100);
+    }
+
+    toast({
+      title: "Question Reset",
+      description: "You can now record your answer again.",
+    });
   };
 
   // Complete question handler
@@ -504,6 +565,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     formatPrepTime={formatPrepTime}
                     onStartPrepTime={handleStartTest}
                     showStartButton={isTestMode && !hasGloballyStarted && currentQuestionIndex === 0}
+                    onRetry={retryQuestion}
+                    hasRetried={hasRetried[currentQuestionIndex] || false}
                   />
                 )}
               </TooltipProvider>

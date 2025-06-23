@@ -90,7 +90,10 @@ export async function validateAudioBlob(blob: Blob): Promise<{
           });
         
         if (!ftypFound) {
-          console.warn('MP4 file missing ftyp box - may still be valid');
+          // Only warn in development, not during tests
+          if (process.env.NODE_ENV !== 'test') {
+            console.warn('MP4 file missing ftyp box - may still be valid');
+          }
           // Don't fail for MP4 files missing ftyp, as some recorders create valid MP4s without it
         }
       }

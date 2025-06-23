@@ -4,7 +4,13 @@
       "Bash(mkdir:*)",
       "Bash(cp:*)",
       "Bash(rm:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
