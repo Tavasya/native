@@ -1,5 +1,5 @@
 // 📁 src/hooks/useRecordingSession.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { saveRecording, loadRecordings } from '@/features/submissions/submissionsSlice';
 import { uploadQuestionRecording } from '@/features/submissions/submissionThunks';
@@ -11,18 +11,30 @@ interface UseRecordingSessionProps {
   userId: string | null;
   assignment: Assignment | null;
   toast: any;
+  redoSubmissionId?: string; // Optional: ID of the submission to redo
 }
 
-export const useRecordingSession = ({ assignmentId, userId, assignment, toast }: UseRecordingSessionProps) => {
+interface SessionRecording {
+  url: string;
+  createdAt: string;
+  uploadedUrl: string;
+}
+
+export const useRecordingSession = ({ assignmentId, userId, assignment, toast, redoSubmissionId }: UseRecordingSessionProps) => {
   const dispatch = useAppDispatch();
   const [sessionRecordings, setSessionRecordings] = useState<{
-    [index: string]: { url: string; createdAt: string; uploadedUrl: string }
+    [index: string]: SessionRecording
   }>({});
   const [audioUrlCache, setAudioUrlCache] = useState<{ [key: string]: string }>({});
   
   // Add upload tracking state
   const [uploadingQuestions, setUploadingQuestions] = useState<Set<number>>(new Set());
   const [uploadErrors, setUploadErrors] = useState<{ [questionIndex: number]: string }>({});
+  
+  // Use sessionStorage to track if recordings have been copied from previous attempt (persists across refreshes)
+  const getCopiedKey = useCallback((assignmentId: string, attempt: number) => {
+    return `recordingsCopied:${assignmentId}:${attempt}`;
+  }, []);
 
   const recordingsData = useAppSelector(state => 
     assignmentId ? state.submissions.recordings?.[assignmentId] : undefined
@@ -31,6 +43,21 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
   useEffect(() => {
     dispatch(loadRecordings());
   }, [dispatch]);
+
+  // Clean up old sessionStorage entries when assignment changes
+  useEffect(() => {
+    if (assignmentId) {
+      // Clear any old sessionStorage entries for this assignment
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(`recordingsCopied:${assignmentId}:`)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => sessionStorage.removeItem(key));
+    }
+  }, [assignmentId]);
 
   const getStoragePath = useCallback((fullUrl: string) => {
     try {
@@ -46,30 +73,284 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     }
   }, []);
 
+  // Helper function to normalize recordings to the correct format
+  const normalizeRecordings = useCallback((recordings: any[], assignment: Assignment) => {
+    if (!Array.isArray(recordings)) return [];
+    
+    return recordings.map((recording, index) => {
+      // Always convert to {audioUrl, questionId} format
+      let audioUrl: string | null = null;
+      let questionId: string | null = null;
+      
+      // Handle different input formats
+      if (typeof recording === 'string' && recording.trim()) {
+        // Original format: string URL
+        audioUrl = recording.trim();
+        // Find questionId by index
+        const question = assignment.questions[index];
+        questionId = question?.id || null;
+      } else if (recording && typeof recording === 'object') {
+        // Handle object format - could be {audioUrl, questionId} or {url, questionId} or just {audioUrl}
+        audioUrl = recording.audioUrl || recording.url || null;
+        questionId = recording.questionId || null;
+        
+        // If no questionId found, try to infer from index
+        if (!questionId && audioUrl) {
+          const question = assignment.questions[index];
+          questionId = question?.id || null;
+        }
+      }
+      
+      // Only return valid recordings
+      if (audioUrl && questionId) {
+        return {
+          audioUrl: audioUrl,
+          questionId: questionId
+        };
+      }
+      
+      // If we can't normalize this recording, return null (will be filtered out)
+      return null;
+    }).filter(Boolean); // Remove null entries
+  }, []);
+
   const loadExistingSubmission = useCallback(async () => {
     if (!assignmentId || !userId || !assignment) return;
 
+    console.log('🔄 loadExistingSubmission called with:', {
+      assignmentId,
+      userId,
+      redoSubmissionId,
+      assignmentQuestionsCount: assignment?.questions?.length
+    });
+
     try {
+      let latestSubmission;
+      let previousSubmission;
+
+      if (redoSubmissionId) {
+        // 1️⃣ Load exactly the submission they want to "redo"
+        console.log('🎯 Loading specific redo submission:', redoSubmissionId);
+        const { data: sub, error } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('id', redoSubmissionId)
+          .single();
+        
+        if (error || !sub) {
+          console.error('Error loading redo submission:', error);
+          return;
+        }
+        latestSubmission = sub;
+
+        // 2️⃣ Find the submission immediately *before* that one
+        const { data: prev, error: prevErr } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('assignment_id', assignmentId)
+          .eq('student_id', userId)
+          .lt('attempt', sub.attempt) // Anything with a lower attempt number
+          .order('attempt', { ascending: false })
+          .limit(1);
+        
+        if (prevErr) {
+          console.error('Error loading previous submission:', prevErr);
+        }
+        previousSubmission = prev?.[0] ?? null;
+
+        console.log('📊 Redo submission analysis:', {
+          redoSubmission: {
+            id: latestSubmission.id,
+            attempt: latestSubmission.attempt,
+            status: latestSubmission.status,
+            recordingsCount: latestSubmission.recordings?.length || 0
+          },
+          previousSubmission: previousSubmission ? {
+            id: previousSubmission.id,
+            attempt: previousSubmission.attempt,
+            status: previousSubmission.status,
+            recordingsCount: previousSubmission.recordings?.length || 0
+          } : null
+        });
+
+      } else {
+        // Fallback to old behavior: "give me the top 2 most recent"
+        console.log('📋 Loading most recent submissions (fallback)');
       const { data: existingSubmissions, error } = await supabase
         .from('submissions')
         .select('*')
         .eq('assignment_id', assignmentId)
         .eq('student_id', userId)
-        .order('submitted_at', { ascending: false })
-        .limit(1);
+          .order('attempt', { ascending: false })
+          .limit(2);
 
       if (error) {
         console.error('Error loading existing submission:', error);
         return;
       }
 
-      if (existingSubmissions?.[0]) {
-        const submission = existingSubmissions[0];
-        const recordings = Array.isArray(submission.recordings) 
-          ? submission.recordings 
-          : JSON.parse(submission.recordings);
+        if (existingSubmissions?.length > 0) {
+          latestSubmission = existingSubmissions[0];
+          previousSubmission = existingSubmissions[1]; // Previous attempt if exists
+          
+          console.log('📊 Loading submissions:', {
+            latest: {
+              id: latestSubmission.id,
+              attempt: latestSubmission.attempt,
+              status: latestSubmission.status,
+              recordingsCount: latestSubmission.recordings?.length || 0
+            },
+            previous: previousSubmission ? {
+              id: previousSubmission.id,
+              attempt: previousSubmission.attempt,
+              status: previousSubmission.status,
+              recordingsCount: previousSubmission.recordings?.length || 0
+            } : null
+          });
+        } else {
+          return; // No submissions found
+        }
+      }
 
-        recordings.forEach((recording: any) => {
+      // Check if we've already copied recordings for this attempt
+      const copiedKey = getCopiedKey(assignmentId, latestSubmission.attempt);
+      const hasCopiedFromPrevious = sessionStorage.getItem(copiedKey) === 'true';
+      
+      console.log('📊 Processing submissions:', {
+        latest: {
+          id: latestSubmission.id,
+          attempt: latestSubmission.attempt,
+          status: latestSubmission.status,
+          recordingsCount: latestSubmission.recordings?.length || 0
+        },
+        previous: previousSubmission ? {
+          id: previousSubmission.id,
+          attempt: previousSubmission.attempt,
+          status: previousSubmission.status,
+          recordingsCount: previousSubmission.recordings?.length || 0
+        } : null,
+        hasCopiedFromPrevious
+      });
+
+      // Check if the latest submission already has recordings (meaning we've already copied them)
+      const hasRecordings = latestSubmission.recordings && 
+        Array.isArray(latestSubmission.recordings) && 
+        latestSubmission.recordings.length > 0;
+
+      // If latest submission is in_progress and there's a previous submission, 
+      // copy recordings from the previous attempt to the new attempt
+      // BUT only if recordings weren't already copied during submission creation
+      if (latestSubmission.status === 'in_progress' && !hasCopiedFromPrevious && !hasRecordings) {
+        // Only copy from the most recent previous attempt as a fallback
+        // The primary copy should happen in the createInProgressSubmission thunk
+        if (previousSubmission && previousSubmission.recordings) {
+          console.log('🔄 Fallback: Copying recordings from previous attempt:', {
+            fromAttempt: previousSubmission.attempt,
+            toAttempt: latestSubmission.attempt
+          });
+          
+          const recordingsToCopy = Array.isArray(previousSubmission.recordings) 
+            ? previousSubmission.recordings 
+            : JSON.parse(previousSubmission.recordings);
+
+          // Normalize recordings to ensure they're in the correct format
+          const normalizedRecordings = normalizeRecordings(recordingsToCopy, assignment);
+          
+          console.log('📝 Normalized recordings:', normalizedRecordings);
+
+          // Copy normalized recordings to the new in-progress submission
+          const { error: updateError } = await supabase
+            .from('submissions')
+            .update({ 
+              recordings: normalizedRecordings 
+            })
+            .eq('id', latestSubmission.id);
+
+          if (updateError) {
+            console.error('Error copying recordings to new attempt:', updateError);
+            return;
+          }
+
+          console.log('✅ Successfully copied normalized recordings to new attempt');
+          
+          // Mark that we've copied recordings to prevent duplicate copying (persists across refreshes)
+          sessionStorage.setItem(copiedKey, 'true');
+
+          // Now load the normalized recordings as normal (they're now part of the current submission)
+          normalizedRecordings.forEach((recording: any) => {
+            if (recording && recording.questionId && recording.audioUrl) {
+              const questionIndex = assignment.questions.findIndex(q => q.id === recording.questionId);
+              if (questionIndex !== -1) {
+                const cacheKey = `${assignmentId}-${questionIndex}`;
+                if (audioUrlCache[cacheKey]) {
+                  setSessionRecordings(prev => ({
+                    ...prev,
+                    [questionIndex]: {
+                      url: audioUrlCache[cacheKey],
+                      createdAt: latestSubmission.submitted_at,
+                      uploadedUrl: recording.audioUrl
+                    }
+                  }));
+                } else {
+                  const storagePath = getStoragePath(recording.audioUrl);
+                  
+                  supabase.storage
+                    .from('recordings')
+                    .createSignedUrl(storagePath, 3600)
+                    .then(({ data: signedUrl, error }) => {
+                      if (error) {
+                        console.error('❌ Signed URL error:', error);
+                        return;
+                      }
+                      
+                      if (signedUrl) {
+                        console.log('✅ Full signed URL generated:', signedUrl.signedUrl);
+                        console.log('🔗 URL length:', signedUrl.signedUrl.length);
+                        
+                        // Cache the URL
+                        setAudioUrlCache(prev => ({
+                          ...prev,
+                          [cacheKey]: signedUrl.signedUrl
+                        }));
+                        
+                        setSessionRecordings(prev => ({
+                          ...prev,
+                          [questionIndex]: {
+                            url: signedUrl.signedUrl,
+                            createdAt: latestSubmission.submitted_at,
+                            uploadedUrl: recording.audioUrl
+                          }
+                        }));
+                      }
+                    })
+                    .catch(error => {
+                      console.error('Error getting signed URL:', error);
+                      setSessionRecordings(prev => ({
+                        ...prev,
+                        [questionIndex]: {
+                          url: recording.audioUrl,
+                          createdAt: latestSubmission.submitted_at,
+                          uploadedUrl: recording.audioUrl
+                        }
+                      }));
+                    });
+                }
+              }
+            }
+          });
+        }
+      } else if (latestSubmission.status === 'in_progress' && (hasCopiedFromPrevious || hasRecordings)) {
+        // If we've already copied recordings or the submission already has recordings, just load them normally
+        console.log('📋 Loading recordings from current in-progress submission (already copied from previous or has recordings)');
+        
+        const recordings = Array.isArray(latestSubmission.recordings) 
+          ? latestSubmission.recordings 
+          : JSON.parse(latestSubmission.recordings);
+
+        // Normalize recordings for the normal flow too
+        const normalizedRecordings = normalizeRecordings(recordings, assignment);
+
+        normalizedRecordings.forEach((recording: any) => {
           if (recording && recording.questionId && recording.audioUrl) {
             const questionIndex = assignment.questions.findIndex(q => q.id === recording.questionId);
             if (questionIndex !== -1) {
@@ -79,7 +360,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
                   ...prev,
                   [questionIndex]: {
                     url: audioUrlCache[cacheKey],
-                    createdAt: submission.submitted_at,
+                    createdAt: latestSubmission.submitted_at,
                     uploadedUrl: recording.audioUrl
                   }
                 }));
@@ -109,7 +390,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
                         ...prev,
                         [questionIndex]: {
                           url: signedUrl.signedUrl,
-                          createdAt: submission.submitted_at,
+                          createdAt: latestSubmission.submitted_at,
                           uploadedUrl: recording.audioUrl
                         }
                       }));
@@ -121,7 +402,79 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
                       ...prev,
                       [questionIndex]: {
                         url: recording.audioUrl,
-                        createdAt: submission.submitted_at,
+                        createdAt: latestSubmission.submitted_at,
+                        uploadedUrl: recording.audioUrl
+                      }
+                    }));
+                  });
+              }
+            }
+          }
+        });
+      } else {
+        // Load recordings from the latest submission (normal flow)
+        console.log('📋 Loading recordings from latest submission (normal flow)');
+        
+        const recordings = Array.isArray(latestSubmission.recordings) 
+          ? latestSubmission.recordings 
+          : JSON.parse(latestSubmission.recordings);
+
+        // Normalize recordings for the normal flow too
+        const normalizedRecordings = normalizeRecordings(recordings, assignment);
+
+        normalizedRecordings.forEach((recording: any) => {
+          if (recording && recording.questionId && recording.audioUrl) {
+            const questionIndex = assignment.questions.findIndex(q => q.id === recording.questionId);
+            if (questionIndex !== -1) {
+              const cacheKey = `${assignmentId}-${questionIndex}`;
+              if (audioUrlCache[cacheKey]) {
+                setSessionRecordings(prev => ({
+                  ...prev,
+                  [questionIndex]: {
+                    url: audioUrlCache[cacheKey],
+                    createdAt: latestSubmission.submitted_at,
+                    uploadedUrl: recording.audioUrl
+                  }
+                }));
+              } else {
+                const storagePath = getStoragePath(recording.audioUrl);
+                
+                supabase.storage
+                  .from('recordings')
+                  .createSignedUrl(storagePath, 3600)
+                  .then(({ data: signedUrl, error }) => {
+                    if (error) {
+                      console.error('❌ Signed URL error:', error);
+                      return;
+                    }
+                    
+                    if (signedUrl) {
+                      console.log('✅ Full signed URL generated:', signedUrl.signedUrl);
+                      console.log('🔗 URL length:', signedUrl.signedUrl.length);
+                      
+                      // Cache the URL
+                      setAudioUrlCache(prev => ({
+                        ...prev,
+                        [cacheKey]: signedUrl.signedUrl
+                      }));
+                      
+                      setSessionRecordings(prev => ({
+                        ...prev,
+                        [questionIndex]: {
+                          url: signedUrl.signedUrl,
+                          createdAt: latestSubmission.submitted_at,
+                          uploadedUrl: recording.audioUrl
+                        }
+                      }));
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error getting signed URL:', error);
+                    setSessionRecordings(prev => ({
+                      ...prev,
+                      [questionIndex]: {
+                        url: recording.audioUrl,
+                        createdAt: latestSubmission.submitted_at,
                         uploadedUrl: recording.audioUrl
                       }
                     }));
@@ -134,7 +487,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     } catch (error) {
       console.error('Error processing submission:', error);
     }
-  }, [assignmentId, userId, assignment, audioUrlCache, getStoragePath]);
+  }, [assignmentId, userId, assignment, audioUrlCache, getStoragePath, normalizeRecordings, getCopiedKey, redoSubmissionId]);
 
   const saveNewRecording = useCallback(async (
     questionIndex: number,
@@ -146,12 +499,13 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     const stableUrl = URL.createObjectURL(audioBlob);
 
     // Update session recordings immediately with stable URL
+    // If this replaces a previous attempt recording, remove the flag
     setSessionRecordings(prev => ({
       ...prev,
       [questionIndex]: {
         url: stableUrl, // Use stable URL for playback
         createdAt: new Date().toISOString(),
-        uploadedUrl: stableUrl // Will be updated with Supabase URL later
+        uploadedUrl: stableUrl, // Will be updated with Supabase URL later
       }
     }));
 

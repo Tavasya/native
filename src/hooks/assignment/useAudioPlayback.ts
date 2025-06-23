@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { getPlayableRecordingUrl } from '@/utils/recordingUtils';
 
 interface UseAudioPlaybackProps {
   onError: (error: string) => void;
@@ -20,8 +21,12 @@ export const useAudioPlayback = ({ onError }: UseAudioPlaybackProps) => {
 
     const audio = audioRef.current;
     
+    // Normalize the audio URL to handle different formats
+    const normalizedUrl = getPlayableRecordingUrl(audioUrl);
+    console.log('🎵 Normalized URL:', { original: audioUrl, normalized: normalizedUrl });
+    
     // Simple approach - just set src and play
-    audio.src = audioUrl;
+    audio.src = normalizedUrl;
     audio.volume = 1.0;
     
     audio.play()

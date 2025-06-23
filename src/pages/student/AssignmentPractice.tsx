@@ -7,7 +7,7 @@ import QuestionContent from '@/components/assignment/QuestionContent';
 import QuestionNavigation from '@/components/assignment/QuestionNavigation';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Custom Hooks
@@ -21,6 +21,7 @@ import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { startTestGlobally } from '@/features/assignments/assignmentSlice';
+import { checkExistingSubmission } from '@/features/submissions/submissionThunks';
 
 interface PreviewData {
   title: string;
@@ -52,6 +53,9 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     state.assignments.testMode?.hasGloballyStarted?.[id || ''] || false
   );
   
+  // Resubmission state
+  const { existingSubmission, showChoiceModal } = useAppSelector(state => state.submissions);
+  
   // User authentication
   const [userId, setUserId] = useState<string | null>(null);
   const [isCompleted] = useState(false);
@@ -77,7 +81,8 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     assignmentId: id || 'preview',
     userId,
     assignment,
-    toast
+    toast,
+    redoSubmissionId: undefined // Remove redo logic from practice page
   });
 
   // Audio recording
@@ -285,6 +290,18 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     getUserId();
   }, []);
 
+  // Check for existing submissions when user and assignment are loaded
+  useEffect(() => {
+    if (!previewMode && userId && id && assignment) {
+      console.log('🔍 Checking for existing submissions:', { 
+        userId, 
+        assignmentId: id,
+        assignmentTitle: assignment.title 
+      });
+      dispatch(checkExistingSubmission({ userId, assignmentId: id }));
+    }
+  }, [dispatch, userId, id, previewMode, assignment]);
+
   // Load existing submissions
   useEffect(() => {
     loadExistingSubmission();
@@ -440,6 +457,66 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Loading and error states
   if (loading) return <div>Loading...</div>;
   if (!assignment) return <div>Assignment not found</div>;
+
+  // Show access denied message if existing submission found (instead of modal)
+  if (showChoiceModal && !previewMode) {
+    const getStatusText = () => {
+      switch (existingSubmission.status) {
+        case 'pending':
+          return 'Submitted (Pending Analysis)';
+        case 'awaiting_review':
+          return 'Under Review';
+        case 'graded':
+          return 'Completed & Graded';
+        default:
+          return 'Submitted';
+      }
+    };
+
+    const attemptText = existingSubmission.attempt && existingSubmission.attempt > 1 
+      ? `(Attempt ${existingSubmission.attempt})` 
+      : '';
+
+    return (
+      <div className="container mx-auto px-4 min-h-screen flex flex-col">
+        <div className="flex items-center gap-4 py-4">
+          <Button
+            variant="ghost"
+            className="flex items-center gap-2"
+            onClick={handleBack}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-md mx-auto text-center">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+              <div className="flex items-center justify-center mb-4">
+                <AlertCircle className="h-12 w-12 text-yellow-600" />
+              </div>
+              <h2 className="text-xl font-semibold text-yellow-800 mb-2">
+                Assignment Already Submitted
+              </h2>
+              <p className="text-yellow-700 mb-4">
+                You've already submitted this assignment {attemptText} and it's currently {getStatusText().toLowerCase()}.
+              </p>
+              <p className="text-yellow-600 text-sm mb-6">
+                To redo this assignment, please visit your submission feedback page and use the "Redo Assignment" button.
+              </p>
+              <Button
+                onClick={() => navigate(`/student/submission/${existingSubmission.id}`)}
+                className="w-full"
+              >
+                View Submission & Results
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Fix showRecordButton logic for test mode - now allows recording during prep time
   const showRecordButton = !previewMode && 

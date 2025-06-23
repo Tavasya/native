@@ -269,4 +269,8 @@ export interface SubmissionsState {
   
   // ✅ NEW: UI state moved to Redux
   ui: UIState;
+  
+  // ✅ NEW: Resubmission state
+  existingSubmission: Submission | null;
+  showChoiceModal: boolean;
 }

@@ -17,7 +17,9 @@ import {
   updateSubmission, 
   deleteSubmission,
   fetchSubmissionsByAssignmentAndStudent,
-  submitAudioAndAnalyze
+  submitAudioAndAnalyze,
+  checkExistingSubmission,
+  createInProgressSubmission
 } from './submissionThunks';
 
 // ✅ Initial editing state
@@ -68,6 +70,9 @@ const initialState: SubmissionsState = {
   },
   editing: initialEditingState,
   ui: initialUIState,
+  // Add resubmission state
+  existingSubmission: null,
+  showChoiceModal: false,
 };
 
 // Helper function to detect report version and format
@@ -371,6 +376,18 @@ const submissionsSlice = createSlice({
       state.editing.operations[operation] = loading;
     },
 
+    // ========== RESUBMISSION ACTIONS ==========
+    
+    hideChoiceModal: (state) => {
+      state.showChoiceModal = false;
+      state.existingSubmission = null;
+    },
+
+    clearExistingSubmission: (state) => {
+      state.existingSubmission = null;
+      state.showChoiceModal = false;
+    },
+
     // ========== EXISTING RECORDING ACTIONS (UNCHANGED) ==========
     saveRecording(state, action: PayloadAction<{
       assignmentId: string;
@@ -571,6 +588,51 @@ const submissionsSlice = createSlice({
       .addCase(submitAudioAndAnalyze.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      })
+
+      // Check existing submission for resubmission flow
+      .addCase(checkExistingSubmission.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(checkExistingSubmission.fulfilled, (state, action) => {
+        state.loading = false;
+        if (action.payload) {
+          // Found existing completed submission - show choice modal
+          console.log('✅ Found completed submission - showing choice modal');
+          state.existingSubmission = action.payload;
+          state.showChoiceModal = true;
+        } else {
+          // No existing submission OR submission is in_progress - proceed normally
+          console.log('✅ No completed submission found - proceeding to practice');
+          state.existingSubmission = null;
+          state.showChoiceModal = false;
+        }
+      })
+      .addCase(checkExistingSubmission.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        state.existingSubmission = null;
+        state.showChoiceModal = false;
+      })
+
+      // Create in-progress submission for new attempt
+      .addCase(createInProgressSubmission.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createInProgressSubmission.fulfilled, (state, action) => {
+        state.loading = false;
+        state.showChoiceModal = false;
+        state.existingSubmission = null;
+        
+        // Add new in-progress submission to list
+        const normalizedSubmission = normalizeSectionFeedback(action.payload);
+        state.submissions.unshift(normalizedSubmission);
+      })
+      .addCase(createInProgressSubmission.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
@@ -610,6 +672,10 @@ export const {
   
   // ✅ NEW: Operation actions
   setOperationLoading,
+  
+  // ✅ NEW: Resubmission actions
+  hideChoiceModal,
+  clearExistingSubmission,
 } = submissionsSlice.actions;
 
 export default submissionsSlice.reducer;

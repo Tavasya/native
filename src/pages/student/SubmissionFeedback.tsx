@@ -12,9 +12,16 @@ import PendingSubmission from '@/components/student/PendingSubmission';
 // Import custom hooks
 import { useSubmissionState } from '@/hooks/feedback/useStateSubmission';
 import { useSubmissionHandlers } from '@/hooks/feedback/useStateHandlers';
+import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '@/app/hooks';
+import { createInProgressSubmission } from '@/features/submissions/submissionThunks';
+import { useToast } from "@/hooks/use-toast";
 
 const SubmissionFeedback = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
+  const navigate = useNavigate();
+  const reduxDispatch = useAppDispatch();
+  const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Get all state from custom hook
@@ -81,6 +88,41 @@ const SubmissionFeedback = () => {
     setVocabularyOpen({ ...vocabularyOpen, [key]: !vocabularyOpen[key] });
   };
 
+  // Handle redo assignment
+  const handleRedoAssignment = async () => {
+    if (!selectedSubmission?.student_id || !selectedSubmission?.assignment_id) {
+      toast({
+        title: "Error",
+        description: "Missing submission information",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await reduxDispatch(createInProgressSubmission({ 
+        userId: selectedSubmission.student_id, 
+        assignmentId: selectedSubmission.assignment_id,
+        sourceSubmissionId: selectedSubmission.id
+      })).unwrap();
+
+      toast({
+        title: "New Attempt Started",
+        description: "You can now start recording your new submission",
+      });
+
+      // Navigate to assignment practice page
+      navigate(`/student/assignment/${selectedSubmission.assignment_id}/practice`);
+    } catch (error) {
+      console.error('Error creating new attempt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new attempt. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -143,6 +185,9 @@ const SubmissionFeedback = () => {
             onBack={handleBack}
             onSubmitAndSend={handleSubmitAndSend}
             submissionId={submissionId}
+            assignmentId={selectedSubmission.assignment_id}
+            showRedoButton={role === 'student'}
+            onRedo={handleRedoAssignment}
           />
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
             <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Report</h2>
@@ -167,6 +212,9 @@ const SubmissionFeedback = () => {
           onBack={handleBack}
           onSubmitAndSend={handleSubmitAndSend}
           submissionId={submissionId}
+          assignmentId={selectedSubmission.assignment_id}
+          showRedoButton={role === 'student'}
+          onRedo={handleRedoAssignment}
         />
 
         <SubmissionInfo

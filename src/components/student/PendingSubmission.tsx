@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { Submission } from '@/features/submissions/types';
+import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '@/app/hooks';
+import { createInProgressSubmission } from '@/features/submissions/submissionThunks';
+import { useToast } from "@/hooks/use-toast";
 import AnalysisStatus from './feedback/AnalysisStatus';
 
 interface PendingSubmissionProps {
@@ -12,9 +16,14 @@ interface PendingSubmissionProps {
 }
 
 const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBack }) => {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { toast } = useToast();
+  
   const [isPolling, setIsPolling] = useState(true);
   const [currentSubmission, setCurrentSubmission] = useState(submission);
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingNewAttempt, setIsCreatingNewAttempt] = useState(false);
 
   // Poll for status updates
   useEffect(() => {
@@ -96,10 +105,43 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
     return '';
   };
 
+  const handleRedoAssignment = async () => {
+    if (!submission.student_id || !submission.assignment_id || isCreatingNewAttempt) {
+      return;
+    }
+
+    setIsCreatingNewAttempt(true);
+
+    try {
+      await dispatch(createInProgressSubmission({ 
+        userId: submission.student_id, 
+        assignmentId: submission.assignment_id,
+        sourceSubmissionId: submission.id
+      })).unwrap();
+
+      toast({
+        title: "New Attempt Started",
+        description: "You can now start recording your new submission",
+      });
+
+      // Navigate to assignment practice page
+      navigate(`/student/assignment/${submission.assignment_id}/practice`);
+    } catch (error) {
+      console.error('Error creating new attempt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new attempt. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingNewAttempt(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
             className="flex items-center gap-2"
@@ -107,6 +149,16 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
+          </Button>
+          
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={handleRedoAssignment}
+            disabled={isCreatingNewAttempt}
+          >
+            <RefreshCw className={`h-4 w-4 ${isCreatingNewAttempt ? 'animate-spin' : ''}`} />
+            {isCreatingNewAttempt ? 'Starting New Attempt...' : 'Redo Assignment'}
           </Button>
         </div>
 

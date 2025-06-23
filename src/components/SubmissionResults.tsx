@@ -4,6 +4,9 @@ import { useRealtimeSubmission } from '@/hooks/feedback/useRealtimeSubmission';
 import { RootState } from '@/app/store';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '@/app/hooks';
+import { createInProgressSubmission } from '@/features/submissions/submissionThunks';
+import { useToast } from "@/hooks/use-toast";
 
 const ResultsContainer = styled.div`
   padding: 24px;
@@ -86,8 +89,11 @@ const RetryButton = styled.button`
 
 export function SubmissionResults() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { toast } = useToast();
   const { selectedSubmission, submissions, loading, error } = useSelector((state: RootState) => state.submissions);
   const [selectedAttempt, setSelectedAttempt] = useState<number>(0);
+  const [isCreatingNewAttempt, setIsCreatingNewAttempt] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   useRealtimeSubmission(selectedSubmission?.id);
@@ -103,10 +109,42 @@ export function SubmissionResults() {
 
   const currentSubmission = assignmentSubmissions[selectedAttempt];
 
-  const handleRetry = () => {
-    navigate(`/student/assignment/${selectedSubmission.assignment_id}`, { 
-      state: { isRetry: true } 
-    });
+  // Safety check - if no submissions found or current submission doesn't exist
+  if (!currentSubmission) {
+    return <div>No submission data available</div>;
+  }
+
+  const handleRetry = async () => {
+    if (!selectedSubmission?.student_id || !selectedSubmission?.assignment_id || isCreatingNewAttempt) {
+      return;
+    }
+
+    setIsCreatingNewAttempt(true);
+
+    try {
+      await dispatch(createInProgressSubmission({ 
+        userId: selectedSubmission.student_id, 
+        assignmentId: selectedSubmission.assignment_id,
+        sourceSubmissionId: selectedSubmission.id
+      })).unwrap();
+
+      toast({
+        title: "New Attempt Started",
+        description: "You can now start recording your new submission",
+      });
+
+      // Navigate to assignment practice page
+      navigate(`/student/assignment/${selectedSubmission.assignment_id}/practice`);
+    } catch (error) {
+      console.error('Error creating new attempt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new attempt. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingNewAttempt(false);
+    }
   };
 
   // Handle attempt change
@@ -189,8 +227,8 @@ export function SubmissionResults() {
         );
       })}
 
-      <RetryButton onClick={handleRetry}>
-        Retry Assignment
+      <RetryButton onClick={handleRetry} disabled={isCreatingNewAttempt}>
+        {isCreatingNewAttempt ? 'Starting New Attempt...' : 'Retry Assignment'}
       </RetryButton>
     </ResultsContainer>
   );

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import AudioPlayer, { RHAP_UI } from 'react-h5-audio-player';
 import 'react-h5-audio-player/lib/styles.css';
+import { getPlayableRecordingUrl } from '@/utils/recordingUtils';
 
 interface AudioPlayerProps {
   hasRecorded: boolean;
@@ -11,24 +12,32 @@ interface AudioPlayerProps {
 }
 
 
-const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
+const CustomAudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(
   ({ hasRecorded, isRecording, onTimeUpdate, audioUrl }, ref) => {
-    const localAudioRef = useRef<any>(null);
+    const localAudioRef = useRef<HTMLAudioElement>(null);
     useImperativeHandle(ref, () => localAudioRef.current);
-    const [_isLoading, setIsLoading] = useState(false);
-    const [_loadProgress, setLoadProgress] = useState(0);
+    const [isLoading, setIsLoading] = useState(false);
+    const [loadProgress, setLoadProgress] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const hasLoaded = useRef(false);
+    
+    // Normalize the audio URL to handle different formats
+    const normalizedAudioUrl = audioUrl ? getPlayableRecordingUrl(audioUrl) : '';
+    
+    console.log('🎵 CustomAudioPlayer rendering with:', {
+      originalUrl: audioUrl,
+      normalizedUrl: normalizedAudioUrl
+    });
 
     useEffect(() => {
-      if (audioUrl && localAudioRef.current?.audio?.current && !hasLoaded.current) {
+      if (normalizedAudioUrl && localAudioRef.current?.audio?.current && !hasLoaded.current) {
         const audioElement = localAudioRef.current.audio.current;
         
         try {
           // Set preload attribute
           audioElement.preload = 'auto';
           setIsLoading(true);
-          console.log('🔄 Starting audio preload for:', audioUrl);
+          console.log('🔄 Starting audio preload for:', normalizedAudioUrl);
 
           // Monitor loading progress
           const handleProgress = () => {
@@ -106,7 +115,7 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
           setIsLoading(false);
         }
       }
-    }, [audioUrl]);
+    }, [normalizedAudioUrl]);
 
     if (!hasRecorded || isRecording) return null;
 
@@ -177,7 +186,7 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
             <div className="flex-1">
               <AudioPlayer
                 ref={localAudioRef}
-                src={audioUrl}
+                src={normalizedAudioUrl}
                 onListen={(e: Event) => {
                   const audioElement = e.currentTarget as HTMLAudioElement;
                   if (audioElement) {

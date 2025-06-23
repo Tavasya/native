@@ -89,24 +89,32 @@ const validateRecordingData = async (recording: RecordingData) => {
   await validateAudioUrl(recording.audioUrl);
 };
 
-const validateSubmissionData = async (data: CreateSubmissionDto) => {
+const validateSubmissionData = async (data: CreateSubmissionDto, allowEmptyRecordings = false) => {
   console.log("Validating submission data:", {
     assignment_id: data.assignment_id,
     student_id: data.student_id,
     recordings_count: data.recordings?.length,
-    recordings: data.recordings
+    recordings: data.recordings,
+    allowEmptyRecordings
   });
 
   if (!data.assignment_id) throw new Error('Assignment ID is required');
   if (!data.student_id) throw new Error('Student ID is required');
-  if (!data.recordings || !Array.isArray(data.recordings) || data.recordings.length === 0) {
+  
+  // Allow empty recordings for in-progress submissions
+  if (!allowEmptyRecordings && (!data.recordings || !Array.isArray(data.recordings) || data.recordings.length === 0)) {
     throw new Error('At least one recording is required');
+  }
+
+  // Ensure recordings is an array even if empty
+  if (!data.recordings || !Array.isArray(data.recordings)) {
+    data.recordings = [];
   }
 
   validateUUID(data.assignment_id, 'Assignment ID');
   validateUUID(data.student_id, 'Student ID');
 
-  // Validate each recording
+  // Validate each recording if any exist
   for (const [index, recording] of data.recordings.entries()) {
     try {
       await validateRecordingData(recording);
@@ -116,7 +124,7 @@ const validateSubmissionData = async (data: CreateSubmissionDto) => {
   }
 };
 
-const formatSubmissionData = async (data: CreateSubmissionDto) => {
+const formatSubmissionData = async (data: CreateSubmissionDto, allowEmptyRecordings = false) => {
   console.log("Formatting submission data:", data);
   
   // Ensure all required fields are present and properly formatted
@@ -124,15 +132,15 @@ const formatSubmissionData = async (data: CreateSubmissionDto) => {
     assignment_id: data.assignment_id.trim(),
     student_id: data.student_id.trim(),
     attempt: data.attempt || 1,
-    recordings: data.recordings.map(recording => {
+    recordings: (data.recordings || []).map(recording => {
       console.log("Formatting recording:", recording);
       return {
         questionId: String(recording.questionId).trim(),
         audioUrl: recording.audioUrl.trim()
       };
     }),
-    status: 'pending' as const,
-    submitted_at: new Date().toISOString()
+    status: allowEmptyRecordings ? 'in_progress' as const : 'pending' as const,
+    submitted_at: allowEmptyRecordings ? null : new Date().toISOString()
   };
 
   console.log("Formatted data:", formattedData);
@@ -141,7 +149,7 @@ const formatSubmissionData = async (data: CreateSubmissionDto) => {
   await validateSubmissionData({
     ...formattedData,
     recordings: formattedData.recordings
-  });
+  }, allowEmptyRecordings);
 
   return formattedData;
 };
@@ -463,6 +471,97 @@ export const submissionService = {
         exists: false,
         error: error instanceof Error ? error.message : "Unknown error occurred"
       };
+    }
+  },
+
+  // Get the latest submission for a student and assignment
+  async getLatestSubmission(student_id: string, assignment_id: string): Promise<Submission | null> {
+    try {
+      const submissions = await this.getSubmissionsByAssignmentAndStudent(assignment_id, student_id);
+      return submissions.length > 0 ? submissions[0] : null; // Already ordered by attempt DESC
+    } catch (error) {
+      console.error("Error in getLatestSubmission:", error);
+      throw error;
+    }
+  },
+
+  // Create an in-progress submission for new attempts
+  async createInProgressSubmission(student_id: string, assignment_id: string): Promise<Submission> {
+    try {
+      console.log("Creating in-progress submission for resubmission:", {
+        student_id,
+        assignment_id
+      });
+
+      // Format the data first with allowEmptyRecordings = true
+      const formattedData = await formatSubmissionData({
+        assignment_id,
+        student_id,
+        recordings: [] // Empty recordings array for new attempt
+      }, true); // Allow empty recordings for in-progress submissions
+
+      // Calculate attempt number
+      const { data: existingSubmissions, error: fetchError } = await supabase
+        .from("submissions")
+        .select("attempt")
+        .eq("assignment_id", formattedData.assignment_id)
+        .eq("student_id", formattedData.student_id)
+        .order("attempt", { ascending: false })
+        .limit(1);
+
+      if (fetchError) {
+        console.error("Error fetching existing submissions:", fetchError);
+        throw new Error(`Failed to check existing submissions: ${fetchError.message}`);
+      }
+
+      formattedData.attempt = existingSubmissions && existingSubmissions.length > 0 
+        ? existingSubmissions[0].attempt + 1 
+        : 1;
+      
+      console.log("Calculated attempt number:", formattedData.attempt);
+      console.log("Inserting in-progress submission into Supabase:", formattedData);
+
+      const { data: submission, error } = await supabase
+        .from("submissions")
+        .insert([formattedData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error details:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Handle specific Supabase error codes
+        switch (error.code) {
+          case '23505': // unique_violation
+            throw new Error('A submission for this assignment already exists');
+          case '23503': // foreign_key_violation
+            throw new Error('Invalid assignment or student ID');
+          case '22P02': // invalid_text_representation
+            throw new Error('Invalid ID format provided');
+          default:
+            throw new Error(`Failed to create submission: ${error.message}`);
+        }
+      }
+
+      if (!submission) {
+        throw new Error("No submission returned from Supabase");
+      }
+
+      console.log("Successfully created in-progress submission:", {
+        id: submission.id,
+        attempt: submission.attempt,
+        status: submission.status
+      });
+
+      return submission;
+    } catch (error) {
+      console.error("Error in createInProgressSubmission:", error);
+      throw error;
     }
   },
 };

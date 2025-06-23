@@ -44,13 +44,13 @@ export const useSubmissionManager = ({
     });
 
     try {
-      // Get existing submission
+      // Get existing submission (order by attempt to get the latest attempt, not submitted_at)
       const { data: existingSubmissions, error: fetchError } = await supabase
         .from('submissions')
         .select('*')
         .eq('assignment_id', assignmentId)
         .eq('student_id', userId)
-        .order('submitted_at', { ascending: false })
+        .order('attempt', { ascending: false })
         .limit(1);
 
       if (fetchError) throw fetchError;
@@ -74,8 +74,29 @@ export const useSubmissionManager = ({
       const existingSubmission = existingSubmissions?.[0];
       let submissionId: string;
 
+      console.log('📊 Submission Manager Debug:', {
+        existingSubmissions: existingSubmissions?.map(s => ({
+          id: s.id,
+          attempt: s.attempt,
+          status: s.status,
+          submitted_at: s.submitted_at
+        })),
+        latestSubmission: existingSubmission ? {
+          id: existingSubmission.id,
+          attempt: existingSubmission.attempt,
+          status: existingSubmission.status,
+          submitted_at: existingSubmission.submitted_at
+        } : null
+      });
+
       if (existingSubmission?.status === 'in_progress') {
-        // Update existing submission
+        // Update existing in-progress submission
+        console.log('🔄 Updating in-progress submission:', {
+          id: existingSubmission.id,
+          attempt: existingSubmission.attempt,
+          recordingsCount: currentRecordings.length
+        });
+        
         const { error: updateError } = await supabase
           .from('submissions')
           .update({ 

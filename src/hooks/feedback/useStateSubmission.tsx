@@ -22,6 +22,7 @@ import {
 import { clearTTSAudio, selectTTSAudio, selectTTSLoading } from '@/features/tts/ttsSlice';
 import { RootState } from '@/app/store';
 import { QuestionFeedback, AverageScores, SectionFeedback, EditingState } from '@/types/feedback';
+import { getPlayableRecordingUrl, detectRecordingFormatIssues } from '@/utils/recordingUtils';
 
 export const useSubmissionState = (submissionId: string | undefined) => {
   const dispatch = useAppDispatch();
@@ -85,7 +86,7 @@ export const useSubmissionState = (submissionId: string | undefined) => {
       selectedIndex: ui.selectedQuestionIndex
     });
 
-    // Get audio URL from section feedback
+    // Get audio URL from section feedback with format normalization
     let audioUrl = '';
     if (Array.isArray(selectedSubmission.section_feedback)) {
       // Log the full structure of the data
@@ -95,6 +96,12 @@ export const useSubmissionState = (submissionId: string | undefined) => {
         section_feedback: selectedSubmission.section_feedback,
         report_version: selectedSubmission.report_version
       });
+
+      // Detect and log recording format issues
+      const formatIssues = detectRecordingFormatIssues(selectedSubmission.recordings);
+      if (formatIssues.hasIssues) {
+        console.warn('Recording format issues detected:', formatIssues);
+      }
 
       // Find the current question's feedback
       const currentFeedback = selectedSubmission.section_feedback.find(
@@ -109,8 +116,14 @@ export const useSubmissionState = (submissionId: string | undefined) => {
         } : null
       });
 
-      // Use the audio_url from the section feedback
-      audioUrl = currentFeedback?.audio_url || '';
+      // Use normalized audio URL
+      if (currentFeedback?.audio_url) {
+        audioUrl = getPlayableRecordingUrl(currentFeedback.audio_url);
+        console.log('Normalized audio URL:', {
+          original: currentFeedback.audio_url,
+          normalized: audioUrl
+        });
+      }
       
       console.log('Found recording:', {
         question_id: question.question_id,

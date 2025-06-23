@@ -149,10 +149,20 @@ const Practice: React.FC = () => {
 
         if (error) {
           console.error('Error fetching submission:', error);
+          // If submission not found or access denied, just set loading to false
+          setIsLoadingScript(false);
           return;
         }
 
-        if (!submission || !submission.section_feedback) {
+        if (!submission) {
+          console.log('No submission found for ID:', submissionId);
+          setIsLoadingScript(false);
+          return;
+        }
+
+        // For in-progress submissions or submissions without feedback, don't try to process
+        if (!submission.section_feedback || submission.status === 'in_progress') {
+          console.log('Submission has no feedback or is in progress');
           setIsLoadingScript(false);
           return;
         }
