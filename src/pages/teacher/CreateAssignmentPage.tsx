@@ -79,10 +79,18 @@ const CreateAssignmentPage: React.FC = () => {
     }
   }, [user, dispatch]);
 
+  // Helper function to renumber questions sequentially
+  const renumberQuestions = (cards: QuestionCard[]): QuestionCard[] => {
+    return cards.map((card, index) => ({
+      ...card,
+      id: `card-${index + 1}`
+    }));
+  };
+
   // Card operations
   const addQuestionCard = (type: 'normal' | 'bulletPoints' = 'normal') => {
     const newCard: QuestionCard = {
-      id: `card-${Date.now().toString()}`,
+      id: `card-${questionCards.length + 1}`,
       type,
       question: '',
       speakAloud: false,
@@ -101,13 +109,15 @@ const CreateAssignmentPage: React.FC = () => {
 
   const deleteQuestionCard = (id: string) => {
     if (questionCards.length > 1) {
-      setQuestionCards(questionCards.filter(card => card.id !== id));
+      const updatedCards = questionCards.filter(card => card.id !== id);
+      const renumberedCards = renumberQuestions(updatedCards);
+      
+      setQuestionCards(renumberedCards);
 
       // If we're deleting the active card, set a new active card
       if (activeCardId === id) {
-        const remainingCards = questionCards.filter(card => card.id !== id);
-        if (remainingCards.length > 0) {
-          setActiveCardId(remainingCards[0].id);
+        if (renumberedCards.length > 0) {
+          setActiveCardId(renumberedCards[0].id);
         }
       }
     } else {
@@ -248,7 +258,9 @@ const CreateAssignmentPage: React.FC = () => {
     const [movedItem] = reorderedItems.splice(result.source.index, 1);
     reorderedItems.splice(result.destination.index, 0, movedItem);
 
-    setQuestionCards(reorderedItems);
+    // Renumber the questions after reordering
+    const renumberedItems = renumberQuestions(reorderedItems);
+    setQuestionCards(renumberedItems);
   };
 
   // Custom drag handle with 2 rows of 3 dots (arranged in 3x2 grid)
@@ -583,7 +595,9 @@ const CreateAssignmentPage: React.FC = () => {
                                       className="text-sm font-medium text-left flex-1 truncate hover:text-[#272A69] transition-colors"
                                       onClick={() => {
                                         setTitle(template.title);
-                                        setQuestionCards(template.questions);
+                                        // Renumber questions when loading from template
+                                        const renumberedQuestions = renumberQuestions(template.questions);
+                                        setQuestionCards(renumberedQuestions);
                                       }}
                                     >
                                       {template.title}
