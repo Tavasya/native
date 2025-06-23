@@ -29,7 +29,7 @@ interface PreviewData {
   id: string;
   class_id?: string;
   created_at?: string;
-  metadata?: any;
+  metadata?: { [key: string]: unknown };
   status?: AssignmentStatus;
 }
 

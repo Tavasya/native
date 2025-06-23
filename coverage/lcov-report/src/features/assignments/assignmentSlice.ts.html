@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">14.1% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/78</span>
+                <span class='fraction'>11/78</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">8.1% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>3/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">15.27% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/72</span>
+                <span class='fraction'>11/72</span>
             </div>
         
             
@@ -259,9 +259,9 @@
 <a name='L194'></a><a href='#L194'>194</a>
 <a name='L195'></a><a href='#L195'>195</a>
 <a name='L196'></a><a href='#L196'>196</a>
-<a name='L197'></a><a href='#L197'>197</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L197'></a><a href='#L197'>197</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -274,7 +274,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -289,7 +289,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -301,16 +301,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">64x</span>
+<span class="cline-any cline-yes">64x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">34x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -453,11 +453,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { createSlice } from "@reduxjs/toolkit";</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { createSlice } from "@reduxjs/toolkit";
 import { AssignmentState } from "./types";
-<span class="cstat-no" title="statement not covered" >import {</span>
+import {
   createAssignment,
   fetchAssignmentByClass,
   fetchAssignmentById,
@@ -470,7 +470,7 @@ import { AssignmentState } from "./types";
   fetchAssignmentsByTeacher
 } from "./assignmentThunks";
 &nbsp;
-const initialState: AssignmentState = <span class="cstat-no" title="statement not covered" >{</span>
+const initialState: AssignmentState = {
   assignments: [],
   loading: false,
   error: null,
@@ -485,7 +485,7 @@ const initialState: AssignmentState = <span class="cstat-no" title="statement no
   }
 };
 &nbsp;
-const assignmentSlice = <span class="cstat-no" title="statement not covered" >createSlice({</span>
+const assignmentSlice = createSlice({
   name: "assignments",
   initialState,
   reducers: {
@@ -496,17 +496,17 @@ const assignmentSlice = <span class="cstat-no" title="statement not covered" >cr
         completedQuestions
       };
     },
-    startTestGlobally: <span class="fstat-no" title="function not covered" >(s</span>tate, action) =&gt; {
-      const { assignmentId } = <span class="cstat-no" title="statement not covered" >action.payload;</span>
-<span class="cstat-no" title="statement not covered" >      state.testMode.hasGloballyStarted[assignmentId] = true;</span>
+    startTestGlobally: (state, action) =&gt; {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = true;
     },
-    resetTestState: <span class="fstat-no" title="function not covered" >(s</span>tate, action) =&gt; {
-      const { assignmentId } = <span class="cstat-no" title="statement not covered" >action.payload;</span>
-<span class="cstat-no" title="statement not covered" >      state.testMode.hasGloballyStarted[assignmentId] = false;</span>
+    resetTestState: (state, action) =&gt; {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = false;
     }
   },
-  extraReducers: <span class="fstat-no" title="function not covered" >(b</span>uilder) =&gt; {
-<span class="cstat-no" title="statement not covered" >    builder</span>
+  extraReducers: (builder) =&gt; {
+    builder
       // createAssignment
       .addCase(createAssignment.pending, <span class="fstat-no" title="function not covered" >(s</span>) =&gt; {
 <span class="cstat-no" title="statement not covered" >        s.createAssignmentLoading = true;</span>
@@ -649,8 +649,8 @@ const assignmentSlice = <span class="cstat-no" title="statement not covered" >cr
   }
 });
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >{ updatePracticeProgress, startTestGlobally, resetTestState } = a</span>ssignmentSlice.actions;
-<span class="cstat-no" title="statement not covered" >export default assignmentSlice.reducer;</span>
+export const { updatePracticeProgress, startTestGlobally, resetTestState } = assignmentSlice.actions;
+export default assignmentSlice.reducer;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -658,7 +658,7 @@ export const <span class="cstat-no" title="statement not covered" >{ updatePract
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-06-23T23:38:21.063Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

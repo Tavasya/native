@@ -1,13 +1,13 @@
-import tailwindcss from 'tailwindcss'
-import autoprefixer from 'autoprefixer'
-import postcssImport from 'postcss-import'
-import postcssNested from 'postcss-nested'
+const tailwindcss = require('tailwindcss');
+const autoprefixer = require('autoprefixer');
+const postcssImport = require('postcss-import');
+const postcssNested = require('postcss-nested');
 
-export default {
+module.exports = {
   plugins: [
     tailwindcss,
     autoprefixer,
     postcssImport,
     postcssNested,
   ],
-}
+};

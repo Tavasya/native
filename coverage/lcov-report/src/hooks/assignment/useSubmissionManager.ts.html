@@ -211,7 +211,8 @@
 <a name='L146'></a><a href='#L146'>146</a>
 <a name='L147'></a><a href='#L147'>147</a>
 <a name='L148'></a><a href='#L148'>148</a>
-<a name='L149'></a><a href='#L149'>149</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -250,7 +251,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -322,22 +322,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -351,8 +345,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -398,7 +400,6 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
     }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    setIsSubmitting(true);</span>
-<span class="cstat-no" title="statement not covered" >    navigate('/student/dashboard');</span>
 &nbsp;
     const { dismiss } = <span class="cstat-no" title="statement not covered" >toast({</span>
       title: "Processing submission...",
@@ -468,6 +469,9 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
 <span class="cstat-no" title="statement not covered" >        submissionId = newSubmission.id;</span>
       }
 &nbsp;
+      // Navigate to submission page
+<span class="cstat-no" title="statement not covered" >      navigate(`/student/submission/${submissionId}/feedback`);</span>
+&nbsp;
       // Analyze audio
 <span class="cstat-no" title="statement not covered" >      try {</span>
 <span class="cstat-no" title="statement not covered" >        await submissionService.analyzeAudio(</span>
@@ -481,7 +485,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
           description: `You have completed "${assignment.title}" and analysis is complete.`,
           duration: 5000,
         });
-      } catch (analysisError) {
+      } catch {
 <span class="cstat-no" title="statement not covered" >        dismiss();</span>
 <span class="cstat-no" title="statement not covered" >        toast({</span>
           title: "Assignment Submitted",
@@ -498,9 +502,8 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
         variant: "destructive",
         duration: 8000,
       });
-    } finally {
-<span class="cstat-no" title="statement not covered" >      setIsSubmitting(false);</span>
     }
+<span class="cstat-no" title="statement not covered" >    setIsSubmitting(false);</span>
   }, [assignment, assignmentId, userId, isSubmitting, sessionRecordings, recordingsData, navigate, toast]);
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return {</span>
@@ -514,7 +517,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-06-23T23:38:21.063Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

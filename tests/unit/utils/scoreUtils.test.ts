@@ -19,8 +19,8 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should return 0 for null or undefined input', () => {
-      expect(calculateOverallPronunciationScore(null as any)).toBe(0);
-      expect(calculateOverallPronunciationScore(undefined as any)).toBe(0);
+      expect(calculateOverallPronunciationScore(null as never)).toBe(0);
+      expect(calculateOverallPronunciationScore(undefined as never)).toBe(0);
     });
 
     it('should calculate average score correctly for single word', () => {
@@ -82,8 +82,8 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should return empty array for null or undefined input', () => {
-      expect(getWordsToShow(null as any)).toEqual([]);
-      expect(getWordsToShow(undefined as any)).toEqual([]);
+      expect(getWordsToShow(null as never)).toEqual([]);
+      expect(getWordsToShow(undefined as never)).toEqual([]);
     });
 
     it('should filter out words with 2 letters or less', () => {

@@ -64,6 +64,7 @@ describe('Recording File Integrity', () => {
         return Promise.resolve({ error: null });
       });
       
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../../../src/integrations/supabase/client').supabase.storage.from.mockReturnValue({
         upload: mockUpload,
         getPublicUrl: jest.fn().mockReturnValue({
@@ -86,6 +87,7 @@ describe('Recording File Integrity', () => {
         return Promise.resolve({ error: null });
       });
       
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../../../src/integrations/supabase/client').supabase.storage.from.mockReturnValue({
         upload: mockUpload,
         getPublicUrl: jest.fn().mockReturnValue({
@@ -108,6 +110,7 @@ describe('Recording File Integrity', () => {
         return Promise.resolve({ error: null });
       });
       
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../../../src/integrations/supabase/client').supabase.storage.from.mockReturnValue({
         upload: mockUpload,
         getPublicUrl: jest.fn().mockReturnValue({
@@ -136,7 +139,8 @@ describe('Recording File Integrity', () => {
           return Promise.resolve({ error: null });
         });
         
-        require('../../../src/integrations/supabase/client').supabase.storage.from.mockReturnValue({
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('../../../src/integrations/supabase/client').supabase.storage.from.mockReturnValue({
           upload: mockUpload,
           getPublicUrl: jest.fn().mockReturnValue({
             data: { publicUrl: `https://test-url.com/test-file${testCase.expectedExt}` }

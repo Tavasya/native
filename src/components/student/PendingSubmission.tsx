@@ -18,8 +18,6 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
 
   // Poll for status updates
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
-
     const pollSubmissionStatus = async () => {
       if (!isPolling) return;
 
@@ -55,7 +53,7 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
     };
 
     // Poll every 5 seconds
-    pollInterval = setInterval(pollSubmissionStatus, 5000);
+    const pollInterval = setInterval(pollSubmissionStatus, 5000);
 
     return () => {
       clearInterval(pollInterval);
@@ -86,7 +84,7 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
   const statusInfo = getStatusMessage();
 
   // Helper function to get audio URL from recording
-  const getAudioUrl = (recording: any): string => {
+  const getAudioUrl = (recording: string | { audioUrl: string } | null): string => {
     if (typeof recording === 'string') {
       return recording;
     }

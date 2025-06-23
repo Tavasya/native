@@ -322,7 +322,7 @@ import {
       const assignmentIds = assignments.map(a => a.id);
   
       /** 2️⃣  pull ALL submissions for those assignments at once */
-      let groupedSubs: Map<string, StudentSubmission[]> = new Map();
+      const groupedSubs: Map<string, StudentSubmission[]> = new Map();
       if (assignmentIds.length) {
         const { data: subs } = await supabase
           .from('submissions')

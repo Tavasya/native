@@ -71,13 +71,15 @@ const initialState: SubmissionsState = {
 };
 
 // Helper function to detect report version and format
-const detectReportFormat = (submission: any): { version: string | null, format: 'v1' | 'v2' } => {
+const detectReportFormat = (submission: { section_feedback?: unknown }): { version: string | null, format: 'v1' | 'v2' } => {
   // Check if the first item in section_feedback is a version object
   if (Array.isArray(submission.section_feedback) && 
       submission.section_feedback.length > 0 && 
-      submission.section_feedback[0].version) {
+      submission.section_feedback[0] && 
+      typeof submission.section_feedback[0] === 'object' &&
+      'version' in submission.section_feedback[0]) {
     return {
-      version: submission.section_feedback[0].version,
+      version: (submission.section_feedback[0] as { version: string }).version,
       format: 'v2'
     };
   }
@@ -89,7 +91,7 @@ const detectReportFormat = (submission: any): { version: string | null, format: 
 };
 
 // Helper function to normalize section_feedback to array format
-const normalizeSectionFeedback = (submission: any): Submission => {
+const normalizeSectionFeedback = (submission: Submission): Submission => {
   if (!submission.section_feedback) {
     return { ...submission, section_feedback: [] };
   }
@@ -118,10 +120,10 @@ const normalizeSectionFeedback = (submission: any): Submission => {
     const sectionFeedbackArray: QuestionFeedbackEntry[] = Object.entries(submission.section_feedback)
       .map(([questionId, feedback]) => ({
         question_id: parseInt(questionId),
-        audio_url: (feedback as any).audio_url || '',
-        transcript: (feedback as any).transcript || '',
+        audio_url: (feedback as Record<string, unknown>).audio_url as string || '',
+        transcript: (feedback as Record<string, unknown>).transcript as string || '',
         section_feedback: feedback as SectionFeedback,
-        duration_feedback: (feedback as any).duration_feedback,
+        duration_feedback: (feedback as Record<string, unknown>).duration_feedback as { ratio: number; feedback: string; time_limit_sec: number; actual_duration: number; question_number: string } | undefined,
       }))
       .sort((a, b) => a.question_id - b.question_id);
 

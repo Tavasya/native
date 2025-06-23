@@ -19,7 +19,7 @@ interface GrammarAnalysisProps {
 // Extended grammar type to handle v2 format
 interface ExtendedGrammar {
   grade: number;
-  issues: any[];
+  issues: { type: string; message: string; [key: string]: unknown }[];
   grammar_corrections?: {
     [key: string]: {
       original: string;
@@ -70,7 +70,7 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
       console.log('Found v2 grammar corrections:', extendedGrammar.grammar_corrections);
       
       const processedIssues = Object.entries(extendedGrammar.grammar_corrections)
-        .map(([_, correction]) => {
+        .map(([, correction]) => {
           if (!correction?.corrections?.[0]) {
             console.warn('Invalid grammar correction:', correction);
             return null;
@@ -103,7 +103,7 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
           const parsedIssues = JSON.parse(feedbackToUse.grammar.issues);
           console.log('Parsed string issues:', parsedIssues);
           return Array.isArray(parsedIssues) ? parsedIssues : [];
-        } catch (e) {
+        } catch {
           console.log('Failed to parse string issues:', feedbackToUse.grammar.issues);
           return [];
         }
@@ -143,7 +143,7 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
       console.log('Found top-level v1 grammar corrections:', feedbackToUse.grammar_corrections.grammar_corrections);
       
       const processedIssues = Object.entries(feedbackToUse.grammar_corrections.grammar_corrections)
-        .map(([_, correction]) => {
+        .map(([, correction]) => {
           if (!correction?.corrections?.[0]) {
             console.warn('Invalid grammar correction:', correction);
             return null;

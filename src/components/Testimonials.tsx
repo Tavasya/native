@@ -17,7 +17,7 @@ interface TestimonialProps {
   name: string;
   role: string;
   location: string;
-  image: any; // Changed from string to any to accept imported image modules
+  image: string | { default: string }; // Accept both string URLs and imported image modules
   className?: string;
   style?: React.CSSProperties;
 }
@@ -48,7 +48,7 @@ const Testimonial = ({
         
         <div className="flex items-center mt-auto pt-3 border-t border-gray-100">
           <img 
-            src={image} 
+            src={typeof image === 'string' ? image : image.default} 
             alt={name}
             className="w-10 h-10 rounded-full object-cover mr-3"
           />

@@ -2,7 +2,7 @@ export interface Component {
   id: string;
   label: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string; size?: number | string }>;
 }
 
 export interface DragData {

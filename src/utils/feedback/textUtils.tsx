@@ -5,7 +5,7 @@ import { Mistake, MistakePosition, GrammarIssue, SectionFeedback } from '@/types
 // Extended grammar type to handle v2 format
 interface ExtendedGrammar {
   grade: number;
-  issues: any[];
+  issues: Array<{ type: string; message: string; [key: string]: unknown }>;
   grammar_corrections?: {
     [key: string]: {
       original: string;
@@ -127,7 +127,7 @@ const findTextPosition = (
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Continue to next method if this one fails
         continue;
       }
@@ -189,7 +189,7 @@ export const createHighlightedText = (
     const extendedGrammar = currentFeedback.grammar as ExtendedGrammar;
     if (extendedGrammar?.grammar_corrections) {
       mistakesToHighlight = Object.entries(extendedGrammar.grammar_corrections)
-        .map(([_, correction]) => ({
+        .map(([, correction]) => ({
           text: correction.corrections[0]?.original_phrase || correction.original || '',
           explanation: correction.corrections[0]?.explanation || '',
           suggestion: correction.corrections[0]?.suggested_correction || '',
@@ -238,7 +238,7 @@ export const createHighlightedText = (
     const extendedVocabulary = currentFeedback.vocabulary as ExtendedVocabulary;
     if (extendedVocabulary?.vocabulary_suggestions) {
       mistakesToHighlight = Object.entries(extendedVocabulary.vocabulary_suggestions)
-        .map(([_, suggestion]) => ({
+        .map(([, suggestion]) => ({
           text: suggestion.original_word || '',
           explanation: suggestion.explanation || '',
           suggestion: suggestion.suggested_word || '',
@@ -292,7 +292,7 @@ export const createHighlightedText = (
   });
 
   // Build the result with hover tooltips
-  let result = [];
+  const result = [];
   let lastIndex = 0;
 
   filteredPositions.forEach((pos, index) => {

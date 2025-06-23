@@ -12,7 +12,7 @@ interface SectionFeedback {
   audio_url: string;
   transcript: string;
   question_id: number;
-  section_feedback: any;
+  section_feedback: Record<string, unknown>;
 }
 
 const Practice: React.FC = () => {

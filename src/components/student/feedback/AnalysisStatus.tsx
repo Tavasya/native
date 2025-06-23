@@ -73,7 +73,7 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
   }, [submissionUrl]);
 
   // Memoize the status update handler to prevent recreating on every render
-  const handleStatusUpdate = useCallback((payload: any) => {
+  const handleStatusUpdate = useCallback((payload: { new: { status_logs: StatusResponse['status_logs'] } }) => {
     console.log('=== Status Update Received ===');
     console.log('New Status from Payload:', JSON.stringify(payload.new.status_logs, null, 2));
 
@@ -206,7 +206,7 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
       
       showFeedback();
     }
-  }, [status?.status_logs, isRefreshing]);
+  }, [status?.status_logs, isRefreshing, calculateTotalProgress]);
 
   const getStatusIcon = (status: 'not_started' | 'in_progress' | 'completed') => {
     switch (status) {

@@ -117,7 +117,7 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
       classes (
         teacher_id
       )
-    `) as { data: StudentClass[] | null, error: any };
+    `) as { data: StudentClass[] | null, error: Error | null };
   if (studentClassesError) throw studentClassesError;
   console.log('Student classes data:', studentClasses);
 

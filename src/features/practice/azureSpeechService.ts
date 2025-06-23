@@ -180,10 +180,10 @@ export class AzureSpeechService {
     return arrayBuffer;
   }
 
-  private parsePronunciationResult(data: any): PronunciationAssessmentResult {
+  private parsePronunciationResult(data: { NBest?: Array<{ Words?: Array<{ AccuracyScore?: number; Word?: string; ErrorType?: string; Phonemes?: Array<{ Phoneme?: string; AccuracyScore?: number }> }> }> }): PronunciationAssessmentResult {
     console.log('Parsing Azure response:', data);
     
-    const wordScores: Array<{ word: string; score: number; phonemes: any[] }> = [];
+    const wordScores: Array<{ word: string; score: number; phonemes: { phoneme: string; score: number }[] }> = [];
     const weakWords: string[] = [];
 
     // Parse from NBest structure (this is the correct Azure response format)
@@ -191,9 +191,9 @@ export class AzureSpeechService {
       const words = data.NBest[0].Words;
       console.log('Found words in NBest:', words);
       
-      words.forEach((wordData: any) => {
+      words.forEach((wordData: { AccuracyScore?: number; Word?: string; ErrorType?: string; Phonemes?: Array<{ Phoneme?: string; AccuracyScore?: number }> }) => {
         const score = wordData.AccuracyScore || 0;
-        const word = wordData.Word;
+        const word = wordData.Word || '';
         const errorType = wordData.ErrorType;
         
         // Skip words that weren't detected (omitted words)
@@ -203,8 +203,8 @@ export class AzureSpeechService {
         }
         
         // Extract phonemes if available
-        const phonemes = wordData.Phonemes ? wordData.Phonemes.map((p: any) => ({
-          phoneme: p.Phoneme,
+        const phonemes = wordData.Phonemes ? wordData.Phonemes.map((p: { Phoneme?: string; AccuracyScore?: number }) => ({
+          phoneme: p.Phoneme || '',
           score: p.AccuracyScore || 0
         })) : [];
         
@@ -215,7 +215,7 @@ export class AzureSpeechService {
         });
 
         // Only mark as weak word if it was detected and scored below 50
-        if (score > 0 && score < 50) {
+        if (score > 0 && score < 50 && word) {
           weakWords.push(word);
         }
       });

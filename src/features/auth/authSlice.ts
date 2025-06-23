@@ -25,7 +25,7 @@ const authSlice = createSlice({
       state.error = null;
       state.emailChangeInProgress = false;
     },
-    setUser(state, action: PayloadAction<{ user: any; role: UserRole }>) {
+    setUser(state, action: PayloadAction<{ user: AuthUser; role: UserRole }>) {
       state.user = action.payload.user;
       state.role = action.payload.role;
       state.error = null;
@@ -51,7 +51,7 @@ const authSlice = createSlice({
       })
       .addCase(
         loadSession.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole | null; profile: UserProfile } | null>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole | null; profile: UserProfile } | null>) => {
           state.loading = false;
           state.user = action.payload?.user ?? null;
           state.role = action.payload?.role ?? null;
@@ -72,7 +72,7 @@ const authSlice = createSlice({
       })
       .addCase(
         signInWithEmail.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole | null; profile: UserProfile }>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole | null; profile: UserProfile }>) => {
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;
@@ -92,7 +92,7 @@ const authSlice = createSlice({
       })
       .addCase(
         signUpWithEmail.fulfilled,
-        (state, action: PayloadAction<{ user: any; role: UserRole; profile: UserProfile }>) => {
+        (state, action: PayloadAction<{ user: AuthUser; role: UserRole; profile: UserProfile }>) => {
           state.loading = false;
           state.user = action.payload.user;
           state.role = action.payload.role;

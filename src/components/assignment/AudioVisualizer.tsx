@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 interface AudioVisualizerProps {
   stream: MediaStream | null;
@@ -11,6 +11,53 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }
   const audioContextRef = useRef<AudioContext>();
   const analyserRef = useRef<AnalyserNode>();
   const dataArrayRef = useRef<Uint8Array>();
+
+  const draw = useCallback(() => {
+    if (!canvasRef.current || !analyserRef.current || !dataArrayRef.current) return;
+
+    const canvas = canvasRef.current;
+    const canvasCtx = canvas.getContext('2d');
+    if (!canvasCtx) return;
+
+    const analyser = analyserRef.current;
+    const dataArray = dataArrayRef.current;
+
+    animationRef.current = requestAnimationFrame(draw);
+
+    analyser.getByteFrequencyData(dataArray);
+
+    // Remove white background fill
+    canvasCtx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+
+    const numBars = 16;
+    const barWidth = 2;
+    const barSpacing = 3;
+    const centerX = (canvas.width / window.devicePixelRatio) / 2;
+    const centerY = (canvas.height / window.devicePixelRatio) / 2;
+    const totalWidth = (numBars * barWidth) + ((numBars - 1) * barSpacing);
+    const startX = centerX - (totalWidth / 2);
+
+    for (let i = 0; i < numBars; i++) {
+      const dataIndex = Math.floor((i / numBars) * dataArray.length);
+      let barHeight = (dataArray[dataIndex] / 255) * ((canvas.height / window.devicePixelRatio) / 3);
+      barHeight = Math.max(barHeight, 1);
+
+      // Snap to whole pixels
+      const x = Math.floor(startX + i * (barWidth + barSpacing));
+
+      canvasCtx.fillStyle = '#1E3A8A';
+      
+      // Mirror across both axes - 4 bars total
+      // Top-left quadrant
+      canvasCtx.fillRect(x, centerY - barHeight, barWidth, barHeight);
+      // Bottom-left quadrant  
+      canvasCtx.fillRect(x, centerY, barWidth, barHeight);
+      // Top-right quadrant (mirrored)
+      canvasCtx.fillRect(Math.floor(centerX + (centerX - x - barWidth)), centerY - barHeight, barWidth, barHeight);
+      // Bottom-right quadrant (mirrored)
+      canvasCtx.fillRect(Math.floor(centerX + (centerX - x - barWidth)), centerY, barWidth, barHeight);
+    }
+  }, []);
 
   useEffect(() => {
     if (!stream || !isRecording) {
@@ -77,54 +124,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }
         audioContextRef.current.close();
       }
     };
-  }, [stream, isRecording]);
-
-  const draw = () => {
-    if (!canvasRef.current || !analyserRef.current || !dataArrayRef.current) return;
-
-    const canvas = canvasRef.current;
-    const canvasCtx = canvas.getContext('2d');
-    if (!canvasCtx) return;
-
-    const analyser = analyserRef.current;
-    const dataArray = dataArrayRef.current;
-
-    animationRef.current = requestAnimationFrame(draw);
-
-    analyser.getByteFrequencyData(dataArray);
-
-    // Remove white background fill
-    canvasCtx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-
-    const numBars = 16;
-    const barWidth = 2;
-    const barSpacing = 3;
-    const centerX = (canvas.width / window.devicePixelRatio) / 2;
-    const centerY = (canvas.height / window.devicePixelRatio) / 2;
-    const totalWidth = (numBars * barWidth) + ((numBars - 1) * barSpacing);
-    const startX = centerX - (totalWidth / 2);
-
-    for (let i = 0; i < numBars; i++) {
-      const dataIndex = Math.floor((i / numBars) * dataArray.length);
-      let barHeight = (dataArray[dataIndex] / 255) * ((canvas.height / window.devicePixelRatio) / 3);
-      barHeight = Math.max(barHeight, 1);
-
-      // Snap to whole pixels
-      const x = Math.floor(startX + i * (barWidth + barSpacing));
-
-      canvasCtx.fillStyle = '#1E3A8A';
-      
-      // Mirror across both axes - 4 bars total
-      // Top-left quadrant
-      canvasCtx.fillRect(x, centerY - barHeight, barWidth, barHeight);
-      // Bottom-left quadrant  
-      canvasCtx.fillRect(x, centerY, barWidth, barHeight);
-      // Top-right quadrant (mirrored)
-      canvasCtx.fillRect(Math.floor(centerX + (centerX - x - barWidth)), centerY - barHeight, barWidth, barHeight);
-      // Bottom-right quadrant (mirrored)
-      canvasCtx.fillRect(Math.floor(centerX + (centerX - x - barWidth)), centerY, barWidth, barHeight);
-    }
-  };
+  }, [stream, isRecording, draw]);
 
   return (
     <div className="flex justify-center items-center w-full">

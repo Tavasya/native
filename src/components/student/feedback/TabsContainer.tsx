@@ -20,9 +20,9 @@ interface TabsContainerProps {
   currentQuestion: QuestionFeedback | null;
   averageScores: AverageScores;
   audioRef: React.RefObject<HTMLAudioElement>;
-  ttsAudioCache: any;
-  ttsLoading: any;
-  dispatch: any;
+  ttsAudioCache: Record<string, string>;
+  ttsLoading: Record<string, boolean>;
+  dispatch: React.Dispatch<{ type: string; payload?: unknown }>;
   grammarOpen: { [key: string]: boolean };
   vocabularyOpen: { [key: string]: boolean };
   onToggleGrammar: (key: string) => void;

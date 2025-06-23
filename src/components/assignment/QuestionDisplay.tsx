@@ -74,7 +74,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
       // Call handlePlayQuestion directly without dependency
       handlePlayQuestion();
     }
-  }, [currentQuestion.id, isTestMode, hasAutoPlayed]); // Removed handlePlayQuestion from dependencies
+  }, [currentQuestion.id, currentQuestion.type, isTestMode, hasAutoPlayed, handlePlayQuestion]);
 
   // Reset auto-play flag when question changes
   useEffect(() => {

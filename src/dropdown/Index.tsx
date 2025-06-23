@@ -47,7 +47,7 @@ const ACTIONS: Component[] = [
 ];
 
 // Icon mapping object
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   Mail,
   Calendar,
   Database,
@@ -66,7 +66,7 @@ interface ComponentLibraryProps {
 }
 
 // Helper function to reconstruct a component with its icon
-const reconstructComponent = (data: DragData['component'], defaultIcon: React.ComponentType<any>): Component => {
+const reconstructComponent = (data: DragData['component'], defaultIcon: React.ComponentType<{ size?: number | string; className?: string }>): Component => {
   return {
     id: data.id,
     label: data.label,

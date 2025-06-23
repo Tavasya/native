@@ -59,7 +59,7 @@ const UserGrowthGraph: React.FC = () => {
     
     // Create growth data by using actual user creation data
     const transformed = periods.map((period, periodIndex) => {
-      const periodData: any = { 
+      const periodData: { period: string; Teachers: number; Students: number } = { 
         period: '',
         Teachers: 0,
         Students: 0

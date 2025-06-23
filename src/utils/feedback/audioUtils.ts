@@ -8,7 +8,7 @@ import { AppDispatch } from '@/app/store';
 export const playWordSegment = (
   word: WordScore,
   wordIndex: number,
-  audioRef: React.RefObject<any> // Changed from HTMLAudioElement to any since it's react-h5-audio-player
+  audioRef: React.RefObject<{ audio: { current: HTMLAudioElement } }> // react-h5-audio-player ref structure
 ) => {
   console.log('Playing word:', word, 'at index:', wordIndex);
   

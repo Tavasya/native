@@ -123,7 +123,7 @@ export const mockPublicUrl = {
 /**
  * Creates a mock Supabase client with configurable responses
  */
-export const createMockSupabaseClient = (overrides: any = {}) => {
+export const createMockSupabaseClient = (overrides: Record<string, unknown> = {}) => {
   const defaultMocks = {
     auth: {
       getSession: jest.fn().mockResolvedValue(mockAuthSession)
@@ -137,15 +137,16 @@ export const createMockSupabaseClient = (overrides: any = {}) => {
   };
 
   // Deep merge overrides
+  const storageOverrides = overrides.storage as Record<string, unknown> || {};
   return {
     ...defaultMocks,
     ...overrides,
     storage: {
       ...defaultMocks.storage,
-      ...overrides.storage,
+      ...storageOverrides,
       from: jest.fn().mockReturnValue({
-        ...defaultMocks.storage.from().mockReturnValue,
-        ...overrides.storage?.from?.()
+        ...defaultMocks.storage.from().mockReturnValue(),
+        ...(storageOverrides.from as Record<string, unknown> || {})
       })
     }
   };

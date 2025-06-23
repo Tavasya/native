@@ -122,7 +122,7 @@ export const useSubmissionManager = ({
           description: `You have completed "${assignment.title}" and analysis is complete.`,
           duration: 5000,
         });
-      } catch (analysisError) {
+      } catch {
         dismiss();
         toast({
           title: "Assignment Submitted",

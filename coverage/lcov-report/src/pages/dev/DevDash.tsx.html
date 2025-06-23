@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/112</span>
+                <span class='fraction'>0/114</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/100</span>
+                <span class='fraction'>0/102</span>
             </div>
         
             
@@ -600,7 +600,13 @@
 <a name='L535'></a><a href='#L535'>535</a>
 <a name='L536'></a><a href='#L536'>536</a>
 <a name='L537'></a><a href='#L537'>537</a>
-<a name='L538'></a><a href='#L538'>538</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L538'></a><a href='#L538'>538</a>
+<a name='L539'></a><a href='#L539'>539</a>
+<a name='L540'></a><a href='#L540'>540</a>
+<a name='L541'></a><a href='#L541'>541</a>
+<a name='L542'></a><a href='#L542'>542</a>
+<a name='L543'></a><a href='#L543'>543</a>
+<a name='L544'></a><a href='#L544'>544</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -615,6 +621,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -623,6 +630,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -791,6 +799,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1114,6 +1123,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1147,6 +1159,7 @@
   fetchTeacherAssignmentsWeekly,
   fetchStudentEngagement,
   fetchInactiveUsers,
+  fetchUserCreationData,
   hideUserById,
   loadMoreUsers,
   setSelectedTeacher,
@@ -1160,6 +1173,7 @@ import type {
 } from '@/features/metrics/metricsTypes';
 <span class="cstat-no" title="statement not covered" >import AssignmentAnalyticsGraph from '@/components/dev/AssignmentAnalyticsGraph';</span>
 <span class="cstat-no" title="statement not covered" >import AssignmentListModal from '@/components/dev/AssignmentListModal';</span>
+<span class="cstat-no" title="statement not covered" >import UserGrowthGraph from '@/components/dev/UserGrowthGraph';</span>
 &nbsp;
 // Icon component types
 interface IconProps {
@@ -1337,6 +1351,7 @@ const StatusBadge: React.FC&lt;StatusBadgeProps&gt; = <span class="cstat-no" tit
 <span class="cstat-no" title="statement not covered" >    dispatch(fetchTeacherAssignmentsWeekly());</span>
 <span class="cstat-no" title="statement not covered" >    dispatch(fetchStudentEngagement());</span>
 <span class="cstat-no" title="statement not covered" >    dispatch(fetchInactiveUsers());</span>
+<span class="cstat-no" title="statement not covered" >    dispatch(fetchUserCreationData());</span>
   }, [dispatch, activeTab]);
 &nbsp;
   // Load class data separately
@@ -1657,6 +1672,9 @@ const StatusBadge: React.FC&lt;StatusBadgeProps&gt; = <span class="cstat-no" tit
                   }))}
                 /&gt;
 &nbsp;
+                {/* User Growth Graph */}
+                &lt;UserGrowthGraph /&gt;
+&nbsp;
                 {/* Assignment List Modal */}
                 {selectedTeacher &amp;&amp; (
                   &lt;AssignmentListModal
@@ -1681,7 +1699,7 @@ const StatusBadge: React.FC&lt;StatusBadgeProps&gt; = <span class="cstat-no" tit
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-06-23T23:38:21.063Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

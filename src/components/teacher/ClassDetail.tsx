@@ -134,7 +134,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))
       .unwrap()
       // .then(classes => {
-      .then(_ => {
+      .then(() => {
         // Then fetch stats and assignments
         dispatch(fetchClassStatsByTeacher(effectiveUserId));
         dispatch(fetchAssignmentByClass(classId));
@@ -168,7 +168,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
 
   const classData = {
     name: cls.name,
-    code: (cls as any).class_code,
+    code: (cls as { class_code?: string }).class_code || '',
     students: stat.student_count,
     assignments: stat.assignment_count,
   };
@@ -207,7 +207,11 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const toggle = (id: string) => {
     setExpanded((prev) => {
       const nxt = new Set(prev);
-      nxt.has(id) ? nxt.delete(id) : nxt.add(id);
+      if (nxt.has(id)) {
+        nxt.delete(id);
+      } else {
+        nxt.add(id);
+      }
       return nxt;
     });
   };
@@ -224,8 +228,8 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
       toast({ title: 'Deleted', description: 'Assignment removed.' });
       setConfirmOpen(false);
       if (classId) dispatch(fetchAssignmentByClass(classId));
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message });
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: (err as Error).message });
     }
   };
 

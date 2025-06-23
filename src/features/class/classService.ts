@@ -41,7 +41,7 @@ export const classService = {
     }
 
     // The data comes in the format: [{ class_id: string, classes: Class }]
-    const classes = data.map((row: any) => {
+    const classes = data.map((row: { classes: unknown }) => {
       return row.classes;
     });
 

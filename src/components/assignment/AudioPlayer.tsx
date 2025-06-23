@@ -1,7 +1,8 @@
 // 📁 src/components/assignment/AudioPlayer.tsx
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import AudioPlayer, { RHAP_UI } from 'react-h5-audio-player';
+import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
+import AudioPlayer from 'react-h5-audio-player';
 import 'react-h5-audio-player/lib/styles.css';
+import { RHAP_UI } from 'react-h5-audio-player';
 
 interface AudioPlayerProps {
   hasRecorded: boolean;
@@ -10,13 +11,10 @@ interface AudioPlayerProps {
   audioUrl?: string;
 }
 
-
-const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
+const AudioPlayerComponent = forwardRef<{ audio: { current: HTMLAudioElement } }, AudioPlayerProps>(
   ({ hasRecorded, isRecording, onTimeUpdate, audioUrl }, ref) => {
-    const localAudioRef = useRef<any>(null);
-    useImperativeHandle(ref, () => localAudioRef.current);
-    const [_isLoading, setIsLoading] = useState(false);
-    const [_loadProgress, setLoadProgress] = useState(0);
+    const localAudioRef = useRef<{ audio: { current: HTMLAudioElement } }>(null);
+    useImperativeHandle(ref, () => localAudioRef.current!);
     const [isPlaying, setIsPlaying] = useState(false);
     const hasLoaded = useRef(false);
 
@@ -27,7 +25,6 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
         try {
           // Set preload attribute
           audioElement.preload = 'auto';
-          setIsLoading(true);
           console.log('🔄 Starting audio preload for:', audioUrl);
 
           // Monitor loading progress
@@ -37,13 +34,11 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
               const duration = audioElement.duration;
               if (duration > 0) {
                 const progress = (bufferedEnd / duration) * 100;
-                setLoadProgress(progress);
                 console.log(`📊 Loading progress: ${progress.toFixed(1)}%`);
                 
                 // Check if fully loaded
                 if (progress >= 99) {
-                  setIsLoading(false);
-                  hasLoaded.current = true;
+                          hasLoaded.current = true;
                   console.log('✅ Audio fully preloaded');
                 }
               }
@@ -53,13 +48,11 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
           // Add event listeners
           const handleLoadStart = () => {
             console.log('🔄 Load started');
-            setIsLoading(true);
-          };
+            };
 
           const handleCanPlayThrough = () => {
             console.log('✅ Can play through - should be fully loaded');
-            setIsLoading(false);
-            hasLoaded.current = true;
+              hasLoaded.current = true;
           };
 
           const handleLoadedMetadata = () => {
@@ -103,7 +96,6 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
 
         } catch (error) {
           console.error('❌ Error setting up audio element:', error);
-          setIsLoading(false);
         }
       }
     }, [audioUrl]);
@@ -199,8 +191,7 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
                 className="!bg-transparent"
                 onLoadedData={() => {
                   console.log('✅ Audio data loaded successfully');
-                  setIsLoading(false);
-                }}
+                        }}
                 onLoadedMetaData={() => {
                   console.log('✅ Audio metadata loaded');
                 }}
@@ -209,16 +200,13 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
                 }}
                 onCanPlayThrough={() => {
                   console.log('✅ Audio can play through');
-                  setIsLoading(false);
-                }}
+                        }}
                 onError={(e) => {
                   console.error('❌ Audio loading error:', e);
-                  setIsLoading(false);
-                }}
+                        }}
                 onAbort={() => {
                   console.log('⚠️ Audio loading aborted');
-                  setIsLoading(false);
-                }}
+                        }}
               />
             </div>
           </div>
@@ -228,4 +216,4 @@ const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
   }
 );
 
-export default CustomAudioPlayer;
+export default AudioPlayerComponent;

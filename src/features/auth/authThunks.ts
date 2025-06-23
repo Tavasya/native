@@ -5,7 +5,7 @@ import { UserRole, AuthUser, UserProfile, OnboardingData, AuthState } from './ty
 
 /* ---------- helpers ---------- */
 type EmailCreds      = { email: string; password: string; selectedRole?: UserRole };
-type SessionPayload  = { user: any; role: UserRole | null; profile: UserProfile };
+type SessionPayload  = { user: AuthUser; role: UserRole | null; profile: UserProfile };
 type SignupCreds = {
     email: string;
     password: string;
@@ -248,8 +248,8 @@ export const signUpWithEmail = createAsyncThunk<
         role: creds.role,
         profile: profile.profile
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'An unexpected error occurred during signup');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'An unexpected error occurred during signup');
     }
   }
 );
@@ -264,7 +264,7 @@ export const verifyEmail = createAsyncThunk<
   async ({ email, token }, { rejectWithValue }) => {
     try {
       // First, try to get the current session
-      const { data: { /* session */ } } = await supabase.auth.getSession();
+      await supabase.auth.getSession();
 
       // Verify the OTP
       const { data, error } = await supabase.auth.verifyOtp({
@@ -307,8 +307,8 @@ export const verifyEmail = createAsyncThunk<
         role: profile.role,
         profile: profile.profile
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'An unexpected error occurred during email verification');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'An unexpected error occurred during email verification');
     }
   }
 );
@@ -333,8 +333,8 @@ export const loadSession = createAsyncThunk<
         role: profile.role,
         profile: profile.profile
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message);
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message);
     }
   }
 );
@@ -383,8 +383,8 @@ export const signInWithEmail = createAsyncThunk<
         role: profile.role,
         profile: profile.profile
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Failed to fetch user profile');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'Failed to fetch user profile');
     }
   }
 );
@@ -404,8 +404,8 @@ export const initiateEmailChange = createAsyncThunk<
       if (error) {
         return rejectWithValue(error.message || 'Failed to initiate email change');
       }
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'An unexpected error occurred while initiating email change');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'An unexpected error occurred while initiating email change');
     }
   }
 );
@@ -459,14 +459,14 @@ export const verifyEmailChange = createAsyncThunk<
         role: profile.role,
         profile: profile.profile
       };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'An unexpected error occurred during email change verification');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'An unexpected error occurred during email change verification');
     }
   }
 );
 
 /* ---------- helper: sign-out ---------- */
-export async function signOut(dispatch: any) {
+export async function signOut(dispatch: (action: { type: string }) => void) {
   await supabase.auth.signOut();
   // raw action string = no import cycle with slice
   dispatch({ type: 'auth/clearAuth' });
@@ -507,7 +507,7 @@ export const savePartialStudentData = createAsyncThunk<
         role: 'student',
       }
     ], { onConflict: 'email' });
-  } catch (err) {
+  } catch {
     // Silent fail
   }
 });
@@ -579,8 +579,8 @@ export const signUpSimple = createAsyncThunk<
       };
 
       return { user: authUser, profile };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Signup failed');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'Signup failed');
     }
   }
 );
@@ -662,9 +662,9 @@ export const completeOnboarding = createAsyncThunk<
       console.log('Onboarding completed successfully, returning profile:', updatedProfile);
 
       return { user: currentUser, profile: updatedProfile };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Onboarding error:', err);
-      return rejectWithValue(err.message || 'Onboarding failed');
+      return rejectWithValue((err as Error)?.message || 'Onboarding failed');
     }
   }
 );
@@ -696,8 +696,8 @@ export const signUpWithGoogle = createAsyncThunk<
       };
 
       return { user: authUser, profile: profileData.profile };
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'Google authentication failed');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'Google authentication failed');
     }
   }
 );
@@ -736,8 +736,8 @@ export const changePassword = createAsyncThunk<
       if (error) {
         return rejectWithValue(error.message || 'Failed to update password');
       }
-    } catch (err: any) {
-      return rejectWithValue(err.message || 'An unexpected error occurred while changing password');
+    } catch (err: unknown) {
+      return rejectWithValue((err as Error)?.message || 'An unexpected error occurred while changing password');
     }
   }
 );

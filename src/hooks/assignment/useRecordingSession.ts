@@ -10,7 +10,7 @@ interface UseRecordingSessionProps {
   assignmentId: string;
   userId: string | null;
   assignment: Assignment | null;
-  toast: any;
+  toast: (options: { title: string; description: string; duration?: number; variant?: "default" | "destructive" }) => void;
 }
 
 export const useRecordingSession = ({ assignmentId, userId, assignment, toast }: UseRecordingSessionProps) => {
@@ -69,7 +69,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
           ? submission.recordings 
           : JSON.parse(submission.recordings);
 
-        recordings.forEach((recording: any) => {
+        recordings.forEach((recording: { questionId: string; audioUrl: string }) => {
           if (recording && recording.questionId && recording.audioUrl) {
             const questionIndex = assignment.questions.findIndex(q => q.id === recording.questionId);
             if (questionIndex !== -1) {
@@ -135,6 +135,58 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
       console.error('Error processing submission:', error);
     }
   }, [assignmentId, userId, assignment, audioUrlCache, getStoragePath]);
+
+  const handleRecordingUpdate = useCallback(async (questionId: string, uploadedUrl: string) => {
+    if (!assignment || !userId) return;
+
+    try {
+      const { data: existingSubmissions, error: fetchError } = await supabase
+        .from('submissions')
+        .select('*')
+        .eq('assignment_id', assignmentId)
+        .eq('student_id', userId)
+        .order('submitted_at', { ascending: false })
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+
+      const existingSubmission = existingSubmissions?.[0];
+
+      if (existingSubmission) {
+        const { data: updatedSubmission, error: updateError } = await supabase
+          .rpc('update_recording', {
+            p_submission_id: existingSubmission.id,
+            p_question_id: questionId,
+            p_audio_url: uploadedUrl
+          });
+
+        if (updateError) throw updateError;
+
+        if (updatedSubmission?.status !== 'in_progress') {
+          await supabase
+            .from('submissions')
+            .update({ status: 'in_progress' })
+            .eq('id', existingSubmission.id);
+        }
+      } else {
+        await supabase
+          .from('submissions')
+          .insert({
+            assignment_id: assignmentId,
+            student_id: userId,
+            status: 'in_progress',
+            submitted_at: new Date().toISOString(),
+            recordings: [{
+              questionId,
+              audioUrl: uploadedUrl
+            }]
+          });
+      }
+    } catch (error) {
+      console.error('Error in handleRecordingUpdate:', error);
+      throw error;
+    }
+  }, [assignmentId, userId, assignment]);
 
   const saveNewRecording = useCallback(async (
     questionIndex: number,
@@ -237,59 +289,7 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
         duration: 5000,
       });
     }
-  }, [assignment, userId, assignmentId, dispatch, toast]);
-
-  const handleRecordingUpdate = useCallback(async (questionId: string, uploadedUrl: string) => {
-    if (!assignment || !userId) return;
-
-    try {
-      const { data: existingSubmissions, error: fetchError } = await supabase
-        .from('submissions')
-        .select('*')
-        .eq('assignment_id', assignmentId)
-        .eq('student_id', userId)
-        .order('submitted_at', { ascending: false })
-        .limit(1);
-
-      if (fetchError) throw fetchError;
-
-      const existingSubmission = existingSubmissions?.[0];
-
-      if (existingSubmission) {
-        const { data: updatedSubmission, error: updateError } = await supabase
-          .rpc('update_recording', {
-            p_submission_id: existingSubmission.id,
-            p_question_id: questionId,
-            p_audio_url: uploadedUrl
-          });
-
-        if (updateError) throw updateError;
-
-        if (updatedSubmission?.status !== 'in_progress') {
-          await supabase
-            .from('submissions')
-            .update({ status: 'in_progress' })
-            .eq('id', existingSubmission.id);
-        }
-      } else {
-        await supabase
-          .from('submissions')
-          .insert({
-            assignment_id: assignmentId,
-            student_id: userId,
-            status: 'in_progress',
-            submitted_at: new Date().toISOString(),
-            recordings: [{
-              questionId,
-              audioUrl: uploadedUrl
-            }]
-          });
-      }
-    } catch (error) {
-      console.error('Error in handleRecordingUpdate:', error);
-      throw error;
-    }
-  }, [assignmentId, userId, assignment]);
+  }, [assignment, userId, assignmentId, dispatch, toast, handleRecordingUpdate]);
 
   const hasRecordingForQuestion = useCallback((questionIndex: number) => {
     const hasSessionRecording = sessionRecordings[questionIndex]?.url != null;

@@ -32,7 +32,7 @@ export const getSpeedCategory = (wpm: number): SpeedCategory => {
   return { category: 'Too Fast', color: 'bg-[#ef5136]' };
 };
 
-export const calculateOverallPronunciationScore = (wordDetails: any[]): number => {
+export const calculateOverallPronunciationScore = (wordDetails: Array<{ accuracy_score?: number }>): number => {
   if (!wordDetails || wordDetails.length === 0) {
     return 0;
   }
@@ -45,7 +45,7 @@ export const calculateOverallPronunciationScore = (wordDetails: any[]): number =
   return Math.round(averageScore);
 };
 
-export const getWordsToShow = (wordDetails: any[]): any[] => {
+export const getWordsToShow = (wordDetails: Array<{ word?: string; accuracy_score?: number; [key: string]: unknown }>): Array<{ word?: string; accuracy_score?: number; [key: string]: unknown }> => {
   if (!wordDetails || wordDetails.length === 0) return [];
   
   // Blacklist of words to exclude

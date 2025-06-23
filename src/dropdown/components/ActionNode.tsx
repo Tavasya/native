@@ -4,13 +4,13 @@ import { Zap, X } from 'lucide-react';
 import { Component, DragData } from '@/dropdown/types';
 
 // Icon mapping object
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   Zap,
   X
 };
 
 // Helper function to reconstruct a component with its icon
-const reconstructComponent = (data: DragData['component'], defaultIcon: React.ComponentType<any>): Component => {
+const reconstructComponent = (data: DragData['component'], defaultIcon: React.ComponentType<{ size?: number | string; className?: string }>): Component => {
   return {
     id: data.id,
     label: data.label,
@@ -26,13 +26,13 @@ interface ActionNodeData {
 }
 
 // Helper function to check if a value is a valid React component
-const isValidReactComponent = (component: any): boolean => {
+const isValidReactComponent = (component: unknown): boolean => {
   return (
     typeof component === 'function' ||
     (typeof component === 'object' && 
      component !== null && 
-     (component.$$typeof === Symbol.for('react.forward_ref') || 
-      component.$$typeof === Symbol.for('react.memo')))
+     ((component as any).$$typeof === Symbol.for('react.forward_ref') || 
+      (component as any).$$typeof === Symbol.for('react.memo')))
   );
 };
 

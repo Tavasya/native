@@ -51,7 +51,7 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
     // Find the actual index in the full word_details array
     const wordDetails = feedbackToUse?.pronunciation?.word_details || [];
     const actualIndex = wordDetails.findIndex(
-      (w: any) => w.word === word.word && w.accuracy_score === word.accuracy_score
+      (w: { word: string; accuracy_score: number }) => w.word === word.word && w.accuracy_score === word.accuracy_score
     );
     
     if (actualIndex !== -1) {

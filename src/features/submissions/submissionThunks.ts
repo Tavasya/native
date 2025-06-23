@@ -41,8 +41,8 @@ export const uploadQuestionRecording = createAsyncThunk(
             }));
             
             return uploadedUrl;
-        } catch (error: any) {
-            throw new Error(error.message);
+        } catch (error: unknown) {
+            throw new Error((error as Error).message);
         }
     }
 );
@@ -98,10 +98,10 @@ export const createSubmission = createAsyncThunk(
             
             console.log('=== SUBMISSION CREATION DEBUG END ===');
             return submission;
-        } catch(error: any) {
+        } catch(error: unknown) {
             console.error('=== SUBMISSION CREATION ERROR ===');
             console.error('Error creating submission:', error);
-            return rejectWithValue(error.message);
+            return rejectWithValue((error as Error).message);
         }
     }
 );
@@ -115,8 +115,8 @@ export const fetchSubmissionsByAssignmentAndStudent = createAsyncThunk(
         try {
             return await submissionService.getSubmissionsByAssignmentAndStudent(assignment_id, student_id);
         } 
-        catch (error: any) {
-            return rejectWithValue(error.message);
+        catch (error: unknown) {
+            return rejectWithValue((error as Error).message);
         }
     }
 );
@@ -126,8 +126,8 @@ export const fetchSubmissionById = createAsyncThunk(
     async (id: string, { rejectWithValue }) => {
         try {
             return await submissionService.getSubmissionById(id);
-        } catch (error: any) {
-            return rejectWithValue(error.message);
+        } catch (error: unknown) {
+            return rejectWithValue((error as Error).message);
         }
     }
 );
@@ -141,7 +141,7 @@ export const updateSubmission = createAsyncThunk(
     ) => {
         try {
             // FIXED: Convert section_feedback array to Record format for API
-            let apiUpdates = { ...updates };
+            const apiUpdates = { ...updates };
             
             if (updates.section_feedback && Array.isArray(updates.section_feedback)) {
                 // Sort section_feedback by question_id before converting to Record
@@ -149,7 +149,7 @@ export const updateSubmission = createAsyncThunk(
                     (a.question_id || 0) - (b.question_id || 0)
                 );
                 
-                const sectionFeedbackRecord: Record<string, any> = {};
+                const sectionFeedbackRecord: Record<string, unknown> = {};
                 sortedSectionFeedback.forEach(entry => {
                     sectionFeedbackRecord[entry.question_id.toString()] = {
                         ...entry.section_feedback,
@@ -177,10 +177,10 @@ export const updateSubmission = createAsyncThunk(
             
             const result = await submissionService.updateSubmission(id, apiUpdates);
             return result;
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Revert optimistic update on error by refetching
             dispatch(fetchSubmissionById(id));
-            return rejectWithValue(error.message);
+            return rejectWithValue((error as Error).message);
         }
     }
 );
@@ -191,8 +191,8 @@ export const deleteSubmission = createAsyncThunk(
         try {
             await submissionService.deleteSubmission(id);
             return id;
-        } catch (error: any) {
-            return rejectWithValue(error.message);
+        } catch (error: unknown) {
+            return rejectWithValue((error as Error).message);
         }
     }
 );
@@ -206,8 +206,8 @@ export const submitAudioAndAnalyze = createAsyncThunk<
         try {
             await submissionService.analyzeAudio([audioUrl], submissionId);
             return { success: true };
-        } catch (error: any) {
-            return thunkAPI.rejectWithValue(error.message);
+        } catch (error: unknown) {
+            return thunkAPI.rejectWithValue((error as Error).message);
         }
     }
 );

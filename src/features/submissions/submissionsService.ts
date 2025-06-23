@@ -11,7 +11,7 @@ interface AudioAnalysisResponse {
   success: boolean;
   data?: {
     transcription?: string;
-    analysis?: any;
+    analysis?: Record<string, unknown>;
     status: string;
   };
   error?: string;
@@ -110,8 +110,8 @@ const validateSubmissionData = async (data: CreateSubmissionDto) => {
   for (const [index, recording] of data.recordings.entries()) {
     try {
       await validateRecordingData(recording);
-    } catch (error: any) {
-      throw new Error(`Invalid recording at index ${index}: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Invalid recording at index ${index}: ${(error as Error).message}`);
     }
   }
 };

@@ -18,8 +18,8 @@ interface PreviewData {
   id: string;
   class_id?: string;
   created_at?: string;
-  metadata?: any;
-  status?: any;
+  metadata?: Record<string, unknown>;
+  status?: string;
 }
 
 interface UseAssignmentDataProps {

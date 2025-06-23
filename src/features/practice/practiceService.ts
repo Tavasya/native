@@ -23,7 +23,7 @@ export const practiceService = {
       }
 
       const data = await response.json();
-      console.log('Available models:', data.data.map((model: any) => model.id));
+      console.log('Available models:', data.data.map((model: { id: string }) => model.id));
       return true;
     } catch (error) {
       console.error('API Key test failed:', error);

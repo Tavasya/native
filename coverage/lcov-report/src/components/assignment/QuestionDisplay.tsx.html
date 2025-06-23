@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>0/42</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>0/22</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>0/42</span>
             </div>
         
             
@@ -203,7 +203,16 @@
 <a name='L138'></a><a href='#L138'>138</a>
 <a name='L139'></a><a href='#L139'>139</a>
 <a name='L140'></a><a href='#L140'>140</a>
-<a name='L141'></a><a href='#L141'>141</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -225,6 +234,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -256,6 +272,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -268,6 +285,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -344,7 +362,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// 📁 src/components/assignment/QuestionDisplay.tsx
-<span class="cstat-no" title="statement not covered" >import React, { useState, useEffect, useCallback } from 'react';</span>
+<span class="cstat-no" title="statement not covered" >import React, { useState, useEffect, useCallback, useRef } from 'react';</span>
 <span class="cstat-no" title="statement not covered" >import { ScrollArea } from "@/components/ui/scroll-area";</span>
 import { QuestionCard } from "@/features/assignments/types";
 <span class="cstat-no" title="statement not covered" >import { Button } from "@/components/ui/button";</span>
@@ -365,9 +383,16 @@ const QuestionDisplay: React.FC&lt;QuestionDisplayProps&gt; = <span class="cstat
   const dispatch = <span class="cstat-no" title="statement not covered" >useAppDispatch();</span>
   const [isLoading, setIsLoading] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
   const [hasAutoPlayed, setHasAutoPlayed] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
+  const isGeneratingAudio = <span class="cstat-no" title="statement not covered" >useRef(false);</span>
 &nbsp;
   const handlePlayQuestion = <span class="cstat-no" title="statement not covered" >useCallback(<span class="fstat-no" title="function not covered" >async </span>() =&gt; {</span>
+    // Prevent duplicate audio generation
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (isGeneratingAudio.current) {</span>
+<span class="cstat-no" title="statement not covered" >      return;</span>
+    }
+    
 <span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      isGeneratingAudio.current = true;</span>
 <span class="cstat-no" title="statement not covered" >      setIsLoading(true);</span>
       const cacheKey = <span class="cstat-no" title="statement not covered" >`question_${currentQuestion.id}`;</span>
       
@@ -394,6 +419,7 @@ const QuestionDisplay: React.FC&lt;QuestionDisplayProps&gt; = <span class="cstat
     } catch (error) {
 <span class="cstat-no" title="statement not covered" >      console.error('Error playing question audio:', error);</span>
     } finally {
+<span class="cstat-no" title="statement not covered" >      isGeneratingAudio.current = false;</span>
 <span class="cstat-no" title="statement not covered" >      setIsLoading(false);</span>
 <span class="cstat-no" title="statement not covered" >      dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));</span>
     }
@@ -408,9 +434,10 @@ const QuestionDisplay: React.FC&lt;QuestionDisplayProps&gt; = <span class="cstat
     
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (shouldAutoPlay &amp;&amp; !hasAutoPlayed) {</span>
 <span class="cstat-no" title="statement not covered" >      setHasAutoPlayed(true);</span>
+      // Call handlePlayQuestion directly without dependency
 <span class="cstat-no" title="statement not covered" >      handlePlayQuestion();</span>
     }
-  }, [currentQuestion.id, isTestMode, hasAutoPlayed, handlePlayQuestion]);
+  }, [currentQuestion.id, currentQuestion.type, isTestMode, hasAutoPlayed, handlePlayQuestion]);
 &nbsp;
   // Reset auto-play flag when question changes
 <span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
@@ -490,7 +517,7 @@ const QuestionDisplay: React.FC&lt;QuestionDisplayProps&gt; = <span class="cstat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-06-23T23:38:21.063Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

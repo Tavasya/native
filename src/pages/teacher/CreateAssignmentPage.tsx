@@ -231,17 +231,17 @@ const CreateAssignmentPage: React.FC = () => {
 
       toast({ title: 'Assignment published', description: 'The assignment has been published successfully' });
       navigate(`/class/${classId}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Publish failed',
-        description: err?.message || 'Could not create assignment',
+        description: (err as Error)?.message || 'Could not create assignment',
         variant: 'destructive'
       });
     }
   };
 
   // Handle drag and drop reordering - fixed for vertical only
-  const onDragEnd = (result: any) => {
+  const onDragEnd = (result: { destination?: { index: number } | null; source: { index: number } }) => {
     if (!result.destination) return;
 
     const reorderedItems = Array.from(questionCards);
@@ -333,10 +333,10 @@ const CreateAssignmentPage: React.FC = () => {
         title: 'Template saved',
         description: 'This assignment has been saved as a template.'
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Save failed',
-        description: err?.message || 'Could not save template',
+        description: (err as Error)?.message || 'Could not save template',
         variant: 'destructive'
       });
     }

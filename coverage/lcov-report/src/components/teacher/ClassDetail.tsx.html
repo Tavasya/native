@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/123</span>
+                <span class='fraction'>0/126</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/68</span>
+                <span class='fraction'>0/73</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/113</span>
+                <span class='fraction'>0/116</span>
             </div>
         
             
@@ -597,7 +597,17 @@
 <a name='L532'></a><a href='#L532'>532</a>
 <a name='L533'></a><a href='#L533'>533</a>
 <a name='L534'></a><a href='#L534'>534</a>
-<a name='L535'></a><a href='#L535'>535</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L535'></a><a href='#L535'>535</a>
+<a name='L536'></a><a href='#L536'>536</a>
+<a name='L537'></a><a href='#L537'>537</a>
+<a name='L538'></a><a href='#L538'>538</a>
+<a name='L539'></a><a href='#L539'>539</a>
+<a name='L540'></a><a href='#L540'>540</a>
+<a name='L541'></a><a href='#L541'>541</a>
+<a name='L542'></a><a href='#L542'>542</a>
+<a name='L543'></a><a href='#L543'>543</a>
+<a name='L544'></a><a href='#L544'>544</a>
+<a name='L545'></a><a href='#L545'>545</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -689,6 +699,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -696,6 +709,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -799,10 +813,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1035,6 +1053,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1220,6 +1240,9 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
   const overrideTeacherId = <span class="cstat-no" title="statement not covered" >sessionStorage.getItem('overrideTeacherId');</span>
   const effectiveUserId = <span class="cstat-no" title="statement not covered" >overrideTeacherId || user?.id;</span>
 &nbsp;
+  // State for tracking back button clicks
+  const [backButtonClicked, setBackButtonClicked] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
+&nbsp;
   // Clear override if we're in a normal view (not injected)
 <span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
     // If we have a user ID and it matches the override, we're in a normal view
@@ -1230,11 +1253,12 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
     // Cleanup when navigating away
 <span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
       // If we're not in an injected view (override doesn't match current user)
-<span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (user?.id &amp;&amp; overrideTeacherId !== user.id) {</span>
+      // AND the back button wasn't clicked, then clear the overrideTeacherId
+<span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (user?.id &amp;&amp; overrideTeacherId !== user.id &amp;&amp; !backButtonClicked) {</span>
 <span class="cstat-no" title="statement not covered" >        sessionStorage.removeItem('overrideTeacherId');</span>
       }
     };
-  }, [overrideTeacherId, user?.id]);
+  }, [overrideTeacherId, user?.id, backButtonClicked]);
 &nbsp;
   // Initialize expanded state from sessionStorage
   const [expanded, setExpanded] = <span class="cstat-no" title="statement not covered" >useState&lt;Set&lt;string&gt;&gt;(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
@@ -1263,7 +1287,7 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
 <span class="cstat-no" title="statement not covered" >    dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))</span>
       .unwrap()
       // .then(classes =&gt; {
-      .then(<span class="fstat-no" title="function not covered" >_ </span>=&gt; {
+      .then(<span class="fstat-no" title="function not covered" >() =</span>&gt; {
         // Then fetch stats and assignments
 <span class="cstat-no" title="statement not covered" >        dispatch(fetchClassStatsByTeacher(effectiveUserId));</span>
 <span class="cstat-no" title="statement not covered" >        dispatch(fetchAssignmentByClass(classId));</span>
@@ -1297,7 +1321,7 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
 &nbsp;
   const classData = <span class="cstat-no" title="statement not covered" >{</span>
     name: cls.name,
-    code: (cls as any).class_code,
+    code: (cls as { class_code?: string }).class_code || '',
     students: stat.student_count,
     assignments: stat.assignment_count,
   };
@@ -1336,7 +1360,11 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
   const toggle = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(i</span>d: string) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setExpanded(<span class="fstat-no" title="function not covered" >(p</span>rev) =&gt; {</span>
       const nxt = <span class="cstat-no" title="statement not covered" >new Set(prev);</span>
-<span class="cstat-no" title="statement not covered" >      nxt.has(id) ? nxt.delete(id) : nxt.add(id);</span>
+<span class="cstat-no" title="statement not covered" >      if (nxt.has(id)) {</span>
+<span class="cstat-no" title="statement not covered" >        nxt.delete(id);</span>
+      } else {
+<span class="cstat-no" title="statement not covered" >        nxt.add(id);</span>
+      }
 <span class="cstat-no" title="statement not covered" >      return nxt;</span>
     });
   };
@@ -1353,8 +1381,8 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
 <span class="cstat-no" title="statement not covered" >      toast({ title: 'Deleted', description: 'Assignment removed.' });</span>
 <span class="cstat-no" title="statement not covered" >      setConfirmOpen(false);</span>
 <span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (classId) <span class="cstat-no" title="statement not covered" >dispatch(fetchAssignmentByClass(classId));</span></span>
-    } catch (err: any) {
-<span class="cstat-no" title="statement not covered" >      toast({ title: 'Error', description: err.message });</span>
+    } catch (err: unknown) {
+<span class="cstat-no" title="statement not covered" >      toast({ title: 'Error', description: (err as Error).message });</span>
     }
   };
 &nbsp;
@@ -1372,8 +1400,8 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
     // Check if we're viewing as another teacher
     const overrideTeacherId = <span class="cstat-no" title="statement not covered" >sessionStorage.getItem('overrideTeacherId');</span>
 <span class="cstat-no" title="statement not covered" >    if (overrideTeacherId) {</span>
-      // Clear the override teacher ID
-<span class="cstat-no" title="statement not covered" >      sessionStorage.removeItem('overrideTeacherId');</span>
+      // Set the back button clicked flag to prevent cleanup from clearing overrideTeacherId
+<span class="cstat-no" title="statement not covered" >      setBackButtonClicked(true);</span>
       
       // Get the teacher's name from the metrics data
       const teacherMetric = <span class="cstat-no" title="statement not covered" >assignmentMetrics.find(<span class="fstat-no" title="function not covered" >m </span>=&gt; <span class="cstat-no" title="statement not covered" >m.teacher_id === overrideTeacherId)</span>;</span>
@@ -1545,7 +1573,7 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
                           {[
                             { header: 'Student', width: 'w-1/4' },
                             { header: 'Status', width: 'w-1/5' },
-                            { header: 'Submitted At', width: 'w-1/4' },
+                            { header: 'Last Updated', width: 'w-1/4' },
                             { header: 'Grade', width: 'w-1/6' },
                             { header: 'Action', width: 'w-1/6' }
                           ].map(<span class="fstat-no" title="function not covered" >({</span> header, width }) =&gt; (
@@ -1590,7 +1618,9 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
                               })()}
                             &lt;/td&gt;
                             &lt;td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/4"&gt;
-                              {st.submitted_at
+                              {st.status === 'in_progress' 
+                                ? 'Not Submitted'
+                                : st.submitted_at
                                 ? new Date(st.submitted_at).toLocaleString(undefined, {
                                     day: '2-digit',
                                     month: 'short',
@@ -1672,7 +1702,7 @@ const ClassDetail: React.FC&lt;ClassDetailProps&gt; = <span class="cstat-no" tit
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-06-23T23:38:21.063Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

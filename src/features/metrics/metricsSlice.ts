@@ -110,8 +110,8 @@ export const fetchLastLogins = createAsyncThunk<
 >('metrics/fetchLastLogins', async ({ page, perPage }, { rejectWithValue }) => {
   try {
     return await service.getLastLogins(page, perPage);
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -122,8 +122,8 @@ export const fetchAssignmentMetrics = createAsyncThunk<
 >('metrics/fetchAssignmentMetrics', async (_, { rejectWithValue }) => {
   try {
     return await service.getAssignmentMetrics();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -134,8 +134,8 @@ export const fetchTeacherLoginsWeekly = createAsyncThunk<
 >('metrics/fetchTeacherLoginsWeekly', async (_, { rejectWithValue }) => {
   try {
     return await service.getTeacherLoginsWeekly();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -146,8 +146,8 @@ export const fetchTeacherAssignmentsWeekly = createAsyncThunk<
 >('metrics/fetchTeacherAssignmentsWeekly', async (_, { rejectWithValue }) => {
   try {
     return await service.getTeacherAssignmentsWeekly();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -158,8 +158,8 @@ export const fetchStudentEngagement = createAsyncThunk<
 >('metrics/fetchStudentEngagement', async (_, { rejectWithValue }) => {
   try {
     return await service.getStudentEngagement();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -170,8 +170,8 @@ export const fetchInactiveUsers = createAsyncThunk<
 >('metrics/fetchInactiveUsers', async (_, { rejectWithValue }) => {
   try {
     return await service.getInactiveUsers();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -182,8 +182,8 @@ export const fetchAllLastLogins = createAsyncThunk<
 >('metrics/fetchAllLastLogins', async (_, { rejectWithValue }) => {
   try {
     return await service.getAllLastLogins();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -202,8 +202,8 @@ export const fetchUserCreationData = createAsyncThunk<
 >('metrics/fetchUserCreationData', async (_, { rejectWithValue }) => {
   try {
     return await service.getUserCreationData();
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -221,8 +221,8 @@ export const hideUserById = createAsyncThunk<
     
     // No need to re-fetch the entire list, we'll update the state directly
     // The fulfilled case in the reducer will handle removing the user
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 
@@ -238,8 +238,8 @@ export const hideAssignmentById = createAsyncThunk<
     await service.hideAssignment(assignmentId);
     // Update the assignment metrics to reflect the hidden assignment
     dispatch(fetchAssignmentMetrics());
-  } catch (err: any) {
-    return rejectWithValue(err.message);
+  } catch (err: unknown) {
+    return rejectWithValue((err as Error)?.message);
   }
 });
 

@@ -1,6 +1,6 @@
 import { SectionFeedback } from './types';
 
-export function normalizeSectionFeedback(feedback: any): SectionFeedback {
+export function normalizeSectionFeedback(feedback: Record<string, unknown>): SectionFeedback {
   if (!feedback) {
     console.log('No feedback provided');
     return { grade: 0, feedback: '' };

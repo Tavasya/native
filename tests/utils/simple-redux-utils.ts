@@ -3,14 +3,54 @@
  * Basic helpers without complex imports
  */
 
+// Define types for our mock state
+interface MockAuthState {
+  user: Record<string, unknown> | null;
+  role: string | null;
+  loading: boolean;
+  error: string | null;
+  emailChangeInProgress: boolean;
+}
+
+interface MockAssignmentState {
+  assignments: Record<string, unknown>[];
+  currentAssignment: Record<string, unknown> | null;
+  loading: boolean;
+  error: string | null;
+  isTestMode: boolean;
+}
+
+interface MockRootState {
+  auth: MockAuthState;
+  assignments: MockAssignmentState;
+}
+
 // Simple mock store creator
-export const createMockStore = (initialState: Record<string, any> = {}) => {
-  let state = initialState;
+export const createMockStore = (initialState: Partial<MockRootState> = {}) => {
+  let state: MockRootState = {
+    auth: {
+      user: null,
+      role: null,
+      loading: false,
+      error: null,
+      emailChangeInProgress: false,
+      ...initialState.auth
+    },
+    assignments: {
+      assignments: [],
+      currentAssignment: null,
+      loading: false,
+      error: null,
+      isTestMode: false,
+      ...initialState.assignments
+    }
+  };
+  
   const listeners: Array<() => void> = [];
   
   return {
-    getState: () => state,
-    dispatch: (action: Record<string, any>) => {
+    getState: (): MockRootState => state,
+    dispatch: (action: Record<string, unknown>) => {
       // Simple reducer logic for testing
       state = mockReducer(state, action);
       listeners.forEach(listener => listener());
@@ -27,7 +67,7 @@ export const createMockStore = (initialState: Record<string, any> = {}) => {
 };
 
 // Simple mock reducer for auth and assignment actions
-const mockReducer = (state: Record<string, any>, action: Record<string, any>) => {
+const mockReducer = (state: MockRootState, action: Record<string, unknown>): MockRootState => {
   switch (action.type) {
     // Auth actions
     case 'auth/clearAuth':
@@ -43,12 +83,13 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
       };
     
     case 'auth/setUser':
+      const authPayload = action.payload as { user?: Record<string, unknown>; role?: string } | undefined;
       return {
         ...state,
         auth: {
           ...state.auth,
-          user: action.payload.user,
-          role: action.payload.role,
+          user: authPayload?.user || null,
+          role: authPayload?.role || null,
           error: null
         }
       };
@@ -70,7 +111,7 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
         ...state,
         assignments: {
           ...state.assignments,
-          assignments: action.payload,
+          assignments: action.payload as Record<string, unknown>[] || [],
           loading: false,
           error: null
         }
@@ -81,7 +122,7 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
         ...state,
         assignments: {
           ...state.assignments,
-          loading: action.payload
+          loading: action.payload as boolean || false
         }
       };
 
@@ -90,7 +131,7 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
         ...state,
         assignments: {
           ...state.assignments,
-          currentAssignment: action.payload
+          currentAssignment: action.payload as Record<string, unknown> || null
         }
       };
 
@@ -99,7 +140,7 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
         ...state,
         assignments: {
           ...state.assignments,
-          isTestMode: !state.assignments?.isTestMode
+          isTestMode: !state.assignments.isTestMode
         }
       };
     
@@ -111,7 +152,7 @@ const mockReducer = (state: Record<string, any>, action: Record<string, any>) =>
 // Simple action creators
 export const mockAuthActions = {
   clearAuth: () => ({ type: 'auth/clearAuth' }),
-  setUser: (user: Record<string, any>, role: string) => ({ 
+  setUser: (user: Record<string, unknown>, role: string) => ({ 
     type: 'auth/setUser', 
     payload: { user, role } 
   }),
@@ -119,7 +160,7 @@ export const mockAuthActions = {
 };
 
 export const mockAssignmentActions = {
-  setAssignments: (assignments: Record<string, any>[]) => ({
+  setAssignments: (assignments: Record<string, unknown>[]) => ({
     type: 'assignments/setAssignments',
     payload: assignments
   }),
@@ -127,7 +168,7 @@ export const mockAssignmentActions = {
     type: 'assignments/setLoading',
     payload: loading
   }),
-  setCurrentAssignment: (assignment: Record<string, any>) => ({
+  setCurrentAssignment: (assignment: Record<string, unknown>) => ({
     type: 'assignments/setCurrentAssignment',
     payload: assignment
   }),
@@ -137,14 +178,14 @@ export const mockAssignmentActions = {
 };
 
 // Simple mock data
-export const createMockUser = (overrides: Record<string, any> = {}) => ({
+export const createMockUser = (overrides: Record<string, unknown> = {}) => ({
   id: 'test-user-123',
   email: 'test@example.com',
   name: 'Test User',
   ...overrides
 });
 
-export const createMockAuthState = (overrides: Record<string, any> = {}) => ({
+export const createMockAuthState = (overrides: Record<string, unknown> = {}) => ({
   user: null,
   role: null,
   loading: false,
@@ -153,7 +194,7 @@ export const createMockAuthState = (overrides: Record<string, any> = {}) => ({
   ...overrides
 });
 
-export const createMockAssignment = (overrides: Record<string, any> = {}) => ({
+export const createMockAssignment = (overrides: Record<string, unknown> = {}) => ({
   id: 'test-assignment-123',
   title: 'Test Assignment',
   description: 'Test Description',
@@ -163,7 +204,7 @@ export const createMockAssignment = (overrides: Record<string, any> = {}) => ({
   ...overrides
 });
 
-export const createMockAssignmentState = (overrides: Record<string, any> = {}) => ({
+export const createMockAssignmentState = (overrides: Record<string, unknown> = {}) => ({
   assignments: [],
   currentAssignment: null,
   loading: false,

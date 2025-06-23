@@ -84,7 +84,7 @@ const AssignmentAnalyticsGraph: React.FC<AssignmentAnalyticsGraphProps> = ({ dat
     console.log('Calculated periods:', periods);
 
     const transformed = periods.map((period, periodIndex) => {
-      const periodData: any = { period: '' };
+      const periodData: { period: string; [key: string]: number | string } = { period: '' };
       
       let periodEnd: Date;
       

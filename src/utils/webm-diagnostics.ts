@@ -121,7 +121,7 @@ export async function validateAudioBlob(blob: Blob): Promise<{
 export async function repairWebMFile(blob: Blob): Promise<{
   fixed: boolean;
   blob: Blob;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }> {
   // First, analyze the file
   const analysis = await validateAudioBlob(blob);
@@ -228,9 +228,9 @@ export async function repairWebMFile(blob: Blob): Promise<{
  */
 export async function testAudioRecordingCompatibility(): Promise<{
   compatible: boolean;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }> {
-  const details: Record<string, any> = {
+  const details: Record<string, unknown> = {
     userAgent: navigator.userAgent,
     mediaDevicesSupported: !!navigator.mediaDevices,
     mediaRecorderSupported: typeof MediaRecorder !== 'undefined',
