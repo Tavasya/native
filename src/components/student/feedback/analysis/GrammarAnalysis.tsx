@@ -50,6 +50,21 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
   // Log the entire feedback object for debugging
   console.log('Full feedback object:', JSON.stringify(feedbackToUse, null, 2));
 
+  // Grammar category names mapping
+  const categoryNames = {
+    1: "Subject-verb agreement",
+    2: "Verb tense consistency", 
+    3: "Article usage",
+    4: "Singular/plural form",
+    5: "Word order and sentence structure",
+    6: "Preposition use",
+    7: "Sentence completeness",
+    8: "Disfluencies",
+    9: "Punctuation issues",
+    10: "Misspellings",
+    11: "Other"
+  };
+
   // Helper function to filter out grammar issues with category 8, 9, 10, or 11
   const shouldIncludeGrammarIssue = (issue: any): boolean => {
     // Check if the issue has a category field and if it's 8, 9, 10, or 11
@@ -58,6 +73,16 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
       return false;
     }
     return true;
+  };
+
+  // Helper function to get category for an issue
+  const getIssueCategory = (issue: any): number => {
+    return issue.category || 11; // Default to "Other" if no category
+  };
+
+  // Helper function to check if we should show categorized view
+  const hasCategorizedIssues = (issues: any[]): boolean => {
+    return issues.some(issue => issue.category !== undefined);
   };
 
   // Handle both v1 and v2 formats
@@ -102,7 +127,8 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
               original_phrase: correctionData.original_phrase || ''
             },
             sentence_index: correctionData.sentence_index,
-            phrase_index: correctionData.phrase_index
+            phrase_index: correctionData.phrase_index,
+            category: correctionData.category
           };
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
@@ -121,7 +147,7 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
           const parsedIssues = JSON.parse(feedbackToUse.grammar.issues);
           console.log('Parsed string issues:', parsedIssues);
           if (Array.isArray(parsedIssues)) {
-            // Filter out issues with category 8, 9, or 10
+            // Filter out issues with category 8, 9, 10, or 11
             const filteredIssues = parsedIssues.filter(shouldIncludeGrammarIssue);
             console.log('Filtered string issues:', filteredIssues);
             return filteredIssues;
@@ -160,7 +186,8 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
               suggested_correction: issue.correction?.suggested_correction || '',
               explanation: issue.correction?.explanation || '',
               original_phrase: issue.correction?.original_phrase || ''
-            }
+            },
+            category: (issue as any).category
           }));
 
         console.log('Processed v1 issues:', processedIssues);
@@ -194,7 +221,8 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
               original_phrase: correctionData.original_phrase || ''
             },
             sentence_index: correctionData.sentence_index,
-            phrase_index: correctionData.phrase_index
+            phrase_index: correctionData.phrase_index,
+            category: correctionData.category
           };
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
@@ -207,8 +235,38 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
     return [];
   }, [feedbackToUse]);
 
+  // Group and rank issues by category
+  const rankedCategories = React.useMemo(() => {
+    if (!hasCategorizedIssues(issues)) {
+      return null;
+    }
+
+    // Group issues by category
+    const categoryGroups: { [key: number]: any[] } = {};
+    issues.forEach(issue => {
+      const category = getIssueCategory(issue);
+      if (!categoryGroups[category]) {
+        categoryGroups[category] = [];
+      }
+      categoryGroups[category].push(issue);
+    });
+
+    // Sort categories by number of issues (descending)
+    const sortedCategories = Object.entries(categoryGroups)
+      .map(([categoryId, categoryIssues]) => ({
+        id: parseInt(categoryId),
+        name: categoryNames[parseInt(categoryId) as keyof typeof categoryNames],
+        issues: categoryIssues,
+        count: categoryIssues.length
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return sortedCategories;
+  }, [issues]);
+
   // Log final processed issues
   console.log('Final processed grammar issues:', issues);
+  console.log('Ranked categories:', rankedCategories);
 
   return (
     <div className={cn(
@@ -222,38 +280,88 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Grammar Issues</h3>
         
-        <div className="space-y-3">
-          {issues.length > 0 ? (
-            issues.map((issue, index) => (
-              <IssueCard
-                key={index}
-                title="Grammar Issue"
-                index={index}
-                isOpen={grammarOpen[`grammar-${index}`] || false}
-                onToggle={() => onToggleGrammar(`grammar-${index}`)}
-                onDelete={isEditing ? () => onDeleteIssue('grammar', index) : undefined}
-                isEditing={isEditing}
-              >
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900 mb-2">Original</h4>
-                    <p className="text-base text-gray-600">{issue.original}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900 mb-2">Correction</h4>
-                    <p className="text-base text-gray-600">{issue.correction.suggested_correction}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
-                    <p className="text-base text-gray-600">{issue.correction.explanation}</p>
-                  </div>
+        {rankedCategories ? (
+          // Show categorized and ranked view
+          <div className="space-y-4">
+            {rankedCategories.map((category) => (
+              <div key={category.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-base font-semibold text-gray-900">
+                    {category.name}
+                  </h4>
+                  <span className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {category.count} issue{category.count !== 1 ? 's' : ''}
+                  </span>
                 </div>
-              </IssueCard>
-            ))
-          ) : (
-            <p className="text-base text-gray-500">No grammar issues found.</p>
-          )}
-        </div>
+                <div className="space-y-3">
+                  {category.issues.map((issue, index) => {
+                    const globalIndex = issues.findIndex(i => i === issue);
+                    return (
+                      <IssueCard
+                        key={`${category.id}-${index}`}
+                        title={`${category.name} Issue`}
+                        index={globalIndex}
+                        isOpen={grammarOpen[`grammar-${globalIndex}`] || false}
+                        onToggle={() => onToggleGrammar(`grammar-${globalIndex}`)}
+                        onDelete={isEditing ? () => onDeleteIssue('grammar', globalIndex) : undefined}
+                        isEditing={isEditing}
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Original</h5>
+                            <p className="text-base text-gray-600">{issue.original}</p>
+                          </div>
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Correction</h5>
+                            <p className="text-base text-gray-600">{issue.correction.suggested_correction}</p>
+                          </div>
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Explanation</h5>
+                            <p className="text-base text-gray-600">{issue.correction.explanation}</p>
+                          </div>
+                        </div>
+                      </IssueCard>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Show regular list view for non-categorized issues
+          <div className="space-y-3">
+            {issues.length > 0 ? (
+              issues.map((issue, index) => (
+                <IssueCard
+                  key={index}
+                  title="Grammar Issue"
+                  index={index}
+                  isOpen={grammarOpen[`grammar-${index}`] || false}
+                  onToggle={() => onToggleGrammar(`grammar-${index}`)}
+                  onDelete={isEditing ? () => onDeleteIssue('grammar', index) : undefined}
+                  isEditing={isEditing}
+                >
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-900 mb-2">Original</h4>
+                      <p className="text-base text-gray-600">{issue.original}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-900 mb-2">Correction</h4>
+                      <p className="text-base text-gray-600">{issue.correction.suggested_correction}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                      <p className="text-base text-gray-600">{issue.correction.explanation}</p>
+                    </div>
+                  </div>
+                </IssueCard>
+              ))
+            ) : (
+              <p className="text-base text-gray-500">No grammar issues found.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, ChevronDown, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown, Info, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,6 +41,7 @@ const CreateAssignmentPage: React.FC = () => {
   // State
   const [title, setTitle] = useState('');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   // const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [dueTime, setDueTime] = useState('23:59'); // Default to end of day
@@ -329,10 +330,14 @@ const CreateAssignmentPage: React.FC = () => {
       };
 
       await dispatch(createAssignmentTemplate(templateData)).unwrap();
+      setIsSaved(true);
       toast({
         title: 'Template saved',
         description: 'This assignment has been saved as a template.'
       });
+      
+      // Reset saved state after 3 seconds
+      setTimeout(() => setIsSaved(false), 3000);
     } catch (err: any) {
       toast({
         title: 'Save failed',
@@ -382,7 +387,7 @@ const CreateAssignmentPage: React.FC = () => {
               onClick={handlePreview}
               className="text-[#272A69] hover:text-[#272A69]/90"
             >
-              Preview
+              <Eye className="h-4 w-4" />
             </Button>
             <div className="flex">
               <Button
@@ -503,7 +508,7 @@ const CreateAssignmentPage: React.FC = () => {
                         {/* Auto Grade Setting */}
                         <div className="space-y-2">
                           <div className="flex items-center gap-1">
-                            <Label className="text-sm font-medium text-gray-700">Auto Grade</Label>
+                            <Label className="text-sm font-medium text-gray-700">Auto Grading</Label>
                             <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -512,7 +517,7 @@ const CreateAssignmentPage: React.FC = () => {
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
-                                  <p className="text-sm text-gray-700">You can manually grade and review assignments after AI performs analysis.</p>
+                                  <p className="text-sm text-gray-700">AI analyzes submissions and marks them as pending review for manual grading.</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
@@ -541,7 +546,7 @@ const CreateAssignmentPage: React.FC = () => {
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
-                                  <p className="text-sm text-gray-700">When enabled, grading boxes will be highlighted in orange instead of navy blue.</p>
+                                  <p className="text-sm text-gray-700">Enables IELTS-style test mode with prep time and formal testing environment.</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
