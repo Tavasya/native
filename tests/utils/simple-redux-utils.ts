@@ -22,7 +22,9 @@ export const createMockStore = (initialState: Record<string, any> = {}) => {
         const index = listeners.indexOf(listener);
         if (index >= 0) listeners.splice(index, 1);
       };
-    }
+    },
+    replaceReducer: jest.fn(),
+    [Symbol.observable]: jest.fn()
   };
 };
 

@@ -1,5 +1,27 @@
 import '@testing-library/jest-dom';
 
+// Add TextEncoder/TextDecoder polyfill for Node.js testing environment
+if (!global.TextEncoder) {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
+// Add pointer capture polyfill for JSDOM
+if (typeof window !== 'undefined') {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = function() {
+      return false;
+    };
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = function() {};
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = function() {};
+  }
+}
+
 // Add Blob.arrayBuffer polyfill for Node.js testing environment
 if (!Blob.prototype.arrayBuffer) {
   Blob.prototype.arrayBuffer = function() {
