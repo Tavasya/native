@@ -17,6 +17,7 @@ interface ExtendedGrammar {
         sentence_index: number;
         original_phrase: string;
         suggested_correction: string;
+        category?: number;
       }>;
     };
   };
@@ -182,6 +183,16 @@ export const createHighlightedText = (
 ) => {
   if (!text || !currentFeedback || highlightType === 'none') return text;
 
+  // Helper function to filter out grammar issues with category 8, 9, 10, or 11
+  const shouldIncludeGrammarIssue = (issue: any): boolean => {
+    // Check if the issue has a category field and if it's 8, 9, 10, or 11
+    if (issue.category !== undefined && [8, 9, 10, 11].includes(issue.category)) {
+      console.log('Filtering out grammar issue with category:', issue.category);
+      return false;
+    }
+    return true;
+  };
+
   let mistakesToHighlight: Array<Mistake & { sentenceIndex?: number; phraseIndex?: number }> = [];
   
   if (highlightType === 'grammar') {
@@ -189,49 +200,61 @@ export const createHighlightedText = (
     const extendedGrammar = currentFeedback.grammar as ExtendedGrammar;
     if (extendedGrammar?.grammar_corrections) {
       mistakesToHighlight = Object.entries(extendedGrammar.grammar_corrections)
-        .map(([_, correction]) => ({
-          text: correction.corrections[0]?.original_phrase || correction.original || '',
-          explanation: correction.corrections[0]?.explanation || '',
-          suggestion: correction.corrections[0]?.suggested_correction || '',
-          type: 'Grammar',
-          color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors',
-          sentenceIndex: correction.corrections[0]?.sentence_index,
-          phraseIndex: correction.corrections[0]?.phrase_index
-        }));
+        .map(([_, correction]) => {
+          const correctionData = correction.corrections[0];
+          
+          // Check if this correction should be filtered out
+          if (!shouldIncludeGrammarIssue(correctionData)) {
+            return null;
+          }
+          
+          return {
+            text: correctionData?.original_phrase || correction.original || '',
+            explanation: correctionData?.explanation || '',
+            suggestion: correctionData?.suggested_correction || '',
+            type: 'Grammar',
+            color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors',
+            sentenceIndex: correctionData?.sentence_index,
+            phraseIndex: correctionData?.phrase_index
+          };
+        })
+        .filter((mistake): mistake is NonNullable<typeof mistake> => mistake !== null);
     }
     // Try v1 format (grammar.issues)
     else if (currentFeedback.grammar?.issues) {
       if (Array.isArray(currentFeedback.grammar.issues)) {
-        mistakesToHighlight = currentFeedback.grammar.issues.map((issue: GrammarIssue) => {
-          let textToHighlight = issue.correction?.original_phrase || '';
-          
-          if (!textToHighlight && issue.original) {
-            if (issue.correction?.suggested_correction) {
-              const suggestedWords = issue.correction.suggested_correction.split(' ');
-              if (suggestedWords.length <= 3) {
-                const originalWords = issue.original.split(' ');
-                const matchingIndex = originalWords.findIndex(word => 
-                  suggestedWords.some(suggested => 
-                    word.toLowerCase().includes(suggested.toLowerCase())
-                  )
-                );
-                if (matchingIndex !== -1) {
-                  textToHighlight = originalWords[matchingIndex];
+        mistakesToHighlight = currentFeedback.grammar.issues
+          .filter(shouldIncludeGrammarIssue) // Filter out category 8, 9, 10
+          .map((issue: GrammarIssue) => {
+            let textToHighlight = issue.correction?.original_phrase || '';
+            
+            if (!textToHighlight && issue.original) {
+              if (issue.correction?.suggested_correction) {
+                const suggestedWords = issue.correction.suggested_correction.split(' ');
+                if (suggestedWords.length <= 3) {
+                  const originalWords = issue.original.split(' ');
+                  const matchingIndex = originalWords.findIndex(word => 
+                    suggestedWords.some(suggested => 
+                      word.toLowerCase().includes(suggested.toLowerCase())
+                    )
+                  );
+                  if (matchingIndex !== -1) {
+                    textToHighlight = originalWords[matchingIndex];
+                  }
                 }
               }
             }
-          }
-          
-          return {
-            text: textToHighlight || issue.original || '',
-            explanation: issue.correction?.explanation || '',
-            suggestion: issue.correction?.suggested_correction || '',
-            type: 'Grammar',
-            color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors',
-            sentenceIndex: issue.sentence_index,
-            phraseIndex: issue.phrase_index
-          };
-        });
+            
+            return {
+              text: textToHighlight || issue.original || '',
+              explanation: issue.correction?.explanation || '',
+              suggestion: issue.correction?.suggested_correction || '',
+              type: 'Grammar',
+              color: 'bg-red-100 text-red-800 border-red-200 cursor-pointer hover:bg-red-200 transition-colors',
+              sentenceIndex: issue.sentence_index,
+              phraseIndex: issue.phrase_index
+            };
+          });
       }
     }
   } else if (highlightType === 'vocabulary') {

@@ -69,6 +69,7 @@ export interface SectionFeedback {
           sentence_index: number;
           original_phrase: string;
           suggested_correction: string;
+          category?: number;
         }[];
       };
     };

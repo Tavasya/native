@@ -38,6 +38,7 @@ export interface GrammarIssue {
   };
   sentence_index?: number;
   phrase_index?: number;
+  category?: number;
 }
 
 export interface LexicalIssue {

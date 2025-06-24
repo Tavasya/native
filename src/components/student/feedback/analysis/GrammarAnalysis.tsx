@@ -31,6 +31,7 @@ interface ExtendedGrammar {
         sentence_index: number;
         original_phrase: string;
         suggested_correction: string;
+        category?: number; // Add optional category field
       }>;
     };
   };
@@ -48,6 +49,16 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
 
   // Log the entire feedback object for debugging
   console.log('Full feedback object:', JSON.stringify(feedbackToUse, null, 2));
+
+  // Helper function to filter out grammar issues with category 8, 9, 10, or 11
+  const shouldIncludeGrammarIssue = (issue: any): boolean => {
+    // Check if the issue has a category field and if it's 8, 9, 10, or 11
+    if (issue.category !== undefined && [8, 9, 10, 11].includes(issue.category)) {
+      console.log('Filtering out grammar issue with category:', issue.category);
+      return false;
+    }
+    return true;
+  };
 
   // Handle both v1 and v2 formats
   const issues = React.useMemo(() => {
@@ -76,15 +87,22 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
             return null;
           }
           
+          const correctionData = correction.corrections[0];
+          
+          // Check if this correction should be filtered out
+          if (!shouldIncludeGrammarIssue(correctionData)) {
+            return null;
+          }
+          
           return {
             original: correction.original || '',
             correction: {
-              suggested_correction: correction.corrections[0].suggested_correction || '',
-              explanation: correction.corrections[0].explanation || '',
-              original_phrase: correction.corrections[0].original_phrase || ''
+              suggested_correction: correctionData.suggested_correction || '',
+              explanation: correctionData.explanation || '',
+              original_phrase: correctionData.original_phrase || ''
             },
-            sentence_index: correction.corrections[0].sentence_index,
-            phrase_index: correction.corrections[0].phrase_index
+            sentence_index: correctionData.sentence_index,
+            phrase_index: correctionData.phrase_index
           };
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
@@ -102,7 +120,13 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
         try {
           const parsedIssues = JSON.parse(feedbackToUse.grammar.issues);
           console.log('Parsed string issues:', parsedIssues);
-          return Array.isArray(parsedIssues) ? parsedIssues : [];
+          if (Array.isArray(parsedIssues)) {
+            // Filter out issues with category 8, 9, or 10
+            const filteredIssues = parsedIssues.filter(shouldIncludeGrammarIssue);
+            console.log('Filtered string issues:', filteredIssues);
+            return filteredIssues;
+          }
+          return [];
         } catch (e) {
           console.log('Failed to parse string issues:', feedbackToUse.grammar.issues);
           return [];
@@ -120,9 +144,15 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
             
             if (!isValid) {
               console.warn('Invalid grammar issue:', issue);
+              return false;
             }
             
-            return isValid;
+            // Check if this issue should be filtered out
+            if (!shouldIncludeGrammarIssue(issue)) {
+              return false;
+            }
+            
+            return true;
           })
           .map(issue => ({
             original: issue.original || '',
@@ -149,15 +179,22 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
             return null;
           }
           
+          const correctionData = correction.corrections[0];
+          
+          // Check if this correction should be filtered out
+          if (!shouldIncludeGrammarIssue(correctionData)) {
+            return null;
+          }
+          
           return {
             original: correction.original || '',
             correction: {
-              suggested_correction: correction.corrections[0].suggested_correction || '',
-              explanation: correction.corrections[0].explanation || '',
-              original_phrase: correction.corrections[0].original_phrase || ''
+              suggested_correction: correctionData.suggested_correction || '',
+              explanation: correctionData.explanation || '',
+              original_phrase: correctionData.original_phrase || ''
             },
-            sentence_index: correction.corrections[0].sentence_index,
-            phrase_index: correction.corrections[0].phrase_index
+            sentence_index: correctionData.sentence_index,
+            phrase_index: correctionData.phrase_index
           };
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
