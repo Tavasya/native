@@ -387,7 +387,7 @@ const CreateAssignmentPage: React.FC = () => {
               onClick={handlePreview}
               className="text-[#272A69] hover:text-[#272A69]/90"
             >
-              <Eye className="h-4 w-4" />
+              Preview
             </Button>
             <div className="flex">
               <Button
@@ -416,7 +416,7 @@ const CreateAssignmentPage: React.FC = () => {
           {/* Header Card with title, description, settings */}
           <Card
             className={cn(
-              "shadow-md rounded-2xl p-6 mb-6 border-2",
+              "shadow-md rounded-2xl mb-6 border-2",
               activeHeaderCard && (isTest ? "ring-2 ring-orange-500 border-orange-500" : "ring-2 ring-[#272A69] border-[#272A69]"),
               !activeHeaderCard && "border-gray-200"
             )}
@@ -431,7 +431,10 @@ const CreateAssignmentPage: React.FC = () => {
               }
             }}
           >
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6">
+              {/* Spacer to match drag handle spacing */}
+              <div className="py-1"></div>
+              
               {/* Title and description */}
               <div className="space-y-2">
                 <div className={cn(
@@ -446,7 +449,7 @@ const CreateAssignmentPage: React.FC = () => {
                       setActiveHeaderCard(true);
                     }}
                     placeholder="Assignment Title"
-                    className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="border-none text-xl font-medium p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
                 {/* Description input commented out for now
@@ -477,8 +480,9 @@ const CreateAssignmentPage: React.FC = () => {
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     style={{ overflow: 'hidden' }}
+                    className="mt-6"
                   >
-                    <div className="space-y-5 pt-3 border-t">
+                    <div className="space-y-5 pt-3">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Due Date */}
                         <div className="space-y-2">
@@ -757,30 +761,33 @@ const CreateAssignmentPage: React.FC = () => {
                                     >
                                       <div className="flex flex-col space-y-4 pt-4">
                                         <div className="flex items-center justify-between gap-4">
-                                          <Select
-                                            value={card.type}
-                                            onValueChange={(value: "normal" | "bulletPoints") =>
-                                              updateQuestionCard(card.id, {
-                                                type: value,
-                                                bulletPoints:
-                                                  value === "bulletPoints" ? [""] : undefined,
-                                              })
-                                            }
-                                          >
-                                            <SelectTrigger className="w-40">
-                                              <SelectValue>
-                                                {card.type === "normal"
-                                                  ? "Part 1 or Part 3 "
-                                                  : "Part 2 "}
-                                              </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="normal">Part 1 or Part 3</SelectItem>
-                                              <SelectItem value="bulletPoints">
-                                                Part 2
-                                              </SelectItem>
-                                            </SelectContent>
-                                          </Select>
+                                          <div className="flex flex-col">
+                                            <label className="text-xs text-gray-500 mb-1">Question Style</label>
+                                            <Select
+                                              value={card.type}
+                                              onValueChange={(value: "normal" | "bulletPoints") =>
+                                                updateQuestionCard(card.id, {
+                                                  type: value,
+                                                  bulletPoints:
+                                                    value === "bulletPoints" ? [""] : undefined,
+                                                })
+                                              }
+                                            >
+                                              <SelectTrigger className="w-40">
+                                                <SelectValue>
+                                                  {card.type === "normal"
+                                                    ? "Part 1 or Part 3 "
+                                                    : "Part 2 "}
+                                                </SelectValue>
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="normal">Part 1 or Part 3</SelectItem>
+                                                <SelectItem value="bulletPoints">
+                                                  Part 2
+                                                </SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
                                           
                                           <div className="flex items-center gap-4">
                                             {isTest && (
