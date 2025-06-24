@@ -71,14 +71,6 @@ const Transcript: React.FC<TranscriptProps> = ({
             )}
           </div>
           
-          {showImproved && hasImprovedTranscript && (
-            <div className="mb-3 p-2 bg-gray-50 border-l-2 border-gray-300 rounded-sm">
-              <p className="text-xs text-gray-600">
-                Improved from {currentFeedback?.paragraph_restructuring?.original_band} to {currentFeedback?.paragraph_restructuring?.target_band} level
-              </p>
-            </div>
-          )}
-          
           <div className="text-sm text-gray-600 leading-relaxed overflow-visible">
             {highlightedText}
           </div>

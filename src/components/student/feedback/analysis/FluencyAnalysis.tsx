@@ -25,13 +25,13 @@ const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-50 p-4 rounded-lg text-center">
           <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
-          <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
+          <div className="text-xs text-black mt-1">
             {currentFeedback?.fluency?.cohesive_device_feedback || 'No data available'}
           </div>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg text-center">
           <div className="text-sm font-medium text-gray-900 mb-2">Filler Words</div>
-          <div className={`text-xs ${getScoreColor(averageScores.avg_fluency_score)} mt-1`}>
+          <div className="text-xs text-black mt-1">
             {currentFeedback?.fluency?.filler_word_count ? `${currentFeedback.fluency.filler_word_count} filler words used` : 'No data available'}
           </div>
         </div>
