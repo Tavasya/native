@@ -23,7 +23,7 @@ interface ExtendedGrammar {
   };
 }
 
-// Extended vocabulary type to handle v2 format
+// Extended vocabulary type to handle v2 and v3 formats
 interface ExtendedVocabulary {
   grade: number;
   vocabulary_suggestions?: {
@@ -36,6 +36,9 @@ interface ExtendedVocabulary {
       suggested_level: string;
       sentence_index?: number;
       phrase_index?: number;
+      // v3 fields
+      type?: "vocabulary";
+      category?: number;
     };
   };
 }
@@ -193,6 +196,26 @@ export const createHighlightedText = (
     return true;
   };
 
+  // Helper function to filter out vocabulary issues with category 4, 5, 8, 10 for v3
+  const shouldIncludeVocabularyIssue = (suggestion: any, isV3Format: boolean): boolean => {
+    if (!isV3Format) return true; // For v1/v2, include all suggestions
+    
+    let category = 10; // Default to category 10 if undefined
+    if (Array.isArray(suggestion.category)) {
+      category = suggestion.category[0] || 10; // Take first element if array
+    } else {
+      category = suggestion.category || 10;
+    }
+    
+    // Filter out categories: 4, 5, 8, 10
+    return ![4, 5, 8, 10].includes(category);
+  };
+
+  // Helper function to check if we should show categorized view for vocabulary
+  const hasVocabularyCategorizedSuggestions = (suggestions: any): boolean => {
+    return Object.values(suggestions).some((suggestion: any) => suggestion.category !== undefined);
+  };
+
   let mistakesToHighlight: Array<Mistake & { sentenceIndex?: number; phraseIndex?: number }> = [];
   
   if (highlightType === 'grammar') {
@@ -260,7 +283,11 @@ export const createHighlightedText = (
   } else if (highlightType === 'vocabulary') {
     const extendedVocabulary = currentFeedback.vocabulary as ExtendedVocabulary;
     if (extendedVocabulary?.vocabulary_suggestions) {
+      // Check if this is v3 format
+      const isV3Format = hasVocabularyCategorizedSuggestions(extendedVocabulary.vocabulary_suggestions);
+      
       mistakesToHighlight = Object.entries(extendedVocabulary.vocabulary_suggestions)
+        .filter(([_, suggestion]) => shouldIncludeVocabularyIssue(suggestion, isV3Format))
         .map(([_, suggestion]) => ({
           text: suggestion.original_word || '',
           explanation: suggestion.explanation || '',

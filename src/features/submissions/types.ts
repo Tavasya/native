@@ -114,6 +114,9 @@ export interface SectionFeedback {
         sentence_index: number;
         suggested_word: string;
         suggested_level: string;
+        // v3 fields
+        type?: "vocabulary";
+        category?: number;
       };
     };
   };

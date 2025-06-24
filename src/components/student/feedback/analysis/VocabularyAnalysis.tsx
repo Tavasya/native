@@ -14,6 +14,29 @@ interface VocabularyAnalysisProps {
   onDeleteIssue: (section: 'lexical', index: number) => void;
 }
 
+// Extended vocabulary interface to handle v2 and v3 formats
+interface ExtendedVocabulary {
+  grade: number;
+  issues: string[];
+  vocabulary_suggestions: {
+    [key: string]: {
+      examples: string[];
+      word_type: string;
+      explanation: string;
+      phrase_index: number;
+      original_word: string;
+      sentence_text: string;
+      original_level: string;
+      sentence_index: number;
+      suggested_word: string;
+      suggested_level: string;
+      // v3 fields
+      type?: "vocabulary";
+      category?: number;
+    };
+  };
+}
+
 const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
   currentFeedback,
   tempFeedback,
@@ -24,29 +47,102 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
 }) => {
   const feedbackToUse = isEditing ? tempFeedback : currentFeedback;
   
-  // Log the full feedback structure
-  console.log('Vocabulary Analysis - Full Feedback:', {
-    currentFeedback,
-    tempFeedback,
-    feedbackToUse,
-    hasLexical: !!feedbackToUse?.lexical,
-    hasVocabulary: !!feedbackToUse?.vocabulary,
-    lexicalIssues: feedbackToUse?.lexical?.issues,
-    vocabularySuggestions: feedbackToUse?.vocabulary?.vocabulary_suggestions
-  });
-  
-  // Handle both v1 and v2 formats
-  const issues = feedbackToUse?.lexical?.issues || [];
-  const vocabularySuggestions = feedbackToUse?.vocabulary?.vocabulary_suggestions || {};
+  // Vocabulary category names mapping
+  const categoryNames = {
+    1: "Used incorrectly in context (wrong word choice)",
+    2: "Poor collocations (words that don't naturally go together)",
+    3: "Unnatural or awkward word selections",
+    4: "Misspelled or malformed words",
+    5: "Words that could be replaced with more appropriate alternatives",
+    6: "Vocabulary that doesn't fit the register or style",
+    7: "Words used in wrong grammatical contexts",
+    8: "Redundant or unnecessary words",
+    9: "Missing words that would improve collocations",
+    10: "Other vocabulary issues"
+  };
 
-  console.log('Vocabulary Analysis - Processed Data:', {
-    issuesCount: issues.length,
-    vocabularySuggestionsCount: Object.keys(vocabularySuggestions).length,
-    firstIssue: issues[0],
-    firstSuggestion: Object.values(vocabularySuggestions)[0]
-  });
+  // Helper function to get category for a suggestion
+  const getSuggestionCategory = (suggestion: any): number => {
+    if (Array.isArray(suggestion.category)) {
+      return suggestion.category[0] || 10; // Take first element if array
+    }
+    return suggestion.category || 10; // Default to "Other vocabulary issues" if no category
+  };
 
-  // For v2 format, prioritize vocabulary suggestions
+  // Helper function to check if vocabulary issue should be included in v3
+  const shouldIncludeVocabularyIssue = (suggestion: any, isV3: boolean): boolean => {
+    if (!isV3) return true; // For v1/v2, include all suggestions
+    
+    const category = getSuggestionCategory(suggestion);
+    // Filter out categories: 4, 5, 8, 10
+    return ![4, 5, 8, 10].includes(category);
+  };
+
+  // Helper function to check if we should show categorized view
+  const hasCategorizedSuggestions = (suggestions: any): boolean => {
+    return Object.values(suggestions).some((suggestion: any) => suggestion.category !== undefined);
+  };
+
+  // Check if this is v3 format by looking for version in title or category presence
+  const isV3Format = React.useMemo(() => {
+    if (!feedbackToUse) return false;
+    
+    // Check if any vocabulary suggestion has a category
+    const extendedVocabulary = feedbackToUse.vocabulary as ExtendedVocabulary;
+    if (extendedVocabulary?.vocabulary_suggestions) {
+      return hasCategorizedSuggestions(extendedVocabulary.vocabulary_suggestions);
+    }
+    
+    return false;
+  }, [feedbackToUse]);
+
+  // Process vocabulary suggestions
+  const vocabularySuggestions = React.useMemo(() => {
+    if (!feedbackToUse) return {};
+    
+    const extendedVocabulary = feedbackToUse.vocabulary as ExtendedVocabulary;
+    return extendedVocabulary?.vocabulary_suggestions || {};
+  }, [feedbackToUse]);
+
+  // Rank categories by issue frequency for v3
+  const rankedCategories = React.useMemo(() => {
+    if (!isV3Format) return [];
+    
+    // Group suggestions by category, filtering out unwanted categories
+    const categoryGroups: { [key: number]: Array<[string, any]> } = {};
+    
+    Object.entries(vocabularySuggestions).forEach(([key, suggestion]: [string, any]) => {
+      // Filter out categories 4, 5, 8, 10 for v3
+      if (!shouldIncludeVocabularyIssue(suggestion, true)) return;
+      
+      const category = getSuggestionCategory(suggestion);
+      if (!categoryGroups[category]) {
+        categoryGroups[category] = [];
+      }
+      categoryGroups[category].push([key, suggestion]);
+    });
+    
+    // Create ranked categories with actual suggestions
+    const ranked = Object.entries(categoryGroups)
+      .map(([category, suggestions]) => ({ 
+        category: parseInt(category), 
+        count: suggestions.length,
+        name: categoryNames[parseInt(category) as keyof typeof categoryNames] || 'Unknown',
+        suggestions // Store the actual suggestions here
+      }))
+      .sort((a, b) => b.count - a.count);
+    
+    return ranked;
+  }, [isV3Format, vocabularySuggestions]);
+
+  // Get suggestions by category for v3 - now uses pre-computed data
+  const getSuggestionsByCategory = (category: number) => {
+    const categoryData = rankedCategories.find(c => c.category === category);
+    return categoryData?.suggestions || [];
+  };
+
+  // Handle both v1 and v2 formats (fallback to lexical issues)
+  const lexicalIssues = feedbackToUse?.lexical?.issues || [];
   const shouldShowVocabularySuggestions = Object.keys(vocabularySuggestions).length > 0;
 
   return (
@@ -59,13 +155,67 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
       </div>
       
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Vocabulary Suggestions</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Vocabulary Suggestions {isV3Format ? '(v3)' : '(v2)'}
+        </h3>
         
-        <div className="space-y-3">
-          {shouldShowVocabularySuggestions ? (
-            Object.entries(vocabularySuggestions).map(([key, suggestion], index) => {
-              console.log('Rendering vocabulary suggestion:', { key, index, suggestion });
-              return (
+        {isV3Format && rankedCategories.length > 0 ? (
+          // V3 Categorized View - exactly like grammar analysis
+          <div className="space-y-4">
+            {rankedCategories.map(({ category, count, name, suggestions }) => (
+              <div key={category} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-base font-semibold text-gray-900">
+                    {name}
+                  </h4>
+                  <span className="text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {count} issue{count !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {suggestions.map(([key, suggestion], index) => {
+                    const globalIndex = Object.keys(vocabularySuggestions).findIndex(k => k === key);
+                    return (
+                      <IssueCard
+                        key={key}
+                        title={`${name} Issue`}
+                        index={globalIndex}
+                        isOpen={vocabularyOpen[`vocab-${globalIndex}`] || false}
+                        onToggle={() => onToggleVocabulary(`vocab-${globalIndex}`)}
+                        onDelete={isEditing ? () => onDeleteIssue('lexical', globalIndex) : undefined}
+                        isEditing={isEditing}
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Original Word</h5>
+                            <p className="text-base text-gray-600">{suggestion.original_word}</p>
+                          </div>
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Suggested Word</h5>
+                            <p className="text-base text-gray-600">{suggestion.suggested_word}</p>
+                          </div>
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Explanation</h5>
+                            <p className="text-base text-gray-600">{suggestion.explanation}</p>
+                          </div>
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-2">Examples</h5>
+                            <p className="text-base text-gray-600">{suggestion.examples.join(', ')}</p>
+                          </div>
+                        </div>
+                      </IssueCard>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // V2 Flat View or V1 Fallback
+          <div className="space-y-3">
+            {shouldShowVocabularySuggestions ? (
+              // V2 Flat View
+              Object.entries(vocabularySuggestions).map(([key, suggestion], index) => (
                 <IssueCard
                   key={key}
                   title="Vocabulary Suggestion"
@@ -77,33 +227,31 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
                 >
                   <div className="space-y-3">
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Original Word</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Original Word</h5>
                       <p className="text-base text-gray-600">{suggestion.original_word}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Suggested Word</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Suggested Word</h5>
                       <p className="text-base text-gray-600">{suggestion.suggested_word}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Explanation</h5>
                       <p className="text-base text-gray-600">{suggestion.explanation}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Examples</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Examples</h5>
                       <p className="text-base text-gray-600">{suggestion.examples.join(', ')}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Level Change</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Level Change</h5>
                       <p className="text-base text-gray-600">{suggestion.original_level} → {suggestion.suggested_level}</p>
                     </div>
                   </div>
                 </IssueCard>
-              );
-            })
-          ) : issues.length > 0 ? (
-            issues.map((issue: LexicalIssue, index: number) => {
-              console.log('Rendering lexical issue:', { index, issue });
-              return (
+              ))
+            ) : lexicalIssues.length > 0 ? (
+              // V1 Fallback
+              lexicalIssues.map((issue: LexicalIssue, index: number) => (
                 <IssueCard
                   key={index}
                   title="Vocabulary Suggestions"
@@ -115,25 +263,25 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
                 >
                   <div className="space-y-3">
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Sentence</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Sentence</h5>
                       <p className="text-base text-gray-600">{issue.sentence}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Suggestion</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Suggestion</h5>
                       <p className="text-base text-gray-600">{issue.suggestion.suggested_phrase}</p>
                     </div>
                     <div>
-                      <h4 className="text-base font-semibold text-gray-900 mb-2">Explanation</h4>
+                      <h5 className="text-base font-semibold text-gray-900 mb-2">Explanation</h5>
                       <p className="text-base text-gray-600">{issue.suggestion.explanation}</p>
                     </div>
                   </div>
                 </IssueCard>
-              );
-            })
-          ) : (
-            <p className="text-base text-gray-500">No vocabulary suggstions found.</p>
-          )}
-        </div>
+              ))
+            ) : (
+              <p className="text-base text-gray-500">No vocabulary suggestions found.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

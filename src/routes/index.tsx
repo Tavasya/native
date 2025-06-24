@@ -11,6 +11,7 @@ import DevDash from '@/pages/dev/DevDash'
 // Eager load frequently visited components
 import StudentDashboard from '@/pages/student/StudentDashboard'
 import TeacherDash from '@/components/teacher/TeacherDash'
+import LibraryPage from '@/pages/teacher/LibraryPage'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
@@ -116,6 +117,7 @@ export default function AppRoutes() {
           {/* -------- TEACHER ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
+            <Route path="/teacher/library" element={<LibraryPage />} />
             <Route path="/class/:id" element={<ClassDetailPage />} />
             <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
             <Route path="/dev-dash" element={<DevDash />} />

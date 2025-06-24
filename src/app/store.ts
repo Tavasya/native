@@ -11,6 +11,7 @@ import ttsReducer from '@/features/tts/ttsSlice'
 import metricsReducer from '@/features/metrics/metricsSlice'
 import prepTimeReducer from '@/features/assignments/prepTimeSlice'
 import practiceReducer from '@/features/practice/practiceSlice'
+import libraryReducer from '@/features/library/librarySlice'
 
 // Configure persist options
 const persistConfig = {
@@ -30,6 +31,7 @@ const rootReducer = combineReducers({
   metrics: metricsReducer,
   prepTime: prepTimeReducer,
   practice: practiceReducer,
+  library: libraryReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -46,6 +48,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       metrics: metricsReducer(undefined, action),
       prepTime: prepTimeReducer(undefined, action),
       practice: practiceReducer(undefined, action),
+      library: libraryReducer(undefined, action),
     };
   }
   return rootReducer(state, action);

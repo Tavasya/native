@@ -50,14 +50,33 @@ const Navbar: React.FC = () => {
               <img src={NativeLogo} alt="Native" className="h-6" />
             </h1>
 
-            {user && (
+            {user && role === 'teacher' && (
               <nav className="hidden md:flex items-center gap-4 text-sm font-bold text-[#272A69]">
                 <Link 
-                  to={`/${role}/dashboard`} 
+                  to="/teacher/dashboard" 
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
-                  {role === 'teacher' ? 'Teacher' : 'Student'} Dashboard
+                  Classes
+                </Link>
+                <Link 
+                  to="/teacher/library" 
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Library
+                </Link>
+              </nav>
+            )}
+
+            {user && role === 'student' && (
+              <nav className="hidden md:flex items-center gap-4 text-sm font-bold text-[#272A69]">
+                <Link 
+                  to="/student/dashboard" 
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Student Dashboard
                 </Link>
               </nav>
             )}

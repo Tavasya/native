@@ -59,8 +59,18 @@ export const getWordsToShow = (wordDetails: any[]): any[] => {
     !blacklistedWords.includes(word.word.toLowerCase())
   );
   
-  // Then filter out words with scores above 70
-  const filteredWords = nonBlacklistedWords.filter(word => word.accuracy_score < 70);
+  // Show words that have low accuracy scores OR have phonemes with low scores
+  const filteredWords = nonBlacklistedWords.filter(word => {
+    // Show if overall word score is low
+    if (word.accuracy_score < 70) return true;
+    
+    // Also show if any phoneme has a low score (below 70)
+    if (word.phoneme_details && Array.isArray(word.phoneme_details)) {
+      return word.phoneme_details.some((phoneme: any) => phoneme.accuracy_score < 70);
+    }
+    
+    return false;
+  });
   
   // Always return filtered words, even if empty
   return filteredWords;
