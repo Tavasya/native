@@ -600,8 +600,8 @@ const CreateAssignmentPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F5F9FF]">
-      <main className="flex-1 flex">
+    <div className="min-h-screen bg-[#F5F9FF]">
+      <main className="flex-1">
         {/* Part Library Sidebar */}
         <PartLibrary
           isOpen={isPartLibraryOpen}
@@ -622,7 +622,11 @@ const CreateAssignmentPage: React.FC = () => {
         />
 
         {/* Main Content */}
-        <div className="flex-1 container mx-auto px-4 py-8">
+        <div className={cn(
+          "min-h-screen transition-all duration-300 ease-in-out",
+          isPartLibraryOpen ? "ml-80" : "ml-12"
+        )}>
+          <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Header with back button and publish button */}
           <div className="flex justify-between items-center mb-6">
             <Button
@@ -1250,6 +1254,7 @@ const CreateAssignmentPage: React.FC = () => {
               </Droppable>
             </DragDropContext>
           </div>
+        </div>
         </div>
       </main>
 

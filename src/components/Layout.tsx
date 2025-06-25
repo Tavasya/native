@@ -15,6 +15,7 @@ const LayoutContainer = styled.div`
 const MainContent = styled.main`
   flex: 1;
   transition: opacity 0.3s ease-in-out;
+  padding-top: 64px; /* Account for fixed navbar height (py-4 + content) */
 `;
 
 const Layout: React.FC = () => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,6 +67,33 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
     ...filteredCombinations.map(combo => ({ ...combo, itemType: 'combination' as const }))
   ];
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4; // Fixed to show 4 items per page
+  const totalPages = Math.ceil(allItems.length / itemsPerPage);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTopic, selectedPartType]);
+  
+  // Get current page items
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentItems = allItems.slice(startIndex, startIndex + itemsPerPage);
+  
+  // Pagination handlers
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   // Helper function to get part type display name
   const getPartTypeLabel = (item: any) => {
     if (item.itemType === 'combination') {
@@ -129,7 +156,8 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
 
   return (
     <div className={cn(
-      "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out",
+      "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out fixed left-0 z-10",
+      "top-16 h-[calc(100vh-64px)]", // Start after navbar (64px) and adjust height
       isOpen ? "w-80" : "w-12"
     )}>
       {isOpen ? (
@@ -204,8 +232,8 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
               <div className="text-center py-8 text-gray-500">Loading parts...</div>
             ) : (
               <div className="space-y-2">
-                {allItems.length > 0 ? (
-                  allItems.map((item, index) => {
+                {currentItems.length > 0 ? (
+                  currentItems.map((item, index) => {
                     const isIndividualPart = item.itemType === 'part';
                     const questions = isIndividualPart 
                       ? (item as AssignmentPart).questions
@@ -271,6 +299,30 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
               </div>
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <div className="flex justify-center">
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={cn(
+                        "w-8 h-8 rounded text-sm transition-colors",
+                        page === currentPage
+                          ? "bg-[#272A69] text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      )}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="h-full flex items-center justify-center">
