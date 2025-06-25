@@ -239,8 +239,50 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                       ? (item as AssignmentPart).questions
                       : [];
                     const description = isIndividualPart
-                      ? questions.map((q: any) => q.question).join(' • ')
-                      : 'Part 2 & 3 combination';
+                      ? questions.map((q: any) => {
+                          let questionText = q.question;
+                          // Add commas for Part 1 and Part 3 questions, bullet points for Part 2
+                          if (item.part_type === 'part2_only' && q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+                            questionText += '\n• ' + q.bulletPoints.join('\n• ');
+                          } else if (q.bulletPoints && q.bulletPoints.length > 0) {
+                            questionText += ', ' + q.bulletPoints.join(', ');
+                          }
+                          return questionText;
+                        }).join(', ')
+                      : (() => {
+                          // For combinations, show hybrid display
+                          const combo = item as PartCombination;
+                          const part2Questions = combo.part2?.questions || [];
+                          const part3Questions = combo.part3?.questions || [];
+                          
+                          const part2Text = part2Questions.map((q: any) => {
+                            let questionText = q.question;
+                            // Add bullet points for Part 2 questions
+                            if (q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+                              questionText += '\n• ' + q.bulletPoints.join('\n• ');
+                            }
+                            return questionText;
+                          }).join(', ');
+                          
+                          const part3Text = part3Questions.map((q: any) => {
+                            let questionText = q.question;
+                            // Add commas for Part 3 questions
+                            if (q.bulletPoints && q.bulletPoints.length > 0) {
+                              questionText += ', ' + q.bulletPoints.join(', ');
+                            }
+                            return questionText;
+                          }).join(', ');
+                          
+                          // Show hybrid format: Part 2 with bullet points, then Part 3 with commas
+                          if (part2Text && part3Text) {
+                            return `Part 2: ${part2Text}\nPart 3: ${part3Text}`;
+                          } else if (part2Text) {
+                            return `Part 2: ${part2Text}`;
+                          } else if (part3Text) {
+                            return `Part 3: ${part3Text}`;
+                          }
+                          return 'Part 2 & 3 combination';
+                        })();
                     
                     return (
                       <motion.div
@@ -267,7 +309,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                             <div className="flex items-start justify-between">
                               <div className="flex-1 min-w-0">
                                 <h5 className="text-sm font-medium truncate">{item.title}</h5>
-                                <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                <p className="text-xs text-gray-500 mt-1 whitespace-pre-line">
                                   {description}
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">

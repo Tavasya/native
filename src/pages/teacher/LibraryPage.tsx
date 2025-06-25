@@ -140,8 +140,8 @@ export default function LibraryPage() {
 
                 {/* Content */}
                 <div className="mb-4">
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{item.title}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">{item.description}</p>
+                  <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
+                  <p className="text-sm text-gray-600 mb-3">{item.description}</p>
                   
                   {/* Question Count */}
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">

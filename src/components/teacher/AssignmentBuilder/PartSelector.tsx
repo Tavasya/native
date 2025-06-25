@@ -212,11 +212,29 @@ const PartSelector: React.FC<PartSelectorProps> = ({
                     onClick={() => handleAddPart(part)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium text-sm line-clamp-2">{part.title}</h4>
+                      <h4 className="font-medium text-sm">{part.title}</h4>
+                    </div>
+                    
+                    {/* Show questions with bullet points for Part 2 */}
+                    <div className="text-xs text-gray-600 mb-2 whitespace-pre-line">
+                      {part.questions.map((q: any, index: number) => {
+                        let questionText = q.question;
+                        // Add commas for Part 1 and Part 3 questions, bullet points for Part 2
+                        if (part.part_type === 'part2_only' && q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+                          questionText += '\n• ' + q.bulletPoints.join('\n• ');
+                        } else if (q.bulletPoints && q.bulletPoints.length > 0) {
+                          questionText += ', ' + q.bulletPoints.join(', ');
+                        }
+                        return (
+                          <div key={index} className="mb-1">
+                            {questionText}
+                          </div>
+                        );
+                      })}
                     </div>
                     
                     {part.description && (
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{part.description}</p>
+                      <p className="text-xs text-gray-600 mb-2">{part.description}</p>
                     )}
                     
                     <div className="flex items-center gap-2">
@@ -247,11 +265,41 @@ const PartSelector: React.FC<PartSelectorProps> = ({
                     onClick={() => handleAddPart(combo)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium text-sm line-clamp-2">{combo.title}</h4>
+                      <h4 className="font-medium text-sm">{combo.title}</h4>
+                    </div>
+                    
+                    {/* Show questions with bullet points for combinations */}
+                    <div className="text-xs text-gray-600 mb-2 whitespace-pre-line">
+                      {/* Part 2 questions */}
+                      {combo.part2?.questions && combo.part2.questions.length > 0 && (
+                        <div className="mb-1">
+                          <strong>Part 2:</strong> {combo.part2.questions.map((q: any, index: number) => {
+                            let questionText = q.question;
+                            // Add bullet points for Part 2 questions
+                            if (q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+                              questionText += '\n• ' + q.bulletPoints.join('\n• ');
+                            }
+                            return questionText;
+                          }).join(', ')}
+                        </div>
+                      )}
+                      {/* Part 3 questions */}
+                      {combo.part3?.questions && combo.part3.questions.length > 0 && (
+                        <div className="mb-1">
+                          <strong>Part 3:</strong> {combo.part3.questions.map((q: any, index: number) => {
+                            let questionText = q.question;
+                            // Add commas for Part 3 questions
+                            if (q.bulletPoints && q.bulletPoints.length > 0) {
+                              questionText += ', ' + q.bulletPoints.join(', ');
+                            }
+                            return questionText;
+                          }).join(', ')}
+                        </div>
+                      )}
                     </div>
                     
                     {combo.description && (
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{combo.description}</p>
+                      <p className="text-xs text-gray-600 mb-2">{combo.description}</p>
                     )}
                     
                     <div className="flex items-center gap-2">

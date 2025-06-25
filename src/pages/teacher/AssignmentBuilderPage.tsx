@@ -359,18 +359,43 @@ const AssignmentBuilderPage: React.FC = () => {
                       // Fallback to original part questions
                       return selectedParts.flatMap(part => {
                         if ('part2' in part && 'part3' in part) {
-                          return [...(part.part2?.questions || []), ...(part.part3?.questions || [])];
+                          // For combinations, process part2 and part3 separately
+                          const part2Questions = (part.part2?.questions || []).map((question, index) => ({
+                            ...question,
+                            id: `question-${index + 1}`,
+                            type: 'bulletPoints' as const,
+                            question: question.question,
+                            bulletPoints: question.bulletPoints || [''],
+                            timeLimit: isTest ? "30" : "30",
+                            prepTime: isTest ? "5" : undefined
+                          }));
+                          
+                          const part3Questions = (part.part3?.questions || []).map((question, index) => ({
+                            ...question,
+                            id: `question-${part2Questions.length + index + 1}`,
+                            type: 'normal' as const,
+                            question: question.question,
+                            bulletPoints: question.bulletPoints || [],
+                            timeLimit: isTest ? "30" : "30",
+                            prepTime: isTest ? "5" : undefined
+                          }));
+                          
+                          return [...part2Questions, ...part3Questions];
                         } else {
-                          return part.questions;
+                          // For individual parts, use the part type to determine question type
+                          return part.questions.map((question, index) => ({
+                            ...question,
+                            id: `question-${index + 1}`,
+                            type: part.part_type === 'part2_only' ? 'bulletPoints' as const : 'normal' as const,
+                            question: question.question,
+                            bulletPoints: part.part_type === 'part2_only' 
+                              ? (question.bulletPoints || [''])
+                              : (question.bulletPoints || []),
+                            timeLimit: isTest ? "30" : "30",
+                            prepTime: isTest ? "5" : undefined
+                          }));
                         }
-                      }).map((question, index) => ({
-                        ...question,
-                        id: `question-${index + 1}`,
-                        question: question.question.trim(),
-                        bulletPoints: question.bulletPoints?.map(bp => bp.trim()),
-                        timeLimit: isTest ? "30" : "30", // 30 seconds for both modes
-                        prepTime: isTest ? "5" : undefined // 5 seconds prep only for test mode
-                      }));
+                      });
                     }
                   })(),
                   metadata: { 

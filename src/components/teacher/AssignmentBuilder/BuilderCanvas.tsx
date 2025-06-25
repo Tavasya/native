@@ -34,16 +34,16 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
     }
     if ('part2' in part && 'part3' in part) {
       return 'Part 2 & 3';
-    } else {
+    } else if ('part_type' in part) {
       switch (part.part_type) {
         case 'part1': return 'Part 1';
         case 'part2_3': return 'Part 2 & 3';
         case 'part2_only': return 'Part 2 Only';
         case 'part3_only': return 'Part 3 Only';
-        case 'custom': return 'Custom';
         default: return part.part_type;
       }
     }
+    return '';
   };
 
   const getPartTypeColor = (part: AssignmentPart | PartCombination) => {
@@ -54,16 +54,16 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
     }
     if ('part2' in part && 'part3' in part) {
       return 'bg-blue-100 text-blue-800';
-    } else {
+    } else if ('part_type' in part) {
       switch (part.part_type) {
         case 'part1': return 'bg-green-100 text-green-800';
         case 'part2_3': return 'bg-blue-100 text-blue-800';
         case 'part2_only': return 'bg-yellow-100 text-yellow-800';
         case 'part3_only': return 'bg-purple-100 text-purple-800';
-        case 'custom': return 'bg-purple-100 text-purple-800';
         default: return 'bg-gray-100 text-gray-800';
       }
     }
+    return 'bg-gray-100 text-gray-800';
   };
 
   const getQuestionCount = (part: AssignmentPart | PartCombination) => {
@@ -71,9 +71,10 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
     
     if ('part2' in part && 'part3' in part) {
       return (part.part2?.questions?.length || 0) + (part.part3?.questions?.length || 0);
-    } else {
+    } else if ('questions' in part) {
       return part.questions?.length || 0;
     }
+    return 0;
   };
 
   const getPartDescription = (part: AssignmentPart | PartCombination) => {
@@ -89,21 +90,57 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
         if (q.isEdited) questionText += ' (edited)';
         if (q.isCustom) questionText += ' (custom)';
         return questionText;
-      }).join(' • ');
+      }).join(', ');
     }
     
     // Fallback to original questions
     if ('part2' in part && 'part3' in part) {
-      // For combinations, show questions from both parts
+      // For combinations, show hybrid display
       const part2Questions = part.part2?.questions || [];
       const part3Questions = part.part3?.questions || [];
-      const allQuestions = [...part2Questions, ...part3Questions];
       
-      return allQuestions.map(q => q.question).join(' • ');
-    } else {
+      const part2Text = part2Questions.map((q: any) => {
+        let questionText = q.question;
+        // Add bullet points for Part 2 questions
+        if (q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+          questionText += '\n• ' + q.bulletPoints.join('\n• ');
+        }
+        return questionText;
+      }).join(', ');
+      
+      const part3Text = part3Questions.map((q: any) => {
+        let questionText = q.question;
+        // Add commas for Part 3 questions
+        if (q.bulletPoints && q.bulletPoints.length > 0) {
+          questionText += ', ' + q.bulletPoints.join(', ');
+        }
+        return questionText;
+      }).join(', ');
+      
+      // Show hybrid format: Part 2 with bullet points, then Part 3 with commas
+      if (part2Text && part3Text) {
+        return `Part 2: ${part2Text}\nPart 3: ${part3Text}`;
+      } else if (part2Text) {
+        return `Part 2: ${part2Text}`;
+      } else if (part3Text) {
+        return `Part 3: ${part3Text}`;
+      }
+      return '';
+    } else if ('questions' in part) {
       // For individual parts, show all questions
-      return part.questions?.map(q => q.question).join(' • ') || '';
+      return part.questions?.map((q: any) => {
+        let questionText = q.question;
+        // Add commas for Part 1 and Part 3 questions, bullet points for Part 2
+        if (part.part_type === 'part2_only' && q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
+          questionText += '\n• ' + q.bulletPoints.join('\n• ');
+        } else if (q.bulletPoints && q.bulletPoints.length > 0) {
+          questionText += ', ' + q.bulletPoints.join(', ');
+        }
+        return questionText;
+      }).join(', ') || '';
     }
+    
+    return '';
   };
 
   // Get all parts including custom questions
@@ -114,19 +151,25 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
     const customQuestions = actualQuestions.find(aq => aq.partId === 'custom');
     if (customQuestions && customQuestions.questions.length > 0) {
       // Add a virtual custom part for display
-      const customPart = {
+      const customPart: AssignmentPart = {
         id: 'custom',
         title: 'Custom Questions',
-        part_type: 'custom' as const,
+        part_type: 'part1', // Use a valid part type
         questions: customQuestions.questions.map(q => ({
           id: `custom-${Date.now()}`,
+          type: 'normal' as const,
           question: q.question,
           bulletPoints: [],
           speakAloud: false,
           timeLimit: '30'
         })),
         topic: 'Custom',
-        created_at: new Date().toISOString()
+        metadata: { autoGrade: false },
+        created_by: 'user',
+        is_public: false,
+        usage_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       parts.push(customPart);
     }
@@ -246,7 +289,7 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
                                     </Badge>
                                   </div>
                                   
-                                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                                  <p className="text-xs text-gray-600 mb-2 whitespace-pre-line">
                                     {getPartDescription(part)}
                                   </p>
                                   

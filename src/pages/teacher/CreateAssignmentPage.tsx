@@ -504,16 +504,40 @@ const CreateAssignmentPage: React.FC = () => {
     let questions: any[] = [];
     
     if ('part2' in part && 'part3' in part) {
-      // This is a PartCombination
-      questions = [...(part.part2?.questions || []), ...(part.part3?.questions || [])];
+      // This is a PartCombination - combine part2 and part3 questions
+      const part2Questions = (part.part2?.questions || []).map((q: any) => ({
+        ...q,
+        type: 'bulletPoints' as const,
+        bulletPoints: q.bulletPoints || ['']
+      }));
+      
+      const part3Questions = (part.part3?.questions || []).map((q: any) => ({
+        ...q,
+        type: 'normal' as const
+      }));
+      
+      questions = [...part2Questions, ...part3Questions];
     } else if ('questions' in part) {
       // This is an AssignmentPart
-      questions = part.questions;
+      questions = part.questions.map((q: any) => {
+        if (part.part_type === 'part2_only') {
+          return {
+            ...q,
+            type: 'bulletPoints' as const,
+            bulletPoints: q.bulletPoints || ['']
+          };
+        } else {
+          return {
+            ...q,
+            type: 'normal' as const
+          };
+        }
+      });
     }
     
     const newQuestionCards = questions.map((q: any, index: number) => ({
       id: `card-${Date.now()}-${index}`,
-      type: 'normal' as const,
+      type: q.type,
       question: q.question,
       bulletPoints: q.bulletPoints || [],
       speakAloud: q.speakAloud || false,
@@ -921,7 +945,7 @@ const CreateAssignmentPage: React.FC = () => {
                                     <div className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 group">
                                       <button
                                         type="button"
-                                        className="text-sm font-medium text-left flex-1 truncate hover:text-[#272A69] transition-colors"
+                                        className="text-sm font-medium text-left flex-1 hover:text-[#272A69] transition-colors"
                                         onClick={() => {
                                           setTitle(template.title);
                                           setQuestionCards(template.questions);
