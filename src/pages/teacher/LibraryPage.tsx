@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchLibraryItems } from '@/features/library/libraryThunks';
 import { setFilters, clearFilters } from '@/features/library/librarySlice';
-import { Search, Filter, BookOpen, FolderOpen, Eye, Edit, Tag, ExternalLink } from 'lucide-react';
+import { Search, Filter, BookOpen, FolderOpen, Tag, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

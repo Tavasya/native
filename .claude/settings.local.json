@@ -12,7 +12,8 @@
       "Bash(npm test:*)",
       "Bash(sed:*)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": []
   }

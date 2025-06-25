@@ -14,6 +14,12 @@ import type { RootState } from '@/app/store';
 
 type TimelineOption = 'daily' | 'weekly' | 'monthly';
 
+interface UserGrowthData {
+  period: string;
+  Teachers: number;
+  Students: number;
+}
+
 const UserGrowthGraph: React.FC = () => {
   const userCreationData = useSelector((state: RootState) => state.metrics.userCreationData);
   const [timeline, setTimeline] = useState<TimelineOption>('weekly');
@@ -59,7 +65,7 @@ const UserGrowthGraph: React.FC = () => {
     
     // Create growth data by using actual user creation data
     const transformed = periods.map((period, periodIndex) => {
-      const periodData: any = { 
+      const periodData: UserGrowthData = { 
         period: '',
         Teachers: 0,
         Students: 0

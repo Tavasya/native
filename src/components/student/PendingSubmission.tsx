@@ -86,12 +86,12 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
   const statusInfo = getStatusMessage();
 
   // Helper function to get audio URL from recording
-  const getAudioUrl = (recording: any): string => {
+  const getAudioUrl = (recording: string | { audioUrl: string } | unknown): string => {
     if (typeof recording === 'string') {
       return recording;
     }
     if (recording && typeof recording === 'object' && 'audioUrl' in recording) {
-      return recording.audioUrl;
+      return (recording as { audioUrl: string }).audioUrl;
     }
     return '';
   };

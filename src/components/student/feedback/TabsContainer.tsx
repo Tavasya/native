@@ -6,6 +6,7 @@ import PronunciationAnalysis from '@/components/student/feedback/analysis/Pronou
 import GrammarAnalysis from '@/components/student/feedback/analysis/GrammarAnalysis';
 import VocabularyAnalysis from '@/components/student/feedback/analysis/VocabularyAnalysis';
 import { EditingState, AverageScores, SectionFeedback, QuestionFeedback } from '@/types/feedback';
+import type { AppDispatch } from '@/app/store';
 
 interface TabsContainerProps {
   activeTab: string;
@@ -20,9 +21,9 @@ interface TabsContainerProps {
   currentQuestion: QuestionFeedback | null;
   averageScores: AverageScores;
   audioRef: React.RefObject<HTMLAudioElement>;
-  ttsAudioCache: any;
-  ttsLoading: any;
-  dispatch: any;
+  ttsAudioCache: { [key: string]: { url: string; timestamp: number } };
+  ttsLoading: { [key: string]: boolean };
+  dispatch: AppDispatch;
   grammarOpen: { [key: string]: boolean };
   vocabularyOpen: { [key: string]: boolean };
   onToggleGrammar: (key: string) => void;
@@ -40,7 +41,7 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
   onCancelSection,
   currentFeedback,
   tempFeedback,
-  averageScores,
+  averageScores: _,
   audioRef,
   ttsAudioCache,
   ttsLoading,
@@ -115,7 +116,6 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
         </div>
         <FluencyAnalysis
           currentFeedback={currentFeedback}
-          averageScores={averageScores}
           isEditing={isEditing.fluency}
         />
       </TabsContent>

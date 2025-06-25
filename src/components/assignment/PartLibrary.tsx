@@ -8,6 +8,11 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import type { AssignmentPart, PartCombination, PartType } from '@/features/assignmentParts/types';
+import type { QuestionCard } from '@/features/assignments/types';
+
+type PartWithType = AssignmentPart & { itemType: 'part' };
+type CombinationWithType = PartCombination & { itemType: 'combination' };
+type ItemWithType = PartWithType | CombinationWithType;
 
 interface PartLibraryProps {
   isOpen: boolean;
@@ -47,7 +52,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
   // Filter parts based on search and filters
   const filteredParts = parts.filter((part: AssignmentPart) => {
     const matchesSearch = part.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         part.questions.some((q: any) => q.question.toLowerCase().includes(searchQuery.toLowerCase()));
+                         part.questions.some((q: QuestionCard) => q.question.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesTopic = !selectedTopic || part.topic === selectedTopic;
     const matchesType = !selectedPartType || part.part_type === selectedPartType;
     
@@ -95,7 +100,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
   };
 
   // Helper function to get part type display name
-  const getPartTypeLabel = (item: any) => {
+  const getPartTypeLabel = (item: ItemWithType) => {
     if (item.itemType === 'combination') {
       return 'Part 2 & 3';
     }
@@ -115,7 +120,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
   };
 
   // Helper function to get badge colors based on part type
-  const getBadgeColors = (item: any) => {
+  const getBadgeColors = (item: ItemWithType) => {
     if (item.itemType === 'combination') {
       return 'bg-purple-100 text-purple-800 border-purple-200';
     }
@@ -135,7 +140,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
   };
 
   // Helper function to get hover border color
-  const getHoverBorderColor = (item: any) => {
+  const getHoverBorderColor = (item: ItemWithType) => {
     if (item.itemType === 'combination') {
       return 'hover:border-purple-500';
     }
@@ -253,7 +258,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                       ? (item as AssignmentPart).questions
                       : [];
                     const description = isIndividualPart
-                      ? questions.map((q: any) => {
+                      ? questions.map((q: QuestionCard) => {
                           let questionText = q.question;
                           // Add commas for Part 1 and Part 3 questions, bullet points for Part 2
                           if (item.part_type === 'part2_only' && q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
@@ -269,7 +274,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                           const part2Questions = combo.part2?.questions || [];
                           const part3Questions = combo.part3?.questions || [];
                           
-                          const part2Text = part2Questions.map((q: any) => {
+                          const part2Text = part2Questions.map((q: QuestionCard) => {
                             let questionText = q.question;
                             // Add bullet points for Part 2 questions
                             if (q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
@@ -278,7 +283,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                             return questionText;
                           }).join(', ');
                           
-                          const part3Text = part3Questions.map((q: any) => {
+                          const part3Text = part3Questions.map((q: QuestionCard) => {
                             let questionText = q.question;
                             // Add commas for Part 3 questions
                             if (q.bulletPoints && q.bulletPoints.length > 0) {

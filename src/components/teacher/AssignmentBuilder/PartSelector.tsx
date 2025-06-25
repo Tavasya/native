@@ -36,8 +36,8 @@ const PartSelector: React.FC<PartSelectorProps> = ({
 
   // Get unique topics from parts and combinations
   const topics = useMemo(() => {
-    const partTopics = parts.map(part => part.topic).filter(Boolean);
-    const comboTopics = combinations.map(combo => combo.topic).filter(Boolean);
+    const partTopics = parts.map(part => part.topic).filter(Boolean) as string[];
+    const comboTopics = combinations.map(combo => combo.topic).filter(Boolean) as string[];
     return [...new Set([...partTopics, ...comboTopics])].sort();
   }, [parts, combinations]);
 
@@ -156,12 +156,12 @@ const PartSelector: React.FC<PartSelectorProps> = ({
           {/* Topic Filter */}
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Topic</Label>
-            <Select value={selectedTopic} onValueChange={onTopicChange}>
+            <Select value={selectedTopic || 'all'} onValueChange={(value) => onTopicChange(value === 'all' ? undefined : value)}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="All topics" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={undefined}>All topics</SelectItem>
+              <SelectItem value="all">All topics</SelectItem>
                 {topics.map(topic => (
                   <SelectItem key={topic} value={topic}>{topic}</SelectItem>
                 ))}
@@ -172,12 +172,12 @@ const PartSelector: React.FC<PartSelectorProps> = ({
           {/* Part Type Filter */}
           <div className="space-y-1">
             <Label className="text-xs text-gray-600">Part Type</Label>
-            <Select value={selectedPartType} onValueChange={onPartTypeChange}>
+            <Select value={selectedPartType || 'all'} onValueChange={(value) => onPartTypeChange(value === 'all' ? undefined : value as PartType)}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={undefined}>All types</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
                 <SelectItem value="part1">Part 1</SelectItem>
                 <SelectItem value="part2_3">Part 2 & 3</SelectItem>
                 <SelectItem value="part2_only">Part 2 Only</SelectItem>
@@ -273,7 +273,7 @@ const PartSelector: React.FC<PartSelectorProps> = ({
                       {/* Part 2 questions */}
                       {combo.part2?.questions && combo.part2.questions.length > 0 && (
                         <div className="mb-1">
-                          <strong>Part 2:</strong> {combo.part2.questions.map((q: any, index: number) => {
+                          <strong>Part 2:</strong> {combo.part2.questions.map((q: any) => {
                             let questionText = q.question;
                             // Add bullet points for Part 2 questions
                             if (q.type === 'bulletPoints' && q.bulletPoints && q.bulletPoints.length > 0) {
@@ -286,7 +286,7 @@ const PartSelector: React.FC<PartSelectorProps> = ({
                       {/* Part 3 questions */}
                       {combo.part3?.questions && combo.part3.questions.length > 0 && (
                         <div className="mb-1">
-                          <strong>Part 3:</strong> {combo.part3.questions.map((q: any, index: number) => {
+                          <strong>Part 3:</strong> {combo.part3.questions.map((q: any) => {
                             let questionText = q.question;
                             // Add commas for Part 3 questions
                             if (q.bulletPoints && q.bulletPoints.length > 0) {

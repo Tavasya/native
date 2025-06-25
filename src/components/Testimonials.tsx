@@ -17,7 +17,7 @@ interface TestimonialProps {
   name: string;
   role: string;
   location: string;
-  image: any; // Changed from string to any to accept imported image modules
+  image: string; // URL to the image
   className?: string;
   style?: React.CSSProperties;
 }

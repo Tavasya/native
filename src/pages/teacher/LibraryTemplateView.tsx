@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ArrowLeft, Calendar, Clock, Users, Tag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createAssignment } from '@/features/assignments/assignmentThunks';
-import { LibraryItem } from '@/features/library/librarySlice';
 import { fetchClasses } from '@/features/class/classThunks';
-import type { RootState } from '@/app/store';
 
 const LibraryTemplateView: React.FC = () => {
   const { templateId } = useParams<{ templateId: string }>();

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, GripVertical, Clock, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AssignmentPart, PartCombination } from '@/features/assignmentParts/types';
@@ -177,22 +176,7 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
     return parts;
   };
 
-  const DragHandle = () => (
-    <div className="flex justify-center items-center cursor-move py-1">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex gap-0.5">
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-        </div>
-        <div className="flex gap-0.5">
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-          <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
-        </div>
-      </div>
-    </div>
-  );
+
 
   // Custom drag and drop handler for all parts including custom
   const handleDragEnd = (result: any) => {

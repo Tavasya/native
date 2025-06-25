@@ -14,6 +14,11 @@ import type { RootState } from '@/app/store';
 
 type TimelineOption = 'daily' | 'weekly' | 'monthly';
 
+interface PeriodData {
+  period: string;
+  [teacherName: string]: string | number;
+}
+
 interface AssignmentAnalyticsGraphProps {
   data: {
     teacher_id: string;
@@ -84,7 +89,7 @@ const AssignmentAnalyticsGraph: React.FC<AssignmentAnalyticsGraphProps> = ({ dat
     console.log('Calculated periods:', periods);
 
     const transformed = periods.map((period, periodIndex) => {
-      const periodData: any = { period: '' };
+      const periodData: PeriodData = { period: '' };
       
       let periodEnd: Date;
       

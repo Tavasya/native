@@ -11,12 +11,12 @@ interface AudioPlayerProps {
 }
 
 
-const CustomAudioPlayer = forwardRef<any, AudioPlayerProps>(
+const CustomAudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(
   ({ hasRecorded, isRecording, onTimeUpdate, audioUrl }, ref) => {
     const localAudioRef = useRef<any>(null);
-    useImperativeHandle(ref, () => localAudioRef.current);
-    const [_isLoading, setIsLoading] = useState(false);
-    const [_loadProgress, setLoadProgress] = useState(0);
+    useImperativeHandle(ref, () => localAudioRef.current?.audio?.current!);
+    const [, setIsLoading] = useState(false);
+    const [, setLoadProgress] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const hasLoaded = useRef(false);
 

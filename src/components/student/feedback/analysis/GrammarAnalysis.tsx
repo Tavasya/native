@@ -3,7 +3,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import IssueCard from '../shared/IssueCard';
-import { SectionFeedback } from '@/types/feedback';
+import { SectionFeedback, GrammarIssue } from '@/types/feedback';
 
 interface GrammarAnalysisProps {
   currentFeedback: SectionFeedback | null;
@@ -19,7 +19,7 @@ interface GrammarAnalysisProps {
 // Extended grammar type to handle v2 format
 interface ExtendedGrammar {
   grade: number;
-  issues: any[];
+  issues: GrammarIssue[];
   grammar_corrections?: {
     [key: string]: {
       original: string;
