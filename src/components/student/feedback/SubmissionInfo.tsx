@@ -24,6 +24,7 @@ interface SubmissionInfoProps {
   onCommentChange: (value: string) => void;
   isAutoGradeEnabled?: boolean;
   isTest?: boolean;
+  attempt?: number;
 }
 
 const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
@@ -46,13 +47,16 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   onCommentChange,
   isAutoGradeEnabled = true,
   isTest = false,
+  attempt,
 }) => {
   return (
     <Card className="shadow-sm border-0 bg-white">
       <CardContent className="p-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">{assignmentTitle}</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900">{assignmentTitle}</h1>
+          </div>
+          <p className="text-sm text-gray-500">
             Submitted by {studentName} on {new Date(submittedAt || Date.now()).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',

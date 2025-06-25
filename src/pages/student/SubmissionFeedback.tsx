@@ -12,6 +12,7 @@ import PendingSubmission from '@/components/student/PendingSubmission';
 // Import custom hooks
 import { useSubmissionState } from '@/hooks/feedback/useStateSubmission';
 import { useSubmissionHandlers } from '@/hooks/feedback/useStateHandlers';
+import { useRedoSubmission } from '@/hooks/feedback/useRedoSubmission';
 
 const SubmissionFeedback = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
@@ -71,6 +72,17 @@ const SubmissionFeedback = () => {
     selectedQuestionIndex,
     dispatch,
   });
+
+  // Redo submission hook
+  const { isProcessing: isRedoProcessing, handleRedo } = useRedoSubmission();
+
+  const onRedo = () => {
+    if (!selectedSubmission?.assignment_id || !selectedSubmission?.student_id) {
+      console.error('Missing assignment or student ID for redo');
+      return;
+    }
+    handleRedo(selectedSubmission.assignment_id, selectedSubmission.student_id);
+  };
 
   // Toggle functions for collapsibles
   const toggleGrammarOpen = (key: string) => {
@@ -143,6 +155,12 @@ const SubmissionFeedback = () => {
             onBack={handleBack}
             onSubmitAndSend={handleSubmitAndSend}
             submissionId={submissionId}
+            assignmentId={selectedSubmission.assignment_id}
+            studentId={selectedSubmission.student_id}
+            currentSubmission={selectedSubmission}
+            isStudent={role === 'student'}
+            onRedo={onRedo}
+            attempt={selectedSubmission.attempt}
           />
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
             <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Report</h2>
@@ -167,6 +185,12 @@ const SubmissionFeedback = () => {
           onBack={handleBack}
           onSubmitAndSend={handleSubmitAndSend}
           submissionId={submissionId}
+          assignmentId={selectedSubmission.assignment_id}
+          studentId={selectedSubmission.student_id}
+          currentSubmission={selectedSubmission}
+          isStudent={role === 'student'}
+          onRedo={onRedo}
+          attempt={selectedSubmission.attempt}
         />
 
         <SubmissionInfo
@@ -195,6 +219,7 @@ const SubmissionFeedback = () => {
           onCommentChange={setTeacherComment}
           isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
           isTest={currentAssignment?.metadata?.isTest ?? false}
+          attempt={selectedSubmission.attempt}
         />
 
         <QuestionContent

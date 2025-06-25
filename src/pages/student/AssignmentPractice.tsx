@@ -21,6 +21,8 @@ import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { startTestGlobally, resetTestState } from '@/features/assignments/assignmentSlice';
+import { useRedoSubmission } from '@/hooks/feedback/useRedoSubmission';
+import RedoPromptDialog from '@/components/student/RedoPromptDialog';
 
 interface PreviewData {
   title: string;
@@ -55,6 +57,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // User authentication
   const [userId, setUserId] = useState<string | null>(null);
   const [isCompleted] = useState(false);
+  
+  // Redo functionality
+  const [showRedoDialog, setShowRedoDialog] = useState(false);
+  const [existingSubmissions, setExistingSubmissions] = useState<any[]>([]);
+  const [hasCheckedSubmissions, setHasCheckedSubmissions] = useState(false);
+  const { isProcessing: isRedoProcessing, handleRedo } = useRedoSubmission();
 
   // Load assignment data
   const { assignment, loading, markQuestionCompleted } = useAssignmentData({
@@ -303,10 +311,47 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     getUserId();
   }, []);
 
-  // Load existing submissions
+  // Check for existing submissions and show redo dialog
   useEffect(() => {
+    const checkExistingSubmissions = async () => {
+      if (!id || !userId || previewMode || hasCheckedSubmissions) return;
+      
+      try {
+        const { data: submissions, error } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('assignment_id', id)
+          .eq('student_id', userId)
+          .order('submitted_at', { ascending: false });
+
+        if (error) {
+          console.error('Error checking existing submissions:', error);
+          return;
+        }
+
+        if (submissions && submissions.length > 0) {
+          setExistingSubmissions(submissions);
+          
+          // Check if there are completed submissions and no in_progress submission
+          const completedSubmissions = submissions.filter(s => s.status !== 'in_progress');
+          const inProgressSubmission = submissions.find(s => s.status === 'in_progress');
+          
+          // Only show dialog if there are completed submissions AND no in_progress submission
+          if (completedSubmissions.length > 0 && !inProgressSubmission) {
+            setShowRedoDialog(true);
+          }
+        }
+        
+        setHasCheckedSubmissions(true);
+      } catch (error) {
+        console.error('Error checking existing submissions:', error);
+        setHasCheckedSubmissions(true);
+      }
+    };
+
+    checkExistingSubmissions();
     loadExistingSubmission();
-  }, [loadExistingSubmission]);
+  }, [id, userId, previewMode, hasCheckedSubmissions, loadExistingSubmission]);
 
   // Cleanup effect for test mode
   useEffect(() => {
@@ -405,6 +450,51 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         description: "No recording available for this question",
         variant: "destructive",
       });
+    }
+  };
+
+  // Redo dialog handlers
+  const handleRedoDialogRedo = async () => {
+    if (!id || !userId) return;
+    
+    setShowRedoDialog(false);
+    setHasCheckedSubmissions(true); // Prevent dialog from showing again
+    await handleRedo(id, userId);
+  };
+
+  const handleRedoDialogContinue = async () => {
+    setShowRedoDialog(false);
+    setHasCheckedSubmissions(true); // Prevent dialog from showing again
+    
+    // Check if there's an in_progress submission, if not create one
+    const inProgressSubmission = existingSubmissions.find(s => s.status === 'in_progress');
+    if (!inProgressSubmission && id && userId) {
+      try {
+        // Get the highest attempt number
+        const maxAttempt = Math.max(...existingSubmissions.map(s => s.attempt), 0);
+        
+        // Create new in_progress submission
+        const { error } = await supabase
+          .from('submissions')
+          .insert({
+            assignment_id: id,
+            student_id: userId,
+            status: 'in_progress',
+            attempt: maxAttempt + 1,
+            submitted_at: new Date().toISOString()
+          });
+
+        if (error) {
+          console.error('Error creating in_progress submission:', error);
+          toast({
+            title: "Error",
+            description: "Failed to continue with assignment. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error creating in_progress submission:', error);
+      }
     }
   };
 
@@ -584,6 +674,17 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Redo Dialog */}
+      <RedoPromptDialog
+        isOpen={showRedoDialog}
+        onClose={() => setShowRedoDialog(false)}
+        onRedo={handleRedoDialogRedo}
+        onContinue={handleRedoDialogContinue}
+        assignmentTitle={assignment?.title || 'Assignment'}
+        attemptCount={existingSubmissions.filter(s => s.status !== 'in_progress').length}
+        isProcessing={isRedoProcessing}
+      />
     </div>
   );
 };
