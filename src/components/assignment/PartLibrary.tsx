@@ -195,10 +195,25 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All topics</SelectItem>
-                  <SelectItem value="Personal">Personal</SelectItem>
-                  <SelectItem value="Work">Work</SelectItem>
-                  <SelectItem value="Education">Education</SelectItem>
-                  <SelectItem value="Travel">Travel</SelectItem>
+                  <SelectItem value="Work & Education">Work & Education</SelectItem>
+                  <SelectItem value="Education & Culture">Education & Culture</SelectItem>
+                  <SelectItem value="Media & Communication">Media & Communication</SelectItem>
+                  <SelectItem value="Lifestyle & Habits">Lifestyle & Habits</SelectItem>
+                  <SelectItem value="Sustainability">Sustainability</SelectItem>
+                  <SelectItem value="Planning & Events">Planning & Events</SelectItem>
+                  <SelectItem value="Decision Making">Decision Making</SelectItem>
+                  <SelectItem value="Entertainment">Entertainment</SelectItem>
+                  <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                  <SelectItem value="Personal Experience">Personal Experience</SelectItem>
+                  <SelectItem value="Sports & Leisure">Sports & Leisure</SelectItem>
+                  <SelectItem value="Personal & Relationships">Personal & Relationships</SelectItem>
+                  <SelectItem value="Health & Lifestyle">Health & Lifestyle</SelectItem>
+                  <SelectItem value="Communication Skills">Communication Skills</SelectItem>
+                  <SelectItem value="Consumer Rights">Consumer Rights</SelectItem>
+                  <SelectItem value="Fashion & Appearance">Fashion & Appearance</SelectItem>
+                  <SelectItem value="Nature & Environment">Nature & Environment</SelectItem>
+                  <SelectItem value="Personal Development">Personal Development</SelectItem>
+                  <SelectItem value="Children & Society">Children & Society</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -211,7 +226,6 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                   <SelectItem value="part1">Part 1</SelectItem>
                   <SelectItem value="part2_3">Part 2 & 3</SelectItem>
                   <SelectItem value="part2_only">Part 2</SelectItem>
-                  <SelectItem value="part3_only">Part 3</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -345,23 +359,70 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex justify-center">
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={cn(
-                        "w-8 h-8 rounded text-sm transition-colors",
-                        page === currentPage
-                          ? "bg-[#272A69] text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      )}
-                    >
-                      {page}
-                    </button>
-                  ))}
+              <div className="flex justify-between items-center w-full max-w-xs mx-auto">
+                {/* Prev Arrow */}
+                <button
+                  onClick={goToPrevPage}
+                  disabled={currentPage === 1}
+                  className={cn(
+                    "w-8 h-8 rounded text-sm flex items-center justify-center",
+                    currentPage === 1 ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  )}
+                >
+                  &#8592;
+                </button>
+                {/* Page Numbers with Ellipsis */}
+                <div className="flex gap-1 flex-1 justify-center">
+                  {(() => {
+                    const pages = [];
+                    const maxPagesToShow = 5;
+                    if (totalPages <= maxPagesToShow) {
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(i);
+                      }
+                    } else {
+                      if (currentPage <= 3) {
+                        pages.push(1, 2, 3, '...', totalPages);
+                      } else if (currentPage >= totalPages - 2) {
+                        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+                      } else {
+                        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                      }
+                    }
+                    return pages.map((page, idx) => {
+                      if (page === '...') {
+                        return (
+                          <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-gray-400">...</span>
+                        );
+                      }
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page as number)}
+                          className={cn(
+                            "w-8 h-8 rounded text-sm transition-colors flex items-center justify-center",
+                            page === currentPage
+                              ? "bg-[#272A69] text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
+                {/* Next Arrow */}
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className={cn(
+                    "w-8 h-8 rounded text-sm flex items-center justify-center",
+                    currentPage === totalPages ? "bg-gray-100 text-gray-300 cursor-not-allowed" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  )}
+                >
+                  &#8594;
+                </button>
               </div>
             </div>
           )}
