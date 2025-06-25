@@ -20,6 +20,11 @@ if (typeof window !== 'undefined') {
   if (!Element.prototype.releasePointerCapture) {
     Element.prototype.releasePointerCapture = function() {};
   }
+  
+  // Add scrollIntoView polyfill for JSDOM
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = function() {};
+  }
 }
 
 // Add Blob.arrayBuffer polyfill for Node.js testing environment

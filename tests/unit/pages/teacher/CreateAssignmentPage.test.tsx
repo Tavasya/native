@@ -161,6 +161,17 @@ const createTestStore = (overrides: any = {}) => {
       loading: false,
       error: null
     },
+    assignmentParts: {
+      parts: [],
+      combinations: [],
+      loading: false,
+      error: null,
+      createPartLoading: false,
+      createCombinationLoading: false,
+      selectedTopic: undefined,
+      selectedPartType: undefined,
+      selectedDifficulty: undefined,
+    },
     ...overrides
   };
   
@@ -359,8 +370,8 @@ describe('CreateAssignmentPage', () => {
       }, { timeout: 5000 });
 
       // Use fireEvent for the select since userEvent has issues with Radix UI
-      const selectTriggers = screen.getAllByRole('combobox');
-      const questionStyleSelect = selectTriggers[0]; // First combobox should be question style
+      // Find the question style select by looking for text "Part 1 or Part 3" which is the default value
+      const questionStyleSelect = screen.getByText('Part 1 or Part 3');
       
       fireEvent.click(questionStyleSelect);
       
@@ -390,8 +401,8 @@ describe('CreateAssignmentPage', () => {
       }, { timeout: 5000 });
       
       // Change to Part 2 using fireEvent
-      const selectTriggers = screen.getAllByRole('combobox');
-      const questionStyleSelect = selectTriggers[0];
+      // Find the question style select by looking for text "Part 1 or Part 3" which is the default value
+      const questionStyleSelect = screen.getByText('Part 1 or Part 3');
       
       fireEvent.click(questionStyleSelect);
       
@@ -430,9 +441,8 @@ describe('CreateAssignmentPage', () => {
         expect(screen.getByText('Recording Time')).toBeInTheDocument();
       }, { timeout: 5000 });
 
-      // Find the recording time select (should be the second combobox)
-      const selectTriggers = screen.getAllByRole('combobox');
-      const recordingTimeSelect = selectTriggers[1] || selectTriggers[0]; // Fallback to first if only one
+      // Find the recording time select by its default value "1 minute"
+      const recordingTimeSelect = screen.getByText('1 minute');
       
       fireEvent.click(recordingTimeSelect);
       

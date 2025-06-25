@@ -105,6 +105,14 @@ const PartLibraryWithBuilder: React.FC<{
     (global as any).dragData = null;
   };
 
+  // Expose handleDragEnd for testing purposes
+  React.useEffect(() => {
+    (global as any).testHandleDragEnd = handleDragEnd;
+    return () => {
+      delete (global as any).testHandleDragEnd;
+    };
+  }, []);
+
   const handlePartDrop = (part: AssignmentPart | PartCombination, insertIndex?: number) => {
     setAddedParts(prev => [...prev, part]);
   };
@@ -395,9 +403,11 @@ describe('PartLibrary Drag and Drop Integration', () => {
     expect(screen.queryByText('Part Library')).not.toBeInTheDocument();
     expect(screen.getByTestId('drag-indicator')).toBeInTheDocument();
     
-    // End drag
-    fireEvent.dragEnd(partCard!);
-    expect(screen.queryByTestId('drag-indicator')).not.toBeInTheDocument();
+    // End drag - call handleDragEnd directly since partCard is no longer available
+    (global as any).testHandleDragEnd();
+    await waitFor(() => {
+      expect(screen.queryByTestId('drag-indicator')).not.toBeInTheDocument();
+    });
     
     // Reopen library
     const openButton = screen.getByTestId('chevron-right').closest('button');

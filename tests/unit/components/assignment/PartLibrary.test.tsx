@@ -197,20 +197,24 @@ describe('PartLibrary', () => {
       expect(screen.getByText('Describe your work experience')).toBeInTheDocument();
     });
 
-    it('displays combination description for part combinations', () => {
+    it('displays combination description for part combinations', async () => {
+      const user = userEvent.setup();
       render(<PartLibrary {...defaultProps} />);
+      
+      // Navigate to page 2 where the combination should be (since there are 4 parts + 1 combination)
+      const page2Button = screen.getByText('2');
+      await user.click(page2Button);
       
       expect(screen.getByText('Part 2 & 3 combination')).toBeInTheDocument();
     });
   });
 
   describe('Search Functionality', () => {
-    it('calls onSearchChange when search input changes', async () => {
-      const user = userEvent.setup();
+    it('calls onSearchChange when search input changes', () => {
       render(<PartLibrary {...defaultProps} />);
       
       const searchInput = screen.getByPlaceholderText('Search parts...');
-      await user.type(searchInput, 'personal');
+      fireEvent.change(searchInput, { target: { value: 'personal' } });
       
       expect(defaultProps.onSearchChange).toHaveBeenCalledWith('personal');
     });
@@ -250,7 +254,8 @@ describe('PartLibrary', () => {
       const user = userEvent.setup();
       render(<PartLibrary {...defaultProps} />);
       
-      const topicSelect = screen.getByTestId('select');
+      const topicSelects = screen.getAllByTestId('select');
+      const topicSelect = topicSelects[0]; // First select is topic
       await user.click(topicSelect);
       
       expect(defaultProps.onTopicChange).toHaveBeenCalledWith('test');
@@ -410,8 +415,13 @@ describe('PartLibrary', () => {
       expect(part3Badges.length).toBeGreaterThan(0);
     });
 
-    it('applies purple color for combinations', () => {
+    it('applies purple color for combinations', async () => {
+      const user = userEvent.setup();
       render(<PartLibrary {...defaultProps} />);
+      
+      // Navigate to page 2 where the combination should be
+      const page2Button = screen.getByText('2');
+      await user.click(page2Button);
       
       const comboBadges = screen.getAllByText('Part 2 & 3');
       const combinationBadge = comboBadges.find(badge => 

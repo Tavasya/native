@@ -47,8 +47,6 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
 }) => {
   const feedbackToUse = isEditing ? tempFeedback : currentFeedback;
 
-  // Log the entire feedback object for debugging
-  console.log('Full feedback object:', JSON.stringify(feedbackToUse, null, 2));
 
   // Grammar category names mapping
   const categoryNames = {
@@ -69,7 +67,6 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
   const shouldIncludeGrammarIssue = (issue: any): boolean => {
     // Check if the issue has a category field and if it's 8, 9, 10, or 11
     if (issue.category !== undefined && [8, 9, 10, 11].includes(issue.category)) {
-      console.log('Filtering out grammar issue with category:', issue.category);
       return false;
     }
     return true;
@@ -88,27 +85,17 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
   // Handle both v1 and v2 formats
   const issues = React.useMemo(() => {
     if (!feedbackToUse) {
-      console.log('No feedback available');
       return [];
     }
 
-    // Log the grammar section specifically
-    console.log('Grammar section:', {
-      grammar: feedbackToUse.grammar,
-      grammarCorrections: feedbackToUse.grammar_corrections,
-      grammarIssues: feedbackToUse.grammar?.issues,
-      grammarCorrectionsData: (feedbackToUse.grammar as ExtendedGrammar)?.grammar_corrections
-    });
 
     // Try to get grammar issues from v2 format FIRST (since it's nested inside grammar)
     const extendedGrammar = feedbackToUse.grammar as ExtendedGrammar;
     if (extendedGrammar?.grammar_corrections) {
-      console.log('Found v2 grammar corrections:', extendedGrammar.grammar_corrections);
       
       const processedIssues = Object.entries(extendedGrammar.grammar_corrections)
         .map(([_, correction]) => {
           if (!correction?.corrections?.[0]) {
-            console.warn('Invalid grammar correction:', correction);
             return null;
           }
           
@@ -133,28 +120,23 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
 
-      console.log('Processed v2 issues:', processedIssues);
       return processedIssues;
     }
 
     // Try to get grammar issues from v1 format (fallback for older data)
     if (feedbackToUse.grammar?.issues) {
-      console.log('Found v1 grammar issues:', feedbackToUse.grammar.issues);
       
       // If it's a string, try to parse it
       if (typeof feedbackToUse.grammar.issues === 'string') {
         try {
           const parsedIssues = JSON.parse(feedbackToUse.grammar.issues);
-          console.log('Parsed string issues:', parsedIssues);
           if (Array.isArray(parsedIssues)) {
             // Filter out issues with category 8, 9, 10, or 11
             const filteredIssues = parsedIssues.filter(shouldIncludeGrammarIssue);
-            console.log('Filtered string issues:', filteredIssues);
             return filteredIssues;
           }
           return [];
         } catch (e) {
-          console.log('Failed to parse string issues:', feedbackToUse.grammar.issues);
           return [];
         }
       }
@@ -169,7 +151,6 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
               'correction' in issue;
             
             if (!isValid) {
-              console.warn('Invalid grammar issue:', issue);
               return false;
             }
             
@@ -190,19 +171,16 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
             category: (issue as any).category
           }));
 
-        console.log('Processed v1 issues:', processedIssues);
         return processedIssues;
       }
     }
 
     // Try to get grammar issues from top-level grammar_corrections (alternative v1 format)
     if (feedbackToUse.grammar_corrections?.grammar_corrections) {
-      console.log('Found top-level v1 grammar corrections:', feedbackToUse.grammar_corrections.grammar_corrections);
       
       const processedIssues = Object.entries(feedbackToUse.grammar_corrections.grammar_corrections)
         .map(([_, correction]) => {
           if (!correction?.corrections?.[0]) {
-            console.warn('Invalid grammar correction:', correction);
             return null;
           }
           
@@ -227,11 +205,9 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
         })
         .filter((issue): issue is NonNullable<typeof issue> => issue !== null);
 
-      console.log('Processed top-level v1 issues:', processedIssues);
       return processedIssues;
     }
 
-    console.log('No grammar issues found in any format');
     return [];
   }, [feedbackToUse]);
 
@@ -264,9 +240,6 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
     return sortedCategories;
   }, [issues]);
 
-  // Log final processed issues
-  console.log('Final processed grammar issues:', issues);
-  console.log('Ranked categories:', rankedCategories);
 
   return (
     <div className={cn(
