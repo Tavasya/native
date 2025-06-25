@@ -5,6 +5,7 @@ import { saveRecording, loadRecordings } from '@/features/submissions/submission
 import { uploadQuestionRecording } from '@/features/submissions/submissionThunks';
 import { supabase } from '@/integrations/supabase/client';
 import { Assignment } from '@/features/assignments/types';
+import { memoryMonitor } from '@/utils/memoryMonitor';
 
 interface UseRecordingSessionProps {
   assignmentId: string;
@@ -23,6 +24,55 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
   // Add upload tracking state
   const [uploadingQuestions, setUploadingQuestions] = useState<Set<number>>(new Set());
   const [uploadErrors, setUploadErrors] = useState<{ [questionIndex: number]: string }>({});
+
+  // Memory monitoring setup
+  useEffect(() => {
+    memoryMonitor.takeSnapshot('useRecordingSession-init', {
+      assignmentId,
+      sessionRecordingsCount: Object.keys(sessionRecordings).length,
+      audioCacheCount: Object.keys(audioUrlCache).length,
+      uploadingCount: uploadingQuestions.size,
+      uploadErrorsCount: Object.keys(uploadErrors).length
+    });
+    
+    return () => {
+      memoryMonitor.takeSnapshot('useRecordingSession-cleanup', {
+        sessionRecordingsCount: Object.keys(sessionRecordings).length,
+        audioCacheCount: Object.keys(audioUrlCache).length
+      });
+      
+      // Cleanup blob URLs to prevent memory leaks
+      Object.values(audioUrlCache).forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      
+      Object.values(sessionRecordings).forEach(recording => {
+        if (recording.url && recording.url.startsWith('blob:')) {
+          URL.revokeObjectURL(recording.url);
+        }
+      });
+    };
+  }, []);
+
+  // Monitor memory when recordings change
+  useEffect(() => {
+    const totalBlobSize = Object.values(sessionRecordings).reduce((total, record) => {
+      // Estimate blob size based on typical audio data
+      return total + (record.url.startsWith('blob:') ? 1024 * 1024 : 0); // Rough estimate
+    }, 0);
+    
+    memoryMonitor.takeSnapshot('useRecordingSession-recordings-changed', {
+      sessionRecordingsCount: Object.keys(sessionRecordings).length,
+      estimatedBlobSizeMB: (totalBlobSize / 1024 / 1024).toFixed(2),
+      recordingUrls: Object.keys(sessionRecordings).map(key => ({
+        index: key,
+        isBlob: sessionRecordings[key].url.startsWith('blob:'),
+        uploadedUrlType: sessionRecordings[key].uploadedUrl.startsWith('blob:') ? 'blob' : 'uploaded'
+      }))
+    });
+  }, [sessionRecordings]);
 
   const recordingsData = useAppSelector(state => 
     assignmentId ? state.submissions.recordings?.[assignmentId] : undefined
@@ -140,10 +190,23 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
     questionIndex: number,
     audioBlob: Blob,
   ) => {
+    memoryMonitor.takeSnapshot('saveNewRecording-start', {
+      questionIndex,
+      blobSize: audioBlob.size,
+      blobType: audioBlob.type,
+      existingRecordingsCount: Object.keys(sessionRecordings).length
+    });
+    
     if (!assignment || !userId) return;
 
     // Create a stable URL that won't change on re-renders
     const stableUrl = URL.createObjectURL(audioBlob);
+    
+    memoryMonitor.takeSnapshot('saveNewRecording-blob-url-created', {
+      questionIndex,
+      stableUrl: stableUrl.substring(0, 50) + '...',
+      blobSize: audioBlob.size
+    });
 
     // Update session recordings immediately with stable URL
     setSessionRecordings(prev => ({

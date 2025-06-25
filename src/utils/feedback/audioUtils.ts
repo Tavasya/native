@@ -12,8 +12,8 @@ export const playWordSegment = (
 ) => {
   console.log('Playing word:', word, 'at index:', wordIndex);
   
-  // Access the actual HTML audio element through react-h5-audio-player's structure
-  const audio = audioRef.current?.audio?.current;
+  // Access the actual HTML audio element (exposed via useImperativeHandle)
+  const audio = audioRef.current;
   
   if (!audio) {
     console.warn('Audio element not found - make sure the audio player is loaded');

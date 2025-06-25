@@ -1,7 +1,6 @@
 import { PracticeRequest, PracticeResponse } from './practiceTypes';
 
-const OPENAI_API_KEY = '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'; // Replace with your actual API key
-
+const OPENAI_API_KEY = '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'
 export const practiceService = {
   async testApiKey(): Promise<boolean> {
     try {

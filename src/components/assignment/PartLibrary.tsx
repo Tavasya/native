@@ -320,7 +320,51 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                             getHoverBorderColor(item)
                           )}
                           draggable
-                          onDragStart={() => onDragStart(item)}
+                          onDragStart={(e) => {
+                            // Only apply custom drag image in browsers (not in tests)
+                            if (typeof window !== 'undefined' && e.dataTransfer) {
+                              // Create a custom drag image with rounded borders
+                              const dragElement = e.currentTarget.cloneNode(true) as HTMLElement;
+                              dragElement.style.position = 'absolute';
+                              dragElement.style.top = '-1000px';
+                              dragElement.style.left = '-1000px';
+                              dragElement.style.width = e.currentTarget.offsetWidth + 'px';
+                              dragElement.style.border = '2px dashed #60a5fa';
+                              dragElement.style.borderRadius = '8px';
+                              dragElement.style.backgroundColor = '#dbeafe';
+                              dragElement.style.opacity = '0.8';
+                              dragElement.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
+                              dragElement.style.pointerEvents = 'none';
+                              
+                              // Add a unique identifier to help with cleanup
+                              dragElement.setAttribute('data-drag-preview', 'true');
+                              
+                              document.body.appendChild(dragElement);
+                              e.dataTransfer.setDragImage(dragElement, e.nativeEvent.offsetX || 0, e.nativeEvent.offsetY || 0);
+                              
+                              // Clean up the temporary element after a short delay
+                              const cleanup = () => {
+                                try {
+                                  if (dragElement.parentNode) {
+                                    dragElement.parentNode.removeChild(dragElement);
+                                  }
+                                } catch (error) {
+                                  // Ignore cleanup errors
+                                }
+                              };
+                              
+                              setTimeout(cleanup, 100);
+                              
+                              // Also clean up on drag end
+                              const handleDragEnd = () => {
+                                cleanup();
+                                window.removeEventListener('dragend', handleDragEnd);
+                              };
+                              window.addEventListener('dragend', handleDragEnd);
+                            }
+                            
+                            onDragStart(item);
+                          }}
                           onDragEnd={onDragEnd}
                           onClick={() => onAddPart(item)}
                         >

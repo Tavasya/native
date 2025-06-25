@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { memoryMonitor } from '@/utils/memoryMonitor';
+import { MemoryUsageReporter } from '@/components/debug/MemoryUsageReporter';
 
 // Custom Hooks
 import { useAssignmentData } from '@/hooks/assignment/useAssignmentData';
@@ -53,6 +55,25 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const hasGloballyStarted = useAppSelector(state => 
     state.assignments.testMode?.hasGloballyStarted?.[id || ''] || false
   );
+  
+  // Memory monitoring setup for main component
+  useEffect(() => {
+    memoryMonitor.takeSnapshot('AssignmentPractice-init', {
+      assignmentId: id,
+      previewMode,
+      hasGloballyStarted
+    });
+    
+    // Start continuous monitoring every 30 seconds
+    const stopMonitoring = memoryMonitor.startMonitoring(30000);
+    
+    return () => {
+      memoryMonitor.takeSnapshot('AssignmentPractice-cleanup', {
+        assignmentId: id
+      });
+      stopMonitoring();
+    };
+  }, [id, previewMode, hasGloballyStarted]);
   
   // User authentication
   const [userId, setUserId] = useState<string | null>(null);
@@ -366,6 +387,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Update hasRecorded when question changes
   useEffect(() => {
     if (assignment) {
+      memoryMonitor.takeSnapshot('question-change-start', {
+        currentQuestionIndex,
+        isTestMode,
+        assignmentQuestionCount: assignment.questions.length,
+        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
+      });
+      
       // In test mode, hasRecorded is managed by the test state, not by existing recordings
       if (!isTestMode) {
         setHasRecorded(hasRecordingForQuestion(currentQuestionIndex));
@@ -378,6 +406,14 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       if (isPlaying) {
         pauseAudio();
       }
+      
+      // Reset timer when question changes
+      setTimerResetTrigger(prev => prev + 1);
+      
+      memoryMonitor.takeSnapshot('question-change-complete', {
+        currentQuestionIndex,
+        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
+      });
     }
   }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio, isTestMode]);
 
@@ -517,11 +553,13 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     // Reset recording state for current question
     setHasRecorded(false);
     
+    // Reset timer for all modes when retrying
+    setTimerResetTrigger(prev => prev + 1);
+    
     // In test mode, reset to prep time phase for current question
     if (isTestMode && hasGloballyStarted) {
       // Reset all timers and start prep time for this question
       resetAllTimers();
-      setTimerResetTrigger(prev => prev + 1);
       
       // Set hasStarted to true so record button shows
       setHasStarted(true);
@@ -601,6 +639,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
+      <MemoryUsageReporter />
       <div className="flex items-center gap-4 py-4">
         <Button
           variant="ghost"

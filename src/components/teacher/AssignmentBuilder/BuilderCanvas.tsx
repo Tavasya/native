@@ -233,11 +233,17 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
       <CardContent>
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="builder-canvas">
-            {(provided: DroppableProvided) => (
+            {(provided: DroppableProvided, snapshot) => (
               <div
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                className="space-y-4"
+                className={`space-y-4 min-h-[200px] transition-all duration-200 ${
+                  snapshot.isDraggingOver 
+                    ? 'border-2 border-dashed border-blue-400 bg-blue-50/30 rounded-lg p-4' 
+                    : getAllParts().length === 0 
+                      ? 'border-2 border-dashed border-gray-300 rounded-lg p-4' 
+                      : ''
+                }`}
               >
                 {getAllParts().length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
@@ -250,11 +256,15 @@ const BuilderCanvas: React.FC<BuilderCanvasProps> = ({
                 ) : (
                   getAllParts().map((part, index) => (
                     <Draggable key={`${part.id}-${index}`} draggableId={`${part.id}-${index}`} index={index}>
-                      {(provided: DraggableProvided) => (
+                      {(provided: DraggableProvided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          className="border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow"
+                          className={`rounded-lg transition-all duration-200 ${
+                            snapshot.isDragging 
+                              ? 'border-2 border-dashed border-blue-400 bg-blue-50 shadow-lg opacity-80' 
+                              : 'border border-gray-200 bg-white shadow-sm hover:shadow-md'
+                          }`}
                         >
                           <div className="p-4">
                             <div className="flex items-start justify-between">

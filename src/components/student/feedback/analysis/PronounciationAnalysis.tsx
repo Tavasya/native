@@ -15,7 +15,7 @@ interface PronunciationAnalysisProps {
   currentFeedback: SectionFeedback | null;
   tempFeedback: SectionFeedback | null;
   isEditing: boolean;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<any>;
   ttsAudioCache: Record<string, { url: string }>;
   ttsLoading: Record<string, boolean>;
   dispatch: AppDispatch;
