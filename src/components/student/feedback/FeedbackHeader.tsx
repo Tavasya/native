@@ -42,7 +42,6 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   onSubmitAndSend,
   assignmentId,
   studentId,
-  currentSubmission,
   isStudent = false,
   onRedo,
   attempt
@@ -115,9 +114,9 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         {isStudent && allSubmissions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2" disabled={loading}>
                 <RotateCcw className="h-4 w-4" />
-                Redo Assignment
+                {loading ? 'Loading...' : 'Redo Assignment'}
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

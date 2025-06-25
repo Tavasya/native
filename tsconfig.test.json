@@ -5,7 +5,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["jest", "node", "vite/client"],
+    "types": ["jest", "node", "vite/client", "@testing-library/jest-dom"],
     "moduleResolution": "node",
     "module": "esnext",
     "target": "esnext",

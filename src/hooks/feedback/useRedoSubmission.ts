@@ -57,7 +57,7 @@ export const useRedoSubmission = () => {
 
   const handleRedo = async (assignmentId: string, studentId: string) => {
     try {
-      const newSubmission = await createNewSubmission(assignmentId, studentId);
+      await createNewSubmission(assignmentId, studentId);
       
       toast({
         title: "New Attempt Started",

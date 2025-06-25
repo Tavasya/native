@@ -24,7 +24,6 @@ interface SubmissionInfoProps {
   onCommentChange: (value: string) => void;
   isAutoGradeEnabled?: boolean;
   isTest?: boolean;
-  attempt?: number;
 }
 
 const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
@@ -47,7 +46,6 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   onCommentChange,
   isAutoGradeEnabled = true,
   isTest = false,
-  attempt,
 }) => {
   return (
     <Card className="shadow-sm border-0 bg-white">

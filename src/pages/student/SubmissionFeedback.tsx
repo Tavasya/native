@@ -81,7 +81,9 @@ const SubmissionFeedback = () => {
       console.error('Missing assignment or student ID for redo');
       return;
     }
-    handleRedo(selectedSubmission.assignment_id, selectedSubmission.student_id);
+    if (!isRedoProcessing) {
+      handleRedo(selectedSubmission.assignment_id, selectedSubmission.student_id);
+    }
   };
 
   // Toggle functions for collapsibles
@@ -219,7 +221,6 @@ const SubmissionFeedback = () => {
           onCommentChange={setTeacherComment}
           isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
           isTest={currentAssignment?.metadata?.isTest ?? false}
-          attempt={selectedSubmission.attempt}
         />
 
         <QuestionContent
