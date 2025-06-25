@@ -1,20 +1,20 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchLibraryItems } from '@/features/library/libraryThunks';
 import { setFilters, clearFilters } from '@/features/library/librarySlice';
-import { useToast } from '@/hooks/use-toast';
-import { LibraryItem } from '@/features/library/librarySlice';
-import { Search, Filter, BookOpen, FolderOpen, Eye, Edit, Tag } from 'lucide-react';
+import { Search, Filter, BookOpen, FolderOpen, Eye, Edit, Tag, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Users } from 'lucide-react';
 
 export default function LibraryPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { user } = useAppSelector(state => state.auth);
   const { items, loading, filters } = useAppSelector(state => state.library);
-  const { toast } = useToast();
 
   // Fetch on mount
   useEffect(() => {
@@ -35,32 +35,8 @@ export default function LibraryPage() {
     return matchesSearch && matchesTopic;
   });
 
-  // Get icon for item type
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'assignment':
-        return <FileText className="h-4 w-4" />;
-      case 'template':
-        return <FolderOpen className="h-4 w-4" />;
-      case 'resource':
-        return <BookOpen className="h-4 w-4" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
-
-  // Get color for item type
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'assignment':
-        return 'bg-blue-100 text-blue-800';
-      case 'template':
-        return 'bg-green-100 text-green-800';
-      case 'resource':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const handleViewTemplate = (templateId: string) => {
+    navigate(`/teacher/library/template/${templateId}`);
   };
 
   if (loading) {
@@ -81,7 +57,7 @@ export default function LibraryPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Library</h1>
-          <p className="text-gray-600">Manage your teaching templates and resources</p>
+          <p className="text-gray-600">Browse and assign IELTS speaking templates to your classes</p>
         </div>
 
         {/* Actions Bar */}
@@ -106,12 +82,20 @@ export default function LibraryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Topics</SelectItem>
-                  <SelectItem value="Speaking">Speaking</SelectItem>
-                  <SelectItem value="Writing">Writing</SelectItem>
-                  <SelectItem value="Reading">Reading</SelectItem>
-                  <SelectItem value="Listening">Listening</SelectItem>
-                  <SelectItem value="Grammar">Grammar</SelectItem>
-                  <SelectItem value="Business">Business</SelectItem>
+                  <SelectItem value="Family & Relationships">Family & Relationships</SelectItem>
+                  <SelectItem value="Work & Career">Work & Career</SelectItem>
+                  <SelectItem value="Education & Learning">Education & Learning</SelectItem>
+                  <SelectItem value="Technology & Media">Technology & Media</SelectItem>
+                  <SelectItem value="Health & Lifestyle">Health & Lifestyle</SelectItem>
+                  <SelectItem value="Travel & Tourism">Travel & Tourism</SelectItem>
+                  <SelectItem value="Environment & Nature">Environment & Nature</SelectItem>
+                  <SelectItem value="Culture & Society">Culture & Society</SelectItem>
+                  <SelectItem value="Food & Cooking">Food & Cooking</SelectItem>
+                  <SelectItem value="Sports & Leisure">Sports & Leisure</SelectItem>
+                  <SelectItem value="Cities & Places">Cities & Places</SelectItem>
+                  <SelectItem value="Hobbies & Interests">Hobbies & Interests</SelectItem>
+                  <SelectItem value="Shopping & Consumerism">Shopping & Consumerism</SelectItem>
+                  <SelectItem value="Transportation">Transportation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -146,17 +130,10 @@ export default function LibraryPage() {
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0"
-                      onClick={() => console.log('View item:', item.id)}
+                      onClick={() => handleViewTemplate(item.id)}
+                      title="View and assign template"
                     >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => console.log('Edit item:', item.id)}
-                    >
-                      <Edit className="h-4 w-4" />
+                      <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -164,7 +141,13 @@ export default function LibraryPage() {
                 {/* Content */}
                 <div className="mb-4">
                   <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{item.title}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-3">{item.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-3">{item.description}</p>
+                  
+                  {/* Question Count */}
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                    <Users className="h-3 w-3" />
+                    {item.assignment?.questions?.length || 0} questions
+                  </div>
                 </div>
 
                 {/* Tags */}
@@ -191,6 +174,18 @@ export default function LibraryPage() {
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>Used {item.usage_count} times</span>
                   <span>{new Date(item.updated_at).toLocaleDateString()}</span>
+                </div>
+
+                {/* View Template Button */}
+                <div className="mt-4">
+                  <Button 
+                    onClick={() => handleViewTemplate(item.id)}
+                    className="w-full"
+                    size="sm"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View & Assign Template
+                  </Button>
                 </div>
               </div>
             </div>

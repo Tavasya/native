@@ -299,8 +299,8 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
                     return (
                       <IssueCard
                         key={`${category.id}-${index}`}
-                        title={`${category.name} Issue`}
-                        index={globalIndex}
+                        title="Issue"
+                        index={index}
                         isOpen={grammarOpen[`grammar-${globalIndex}`] || false}
                         onToggle={() => onToggleGrammar(`grammar-${globalIndex}`)}
                         onDelete={isEditing ? () => onDeleteIssue('grammar', globalIndex) : undefined}
@@ -334,7 +334,7 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
               issues.map((issue, index) => (
                 <IssueCard
                   key={index}
-                  title="Grammar Issue"
+                  title="Issue"
                   index={index}
                   isOpen={grammarOpen[`grammar-${index}`] || false}
                   onToggle={() => onToggleGrammar(`grammar-${index}`)}

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import RequireAuth from '@/components/RequireAuth'
 import LoadingSpinner from '@/components/LoadingSpinner'
@@ -12,6 +12,7 @@ import DevDash from '@/pages/dev/DevDash'
 import StudentDashboard from '@/pages/student/StudentDashboard'
 import TeacherDash from '@/components/teacher/TeacherDash'
 import LibraryPage from '@/pages/teacher/LibraryPage'
+import LibraryTemplateView from '@/pages/teacher/LibraryTemplateView'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
@@ -74,6 +75,12 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Redirect component for old library template URLs
+const LibraryTemplateRedirect = () => {
+  const { templateId } = useParams<{ templateId: string }>();
+  return <Navigate to={`/teacher/library/template/${templateId}`} replace />;
+};
+
 export default function AppRoutes() {
   
   useEffect(() => {
@@ -87,6 +94,9 @@ export default function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/legal/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
+        
+        {/* Redirect old library template URLs to new format */}
+        <Route path="/library/template/:templateId" element={<LibraryTemplateRedirect />} />
         
         {/* -------- AUTH ROUTES (outside Layout - no navbar) -------- */}
         <Route path="/login" element={<NewLogin />} />
@@ -118,6 +128,7 @@ export default function AppRoutes() {
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
             <Route path="/teacher/library" element={<LibraryPage />} />
+            <Route path="/teacher/library/template/:templateId" element={<LibraryTemplateView />} />
             <Route path="/class/:id" element={<ClassDetailPage />} />
             <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
             <Route path="/dev-dash" element={<DevDash />} />

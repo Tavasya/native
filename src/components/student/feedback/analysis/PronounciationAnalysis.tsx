@@ -5,7 +5,7 @@ import { Play, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { getScoreColor, getPhonemeColor, getWordsToShow } from '@/utils/feedback/scoreUtils';
+import { getPhonemeColor, getWordsToShow } from '@/utils/feedback/scoreUtils';
 import { convertPhonemeToIPA } from '@/utils/feedback/textUtils';
 import { playWordSegment, playTTSAudio } from '@/utils/feedback/audioUtils';
 import { SectionFeedback, WordScore } from '@/types/feedback';
@@ -58,18 +58,6 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
     if (actualIndex !== -1) {
       onDeleteIssue('pronunciation', actualIndex);
     }
-  };
-
-  const generatePhonemeFeedback = (phoneme: string, score: number): string => {
-    const ipaSymbol = convertPhonemeToIPA(phoneme);
-    
-    if (score >= 90) return `Excellent pronunciation of /${ipaSymbol}/!`;
-    if (score >= 80) return `Good pronunciation of /${ipaSymbol}/, but could be slightly clearer.`;
-    if (score >= 70) return `Pronunciation of /${ipaSymbol}/ needs some improvement for clarity.`;
-    if (score >= 60) return `The /${ipaSymbol}/ sound needs more emphasis and clarity.`;
-    if (score >= 50) return `Focus on improving the /${ipaSymbol}/ sound - try practicing it slowly.`;
-    
-    return `The /${ipaSymbol}/ sound needs significant improvement. Practice this sound in isolation first.`;
   };
 
   const handleWordIpaClick = (wordIndex: number, event: React.MouseEvent) => {

@@ -1,5 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+export interface QuestionCard {
+  id: string;
+  type: 'normal' | 'bulletPoints';
+  question: string;
+  bulletPoints?: string[];
+  speakAloud: boolean;
+  timeLimit: string;
+  prepTime?: string;
+}
+
 export interface LibraryItem {
   id: string;
   title: string;
@@ -12,6 +22,14 @@ export interface LibraryItem {
   teacher_id: string;
   is_public: boolean;
   usage_count: number;
+  // Assignment data for templates
+  assignment?: {
+    questions: QuestionCard[];
+    metadata?: {
+      autoGrade?: boolean;
+      isTest?: boolean;
+    };
+  };
 }
 
 interface LibraryState {

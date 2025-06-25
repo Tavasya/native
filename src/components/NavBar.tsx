@@ -59,13 +59,6 @@ const Navbar: React.FC = () => {
                 >
                   Classes
                 </Link>
-                <Link 
-                  to="/teacher/library" 
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Library
-                </Link>
               </nav>
             )}
 

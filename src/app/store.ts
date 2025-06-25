@@ -7,6 +7,7 @@ import classReducer from '@/features/class/classSlice'
 import assignmentReducer from '@/features/assignments/assignmentSlice'
 import submissionsReducer from '@/features/submissions/submissionsSlice'
 import assignmentTemplateReducer from '@/features/assignmentTemplates/assignmentTemplateSlice'
+import assignmentPartsReducer from '@/features/assignmentParts/assignmentPartsSlice'
 import ttsReducer from '@/features/tts/ttsSlice'
 import metricsReducer from '@/features/metrics/metricsSlice'
 import prepTimeReducer from '@/features/assignments/prepTimeSlice'
@@ -27,6 +28,7 @@ const rootReducer = combineReducers({
   assignments: assignmentReducer,
   submissions: submissionsReducer,
   assignmentTemplates: assignmentTemplateReducer,
+  assignmentParts: assignmentPartsReducer,
   tts: ttsReducer,
   metrics: metricsReducer,
   prepTime: prepTimeReducer,
@@ -44,6 +46,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       assignments: assignmentReducer(undefined, action),
       submissions: submissionsReducer(undefined, action),
       assignmentTemplates: assignmentTemplateReducer(undefined, action),
+      assignmentParts: assignmentPartsReducer(undefined, action),
       tts: ttsReducer(undefined, action),
       metrics: metricsReducer(undefined, action),
       prepTime: prepTimeReducer(undefined, action),

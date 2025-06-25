@@ -135,12 +135,6 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
     return ranked;
   }, [isV3Format, vocabularySuggestions]);
 
-  // Get suggestions by category for v3 - now uses pre-computed data
-  const getSuggestionsByCategory = (category: number) => {
-    const categoryData = rankedCategories.find(c => c.category === category);
-    return categoryData?.suggestions || [];
-  };
-
   // Handle both v1 and v2 formats (fallback to lexical issues)
   const lexicalIssues = feedbackToUse?.lexical?.issues || [];
   const shouldShowVocabularySuggestions = Object.keys(vocabularySuggestions).length > 0;
@@ -178,8 +172,8 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
                     return (
                       <IssueCard
                         key={key}
-                        title={`${name} Issue`}
-                        index={globalIndex}
+                        title="Issue"
+                        index={index}
                         isOpen={vocabularyOpen[`vocab-${globalIndex}`] || false}
                         onToggle={() => onToggleVocabulary(`vocab-${globalIndex}`)}
                         onDelete={isEditing ? () => onDeleteIssue('lexical', globalIndex) : undefined}
@@ -218,7 +212,7 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
               Object.entries(vocabularySuggestions).map(([key, suggestion], index) => (
                 <IssueCard
                   key={key}
-                  title="Vocabulary Suggestion"
+                  title="Issue"
                   index={index}
                   isOpen={vocabularyOpen[`vocab-${index}`] || false}
                   onToggle={() => onToggleVocabulary(`vocab-${index}`)}
@@ -254,7 +248,7 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
               lexicalIssues.map((issue: LexicalIssue, index: number) => (
                 <IssueCard
                   key={index}
-                  title="Vocabulary Suggestions"
+                  title="Issue"
                   index={index}
                   isOpen={vocabularyOpen[`vocab-${index}`] || false}
                   onToggle={() => onToggleVocabulary(`vocab-${index}`)}

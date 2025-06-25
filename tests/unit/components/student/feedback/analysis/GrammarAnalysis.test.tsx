@@ -208,7 +208,7 @@ describe('GrammarAnalysis', () => {
       
       // V1 format without category shows flat list view
       expect(screen.getAllByTestId('issue-title')).toHaveLength(2);
-      expect(screen.getAllByText('Grammar Issue')).toHaveLength(2);
+      expect(screen.getAllByText('Issue')).toHaveLength(2);
     });
 
     const v1StringFeedback: SectionFeedback = createBaseSectionFeedback({
@@ -279,7 +279,7 @@ describe('GrammarAnalysis', () => {
       
       // Should show both issues in flat format since no categories
       expect(screen.getAllByTestId('issue-title')).toHaveLength(2);
-      expect(screen.getAllByText('Grammar Issue')).toHaveLength(2);
+      expect(screen.getAllByText('Issue')).toHaveLength(2);
     });
   });
 
@@ -336,7 +336,7 @@ describe('GrammarAnalysis', () => {
       const categoryHeaders = screen.getAllByTestId('issue-title');
       
       // Should be ranked: Subject-verb (3), Article usage (2), Verb tense (1)
-      expect(categoryHeaders[0]).toHaveTextContent('Subject-verb agreement Issue');
+      expect(categoryHeaders[0]).toHaveTextContent('Issue');
       expect(screen.getByText('3 issues')).toBeInTheDocument();
       expect(screen.getByText('2 issues')).toBeInTheDocument();
       expect(screen.getByText('1 issue')).toBeInTheDocument();
@@ -373,7 +373,7 @@ describe('GrammarAnalysis', () => {
       render(<GrammarAnalysis {...mockProps} currentFeedback={nonCategorizedFeedback} />);
       
       // Should show regular issue cards, not category sections
-      expect(screen.getByTestId('issue-title')).toHaveTextContent('Grammar Issue');
+      expect(screen.getByTestId('issue-title')).toHaveTextContent('Issue');
       expect(screen.queryByText('1 issue')).not.toBeInTheDocument(); // No count badges
     });
   });
@@ -573,9 +573,9 @@ describe('GrammarAnalysis', () => {
       
       // Check if it shows categorized or flat view
       const categoryHeader = screen.queryByText('Other');
-      const flatIssue = screen.queryByText('Grammar Issue');
+      const flatIssue = screen.queryByText('Issue');
       
-      // Should show either categorized "Other" or flat "Grammar Issue"
+      // Should show either categorized "Other" or flat "Issue"
       expect(categoryHeader || flatIssue).toBeInTheDocument();
     });
   });
