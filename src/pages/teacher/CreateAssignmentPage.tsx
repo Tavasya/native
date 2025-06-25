@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, ChevronDown, Info, ChevronRight, ChevronLeft, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,7 +26,7 @@ import AssignmentPractice from '@/pages/student/AssignmentPractice';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
+import PartLibrary from '@/components/assignment/PartLibrary';
 import type { RootState } from '@/app/store';
 import type { AssignmentTemplate } from '@/features/assignmentTemplates/types';
 import type { AssignmentPart, PartCombination, PartType } from '@/features/assignmentParts/types';
@@ -579,23 +579,6 @@ const CreateAssignmentPage: React.FC = () => {
     };
   }, [isDraggingPart]);
 
-  // Filter parts based on search and filters
-  const filteredParts = parts.filter((part: AssignmentPart) => {
-    const matchesSearch = part.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         part.questions.some((q: any) => q.question.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesTopic = !selectedTopic || part.topic === selectedTopic;
-    const matchesType = !selectedPartType || part.part_type === selectedPartType;
-    
-    return matchesSearch && matchesTopic && matchesType;
-  });
-
-  const filteredCombinations = combinations.filter((combo: PartCombination) => {
-    const matchesSearch = combo.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTopic = !selectedTopic || combo.topic === selectedTopic;
-    // PartCombination doesn't have part_type, so we skip that filter for combinations
-    
-    return matchesSearch && matchesTopic;
-  });
 
   if (isPreviewMode) {
     return (
@@ -620,187 +603,23 @@ const CreateAssignmentPage: React.FC = () => {
     <div className="flex flex-col min-h-screen bg-[#F5F9FF]">
       <main className="flex-1 flex">
         {/* Part Library Sidebar */}
-        <div className={cn(
-          "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out",
-          isPartLibraryOpen ? "w-80" : "w-12"
-        )}>
-          {isPartLibraryOpen ? (
-            <div className="h-full flex flex-col">
-              {/* Header */}
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Part Library</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsPartLibraryOpen(false)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {/* Search */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search parts..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                
-                {/* Filters */}
-                <div className="space-y-2">
-                  <Select value={selectedTopic || 'all'} onValueChange={(value) => handleTopicChange(value === 'all' ? undefined : value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All topics" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All topics</SelectItem>
-                      <SelectItem value="Personal">Personal</SelectItem>
-                      <SelectItem value="Work">Work</SelectItem>
-                      <SelectItem value="Education">Education</SelectItem>
-                      <SelectItem value="Travel">Travel</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Select value={selectedPartType || 'all'} onValueChange={(value) => handlePartTypeChange(value === 'all' ? undefined : value as PartType)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
-                      <SelectItem value="part1">Part 1</SelectItem>
-                      <SelectItem value="part2_3">Part 2 & 3</SelectItem>
-                      <SelectItem value="part2_only">Part 2 Only</SelectItem>
-                      <SelectItem value="part3_only">Part 3 Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearFilters}
-                    className="w-full"
-                  >
-                    Clear Filters
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Parts List */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {partsLoading ? (
-                  <div className="text-center py-8 text-gray-500">Loading parts...</div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Individual Parts */}
-                    {filteredParts.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Individual Parts</h4>
-                        <div className="space-y-2">
-                          {filteredParts.map((part) => (
-                            <Card
-                              key={part.id}
-                              className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow border-2 border-transparent hover:border-[#272A69]"
-                              draggable
-                              onDragStart={() => handleDragStart(part)}
-                              onDragEnd={handleDragEnd}
-                              onClick={() => handleAddPart(part)}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="text-sm font-medium truncate">{part.title}</h5>
-                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                                      {part.questions.map((q: any) => q.question).join(' • ')}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <Badge className="text-xs">{part.part_type}</Badge>
-                                      {part.topic && (
-                                        <Badge variant="outline" className="text-xs">
-                                          {part.topic}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="mt-2 text-xs text-[#272A69] font-medium">
-                                      Drag to insert or click to add
-                                    </div>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Combinations */}
-                    {filteredCombinations.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Combinations</h4>
-                        <div className="space-y-2">
-                          {filteredCombinations.map((combo) => (
-                            <Card
-                              key={combo.id}
-                              className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow border-2 border-transparent hover:border-[#272A69]"
-                              draggable
-                              onDragStart={() => handleDragStart(combo)}
-                              onDragEnd={handleDragEnd}
-                              onClick={() => handleAddPart(combo)}
-                            >
-                              <CardContent className="p-3">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="text-sm font-medium truncate">{combo.title}</h5>
-                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                                      Part 2 & 3 combination
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                      <Badge className="text-xs bg-blue-100 text-blue-800">Part 2 & 3</Badge>
-                                      {combo.topic && (
-                                        <Badge variant="outline" className="text-xs">
-                                          {combo.topic}
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="mt-2 text-xs text-[#272A69] font-medium">
-                                      Drag to insert or click to add
-                                    </div>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {filteredParts.length === 0 && filteredCombinations.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No parts found</p>
-                        <p className="text-xs">Try adjusting your search or filters</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsPartLibraryOpen(true)}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
+        <PartLibrary
+          isOpen={isPartLibraryOpen}
+          onToggle={setIsPartLibraryOpen}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedTopic={selectedTopic}
+          onTopicChange={handleTopicChange}
+          selectedPartType={selectedPartType}
+          onPartTypeChange={handlePartTypeChange}
+          onClearFilters={handleClearFilters}
+          parts={parts}
+          combinations={combinations}
+          partsLoading={partsLoading}
+          onAddPart={handleAddPart}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        />
 
         {/* Main Content */}
         <div className="flex-1 container mx-auto px-4 py-8">
