@@ -51,7 +51,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
 
   useEffect(() => {
     const fetchAllSubmissions = async () => {
-      if (!assignmentId || !studentId || !isStudent) return;
+      if (!assignmentId || !studentId) return;
       
       setLoading(true);
       try {
@@ -69,7 +69,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     };
 
     fetchAllSubmissions();
-  }, [assignmentId, studentId, isStudent]);
+  }, [assignmentId, studentId]);
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -84,11 +84,11 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     // Find the submission to check its status
     const submission = allSubmissions.find(s => s.id === submissionId);
     
-    if (submission?.status === 'in_progress') {
-      // If in progress, go to practice page to continue recording
+    if (isStudent && submission?.status === 'in_progress') {
+      // If student and in progress, go to practice page to continue recording
       window.location.href = `/student/assignment/${assignmentId}/practice`;
     } else {
-      // If completed (pending, awaiting_review, graded), go to feedback page
+      // For teachers or completed submissions, go to feedback page
       window.location.href = `/student/submission/${submissionId}/feedback`;
     }
   };
@@ -111,17 +111,27 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         )}
       </div>
       <div className="flex items-center gap-2">
-        {isStudent && allSubmissions.length > 0 && (
+        {allSubmissions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2" disabled={loading}>
-                <RotateCcw className="h-4 w-4" />
-                {loading ? 'Loading...' : 'Redo Assignment'}
+                {isStudent ? (
+                  <>
+                    <RotateCcw className="h-4 w-4" />
+                    {loading ? 'Loading...' : 'Redo Assignment'}
+                  </>
+                ) : (
+                  <>
+                    {loading ? 'Loading...' : 'View Attempts'}
+                  </>
+                )}
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Previous Attempts</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {isStudent ? 'Previous Attempts' : 'Student Attempts'}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {allSubmissions.map((submission) => (
                 <DropdownMenuItem
@@ -132,7 +142,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
                   <div className="flex items-center justify-between w-full">
                     <span className="font-medium">
                       Attempt {submission.attempt}
-                      {submission.status === 'in_progress' && ' (Continue)'}
+                      {isStudent && submission.status === 'in_progress' && ' (Continue)'}
                     </span>
                     <span className={`text-xs px-2 py-1 rounded ${
                       submission.status === 'graded' ? 'bg-green-100 text-green-700' :
@@ -153,14 +163,18 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
                   </span>
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onRedo}
-                className="text-blue-600 font-medium"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Start New Attempt
-              </DropdownMenuItem>
+              {isStudent && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onRedo}
+                    className="text-blue-600 font-medium"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Start New Attempt
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

@@ -4,6 +4,7 @@ import {
     AssignmentStatus,
     StudentSubmission,
     CreateAssignmentDto,
+    SubmissionStatus,
   } from './types';
   import { supabase } from '@/integrations/supabase/client';
   
@@ -150,16 +151,55 @@ import {
   
       if (subErr) throw new Error(subErr.message);
   
-      // 4. Create a map of latest submissions per student
+      // 4. Create a map of latest submissions per student and track completion history
       const latestAttempt = new Map<string, (typeof submissions)[number]>();
+      const completionHistory = new Map<string, { 
+        hasEverCompleted: boolean; 
+        totalAttempts: number; 
+        completedAttempts: number;
+        latestCompletedSubmissionId?: string;
+        latestCompletedAttempt?: number;
+      }>();
+      
       submissions?.forEach(row => {
-        const prev = latestAttempt.get(row.student_id);
-        if (!prev || prev.attempt < row.attempt) latestAttempt.set(row.student_id, row);
+        const studentId = row.student_id;
+        
+        // Track latest attempt
+        const prev = latestAttempt.get(studentId);
+        if (!prev || prev.attempt < row.attempt) {
+          latestAttempt.set(studentId, row);
+        }
+        
+        // Track completion history
+        if (!completionHistory.has(studentId)) {
+          completionHistory.set(studentId, { 
+            hasEverCompleted: false, 
+            totalAttempts: 0, 
+            completedAttempts: 0 
+          });
+        }
+        
+        const history = completionHistory.get(studentId)!;
+        history.totalAttempts++;
+        
+        // Check if this attempt shows completion
+        const completedStatuses = ['graded', 'pending', 'awaiting_review', 'completed'];
+        if (completedStatuses.includes(row.status || '')) {
+          history.hasEverCompleted = true;
+          history.completedAttempts++;
+          
+          // Store the latest completed submission (highest attempt number)
+          if (!history.latestCompletedAttempt || row.attempt > history.latestCompletedAttempt) {
+            history.latestCompletedSubmissionId = row.id;
+            history.latestCompletedAttempt = row.attempt;
+          }
+        }
       });
   
       // 5. Create final output including all students
       const result = students.map(student => {
         const submission = latestAttempt.get(student.student_id);
+        const history = completionHistory.get(student.student_id);
         const user = Array.isArray(student.users) ? student.users[0] : student.users;
   
         if (!submission) {
@@ -171,15 +211,17 @@ import {
             student_email: user?.email ?? 'Unknown',
             assignment_id: assignmentId,
             attempt: 0,
-            status: 'not_started',
+            status: 'not_started' as SubmissionStatus,
             submitted_at: null,
             grade: null,
             overall_grade: student.overall_grade,
+            has_ever_completed: false,
+            total_attempts: 0,
+            completed_attempts: 0,
           };
         }
   
         // Student has submitted something
-        console.log('Processing submission for student:', user?.name, 'Status:', submission.status);
         
         return {
           id: submission.id,
@@ -188,10 +230,14 @@ import {
           student_email: user?.email ?? 'Unknown',
           assignment_id: submission.assignment_id,
           attempt: submission.attempt,
-          status: submission.status ?? 'not_started',
+          status: (submission.status ?? 'not_started') as SubmissionStatus,
           submitted_at: submission.submitted_at,
           grade: submission.grade,
           overall_grade: student.overall_grade,
+          has_ever_completed: history?.hasEverCompleted ?? false,
+          total_attempts: history?.totalAttempts ?? 0,
+          completed_attempts: history?.completedAttempts ?? 0,
+          completed_submission_id: history?.latestCompletedSubmissionId,
         };
       });
   

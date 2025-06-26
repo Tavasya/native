@@ -177,8 +177,8 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const assignmentRows: LocalAssignment[] = assignments.map((a) => {
     const subs = submissions[a.id] || [];
     const comp = {
-      submitted: subs.filter(s => s.status === 'graded' || s.status === 'pending').length,
-      inProgress: subs.filter(s => s.status === 'in_progress').length,
+      submitted: subs.filter(s => s.has_ever_completed === true).length,
+      inProgress: subs.filter(s => s.status === 'in_progress' && s.has_ever_completed !== true).length,
       notStarted: classData.students - subs.length,
       totalStudents: classData.students,
     };
@@ -416,9 +416,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                       <thead className="bg-gray-50">
                         <tr>
                           {[
-                            { header: 'Student', width: 'w-1/4' },
-                            { header: 'Status', width: 'w-1/5' },
-                            { header: 'Last Updated', width: 'w-1/4' },
+                            { header: 'Student', width: 'w-1/5' },
+                            { header: 'Status', width: 'w-1/6' },
+                            { header: 'Attempts', width: 'w-1/8' },
+                            { header: 'Last Updated', width: 'w-1/5' },
                             { header: 'Grade', width: 'w-1/6' },
                             { header: 'Action', width: 'w-1/6' }
                           ].map(({ header, width }) => (
@@ -435,34 +436,35 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {subs.map((st) => (
                           <tr key={st.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 w-1/4">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 w-1/5">
                               {st.student_name}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm w-1/5">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm w-1/6">
                               {(() => {
-                                const isCompleted = st.status === 'graded' || st.status === 'pending' || st.status === 'awaiting_review';
+                                const hasEverCompleted = st.has_ever_completed === true;
+                                const currentStatus = st.status;
+                                
                                 return (
-                                  <span className={`px-2 py-1 rounded-full ${
-                                    st.status === 'graded'
+                                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                    hasEverCompleted
                                       ? 'bg-green-100 text-green-800'
-                                      : st.status === 'awaiting_review'
-                                      ? 'bg-orange-100 text-orange-800'
-                                      : st.status === 'pending'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : st.status === 'in_progress'
+                                      : currentStatus === 'in_progress'
                                       ? 'bg-yellow-100 text-yellow-800'
                                       : 'bg-gray-100 text-gray-800'
                                   }`}>
-                                    {isCompleted
+                                    {hasEverCompleted
                                       ? 'Completed'
-                                      : st.status === 'in_progress'
+                                      : currentStatus === 'in_progress'
                                       ? 'In Progress'
                                       : 'Not Started'}
                                   </span>
                                 );
                               })()}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/4">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/8">
+                              {st.completed_attempts || 0}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/5">
                               {st.status === 'in_progress' 
                                 ? 'Not Submitted'
                                 : st.submitted_at
@@ -491,7 +493,10 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/student/submission/${st.id}/feedback`, { 
+                                  const submissionId = st.has_ever_completed && st.completed_submission_id 
+                                    ? st.completed_submission_id 
+                                    : st.id;
+                                  navigate(`/student/submission/${submissionId}/feedback`, { 
                                     state: { 
                                       fromClassDetail: true
                                     } 

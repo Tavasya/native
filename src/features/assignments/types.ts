@@ -63,6 +63,10 @@ export interface StudentSubmission {
   submitted_at: string | null;
   grade: number | null;
   overall_grade: number | null;
+  has_ever_completed?: boolean;
+  total_attempts?: number;
+  completed_attempts?: number;
+  completed_submission_id?: string;
 }
 
 export interface AssignmentState {
