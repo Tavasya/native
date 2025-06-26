@@ -18,26 +18,6 @@ const IELTSScoreDisplay: React.FC<IELTSScoreDisplayProps> = ({
   // The grade IS the IELTS score (1-9 scale)
   const ieltsScore = grade;
   
-  // Convert IELTS to other test scores
-  const getTOEFLScore = (ielts: number): string => {
-    if (ielts >= 9.0) return '118-120';
-    if (ielts >= 8.5) return '115-117';
-    if (ielts >= 8.0) return '110-114';
-    if (ielts >= 7.5) return '102-109';
-    if (ielts >= 7.0) return '94-101';
-    if (ielts >= 6.5) return '79-93';
-    if (ielts >= 6.0) return '60-78';
-    if (ielts >= 5.5) return '46-59';
-    if (ielts >= 5.0) return '35-45';
-    if (ielts >= 4.5) return '32-34';
-    if (ielts >= 4.0) return '28-31';
-    if (ielts >= 3.5) return '24-27';
-    if (ielts >= 3.0) return '20-23';
-    if (ielts >= 2.5) return '16-19';
-    if (ielts >= 2.0) return '12-15';
-    return '0-11';
-  };
-
   const getCEFRScore = (ielts: number): string => {
     if (ielts >= 8.5) return 'C2';
     if (ielts >= 7.0) return 'C1';
@@ -56,8 +36,6 @@ const IELTSScoreDisplay: React.FC<IELTSScoreDisplayProps> = ({
     return 'bg-gradient-to-br from-red-500 to-red-600';
   };
 
-
-
   // Debug logging
   console.log('Grade:', grade, 'IELTS Score:', ieltsScore);
 
@@ -71,7 +49,7 @@ const IELTSScoreDisplay: React.FC<IELTSScoreDisplayProps> = ({
       </div>
 
       {/* Test Score Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {/* IELTS Card */}
         <div className={cn(
           "rounded-xl p-4 text-white shadow-lg transition-all duration-500 hover:shadow-xl animate-in slide-in-from-bottom-4 fade-in-0",
@@ -88,21 +66,8 @@ const IELTSScoreDisplay: React.FC<IELTSScoreDisplayProps> = ({
           </div>
         </div>
 
-        {/* TOEFL Card */}
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white shadow-lg transition-all duration-500 hover:shadow-xl animate-in slide-in-from-bottom-4 fade-in-0" style={{ animationDelay: '150ms' }}>
-          <div className="text-center">
-            <div className="text-2xl font-bold mb-1">
-              {getTOEFLScore(ieltsScore)}
-            </div>
-            <div className="text-sm font-medium opacity-90">TOEFL iBT</div>
-            <div className="text-xs opacity-75 mt-1">
-              Internet-based
-            </div>
-          </div>
-        </div>
-
         {/* CEFR Card */}
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg transition-all duration-500 hover:shadow-xl animate-in slide-in-from-bottom-4 fade-in-0" style={{ animationDelay: '300ms' }}>
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg transition-all duration-500 hover:shadow-xl animate-in slide-in-from-bottom-4 fade-in-0" style={{ animationDelay: '150ms' }}>
           <div className="text-center">
             <div className="text-2xl font-bold mb-1">
               {getCEFRScore(ieltsScore)}

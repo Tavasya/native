@@ -8,15 +8,13 @@ describe('IELTSScoreDisplay', () => {
     
     expect(screen.getByText('6.5')).toBeInTheDocument();
     expect(screen.getByText('IELTS')).toBeInTheDocument();
-    expect(screen.getByText('TOEFL iBT')).toBeInTheDocument();
     expect(screen.getByText('CEFR')).toBeInTheDocument();
   });
 
-  it('shows correct TOEFL and CEFR equivalents', () => {
+  it('shows correct CEFR equivalents', () => {
     render(<IELTSScoreDisplay grade={7.0} />);
     
     expect(screen.getByText('7.0')).toBeInTheDocument();
-    expect(screen.getByText('94-101')).toBeInTheDocument(); // TOEFL for 7.0
     expect(screen.getByText('C1')).toBeInTheDocument(); // CEFR for 7.0
   });
 
