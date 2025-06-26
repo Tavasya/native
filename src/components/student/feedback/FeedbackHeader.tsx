@@ -1,6 +1,7 @@
 // components/student/feedback/FeedbackHeader.tsx
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -46,6 +47,8 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   onRedo,
   attempt
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -86,10 +89,14 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     
     if (isStudent && submission?.status === 'in_progress') {
       // If student and in progress, go to practice page to continue recording
-      window.location.href = `/student/assignment/${assignmentId}/practice`;
+      navigate(`/student/assignment/${assignmentId}/practice`);
     } else {
       // For teachers or completed submissions, go to feedback page
-      window.location.href = `/student/submission/${submissionId}/feedback`;
+      // Preserve the navigation state from the original navigation
+      navigate(`/student/submission/${submissionId}/feedback`, {
+        state: location.state, // Pass through the existing navigation state
+        replace: true // Replace current history entry instead of pushing new one
+      });
     }
   };
 

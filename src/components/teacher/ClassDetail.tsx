@@ -40,6 +40,7 @@ import type {
 } from '@/features/assignments/types';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { setSelectedTeacher } from '@/features/metrics/metricsSlice';
+import { useClassDetailWebSocket } from '@/hooks/teacher/useClassDetailWebSocket';
 
 /* ------------------------------------------------------------------ *
  *  Helpers / local types
@@ -122,6 +123,14 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
   const [toDelete, setToDelete] = useState<string | null>(null);
   const fetchedAssignmentIds = useRef<Set<string>>(new Set());
 
+  // Set up real-time WebSocket connection for assignment updates
+  useClassDetailWebSocket({
+    classId: classId || undefined,
+    assignmentIds: assignments.map(a => a.id),
+    enabled: !!classId && assignments.length > 0
+  });
+
+
   /* ------------------------------------------------------------------ *
    *  Fetch flow – first load basic slices, then per‑assignment data.
    * ------------------------------------------------------------------ */
@@ -130,26 +139,35 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
       return;
     }
 
-    // Fetch classes first
-    dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId }))
-      .unwrap()
-      // .then(classes => {
-      .then(_ => {
-        // Then fetch stats and assignments
-        dispatch(fetchClassStatsByTeacher(effectiveUserId));
-        dispatch(fetchAssignmentByClass(classId));
-      });
+    // Load basic data in parallel
+    Promise.all([
+      dispatch(fetchClasses({ role: 'teacher', userId: effectiveUserId })),
+      dispatch(fetchClassStatsByTeacher(effectiveUserId)),
+      dispatch(fetchAssignmentByClass(classId))
+    ]).catch(error => {
+      console.error('Error loading class data:', error);
+    });
   }, [effectiveUserId, classId, dispatch]);
 
   useEffect(() => {
     if (!assignments.length) return;
 
-    assignments.forEach((assignment) => {
-      if (!fetchedAssignmentIds.current.has(assignment.id)) {
-        dispatch(fetchLatestSubmissionsByAssignment(assignment.id));
-        dispatch(fetchAssignmentCompletionStats(assignment.id));
-        fetchedAssignmentIds.current.add(assignment.id);
-      }
+    // Batch fetch all assignment data in parallel
+    const newAssignments = assignments.filter(a => !fetchedAssignmentIds.current.has(a.id));
+    if (newAssignments.length === 0) return;
+
+    const fetchPromises = newAssignments.flatMap(assignment => [
+      dispatch(fetchLatestSubmissionsByAssignment(assignment.id)),
+      dispatch(fetchAssignmentCompletionStats(assignment.id))
+    ]);
+
+    Promise.all(fetchPromises).catch(error => {
+      console.error('Error loading assignment data:', error);
+    });
+
+    // Mark all new assignments as fetched
+    newAssignments.forEach(assignment => {
+      fetchedAssignmentIds.current.add(assignment.id);
     });
   }, [assignments, dispatch]);
 

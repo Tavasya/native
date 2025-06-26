@@ -46,6 +46,17 @@ const assignmentSlice = createSlice({
     resetTestState: (state, action) => {
       const { assignmentId } = action.payload;
       state.testMode.hasGloballyStarted[assignmentId] = false;
+    },
+    updateSubmissionInAssignment: (state, action) => {
+      const { assignmentId, submissionUpdate } = action.payload;
+      const submissions = state.submissions[assignmentId];
+      if (submissions) {
+        const idx = submissions.findIndex(s => s.id === submissionUpdate.id);
+        if (idx !== -1) {
+          // Update the existing submission with new data
+          submissions[idx] = { ...submissions[idx], ...submissionUpdate };
+        }
+      }
     }
   },
   extraReducers: (builder) => {
@@ -192,5 +203,5 @@ const assignmentSlice = createSlice({
   }
 });
 
-export const { updatePracticeProgress, startTestGlobally, resetTestState } = assignmentSlice.actions;
+export const { updatePracticeProgress, startTestGlobally, resetTestState, updateSubmissionInAssignment } = assignmentSlice.actions;
 export default assignmentSlice.reducer;
