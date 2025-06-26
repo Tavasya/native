@@ -221,6 +221,7 @@ const SubmissionFeedback = () => {
           onCommentChange={setTeacherComment}
           isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
           isTest={currentAssignment?.metadata?.isTest ?? false}
+          grade={selectedSubmission?.grade}
         />
 
         <QuestionContent

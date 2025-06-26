@@ -24,6 +24,7 @@ interface SubmissionInfoProps {
   onCommentChange: (value: string) => void;
   isAutoGradeEnabled?: boolean;
   isTest?: boolean;
+  grade?: number | null;
 }
 
 const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
@@ -46,7 +47,19 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   onCommentChange,
   isAutoGradeEnabled = true,
   isTest = false,
+  grade,
 }) => {
+  // Create scores object with grade included
+  const scoresWithGrade = {
+    ...averageScores,
+    overall_grade: grade
+  };
+
+  const tempScoresWithGrade = {
+    ...tempScores,
+    overall_grade: grade
+  };
+
   return (
     <Card className="shadow-sm border-0 bg-white">
       <CardContent className="p-6">
@@ -66,8 +79,8 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
         </div>
 
         <OverallScoring
-          scores={averageScores}
-          tempScores={tempScores}
+          scores={scoresWithGrade}
+          tempScores={tempScoresWithGrade}
           isEditing={isEditingOverall}
           canEdit={canEdit}
           onEdit={onEditOverall}
