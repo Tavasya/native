@@ -876,8 +876,8 @@ const CreateAssignmentPage: React.FC = () => {
                                       <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
-                                    <p className="text-sm text-gray-700">AI analyzes submissions and marks them as pending review for manual grading.</p>
+                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                    <p className="text-sm text-gray-700">Instant AI grading for student speaking submissions. Disable to review and edit the report manually before sending it to the student.</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
@@ -905,8 +905,8 @@ const CreateAssignmentPage: React.FC = () => {
                                       <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg">
-                                    <p className="text-sm text-gray-700">Enables IELTS-style test mode with prep time and formal testing environment.</p>
+                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                    <p className="text-sm text-gray-700">Simulates real test with spoken questions. Disable for normal practice sessions.</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>

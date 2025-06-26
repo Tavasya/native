@@ -13,6 +13,7 @@ interface NavigationButtonProps {
   isAutoAdvancing?: boolean;
   isTest?: boolean;
   hasRetried?: boolean;
+  isRecording?: boolean;
   onComplete: () => void;
   onNext?: () => void;
   onRetry?: () => void;
@@ -28,6 +29,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
   isAutoAdvancing = false,
   isTest = false,
   hasRetried = false,
+  isRecording = false,
   onComplete,
   onNext,
   onRetry
@@ -42,7 +44,7 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
 
   const isDisabled = isPreviewMode 
     ? isLastQuestion 
-    : (!hasRecorded || isPlaying || isUploading || hasUploadError || isAutoAdvancing);
+    : (!hasRecorded || isPlaying || isUploading || hasUploadError || isAutoAdvancing || isRecording);
 
   const isLoading = isUploading || isAutoAdvancing;
   const buttonText = isUploading 
@@ -50,6 +52,17 @@ const NavigationButton: React.FC<NavigationButtonProps> = ({
     : isAutoAdvancing
     ? "Moving to next question..."
     : (isLastQuestion ? "Finish" : "Next");
+
+  // Hide buttons completely when recording to prevent accidental clicks
+  if (isRecording) {
+    return (
+      <div className="flex justify-end mt-4">
+        <div className="text-sm text-gray-500 italic">
+          Recording in progress...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-end mt-4">

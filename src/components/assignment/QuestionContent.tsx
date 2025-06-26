@@ -171,6 +171,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
               isAutoAdvancing={isAutoAdvancing}
               isTest={isTest}
               hasRetried={hasRetried}
+              isRecording={isRecording}
               onComplete={completeQuestion}
               onNext={onNextQuestion}
               onRetry={onRetry}
