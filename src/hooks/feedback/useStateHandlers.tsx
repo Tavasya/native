@@ -59,13 +59,20 @@ export const useSubmissionHandlers = ({
 
     try {
       // If we have temp scores that are different from the current scores, save them first
-      if (tempScores && selectedSubmission.overall_assignment_score !== tempScores) {
+      if (tempScores) {
         const updates: Omit<UpdateSubmissionDto, 'id'> = { 
-          overall_assignment_score: tempScores,
           status: 'graded'
         };
-        if (tempScores.overall_grade !== undefined && tempScores.overall_grade !== null) {
-          updates.grade = tempScores.overall_grade;
+        
+        // Check if individual scores changed
+        const { overall_grade, ...individualScores } = tempScores;
+        if (selectedSubmission.overall_assignment_score !== individualScores) {
+          updates.overall_assignment_score = individualScores;
+        }
+        
+        // Check if IELTS grade changed
+        if (overall_grade !== undefined && overall_grade !== null && selectedSubmission.grade !== overall_grade) {
+          updates.grade = overall_grade;
         }
 
         const resultAction = await dispatch(updateSubmission({
@@ -110,7 +117,7 @@ export const useSubmissionHandlers = ({
     }
   };
 
-  // ✅ Enhanced with Redux operation tracking
+  // ✅ Enhanced with Redux operation tracking - local save only
   const handleSaveOverallScores = () => {
     if (!tempScores) {
       toast({
@@ -122,13 +129,13 @@ export const useSubmissionHandlers = ({
       return;
     }
 
-    // Just commit the changes to Redux state
+    // Just commit the changes to local Redux state
     dispatch(commitTempChanges({ section: 'scores' }));
     dispatch(stopEditing('overall'));
     
     toast({
       title: "Success",
-      description: "Scores updated in form. Click 'Submit and Send' to save changes.",
+      description: "Scores updated locally. Click 'Submit and Send' to save to database.",
       duration: 3000,
     });
   };

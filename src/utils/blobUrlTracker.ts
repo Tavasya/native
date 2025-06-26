@@ -148,6 +148,29 @@ class BlobUrlTracker {
     
     return () => clearInterval(interval);
   }
+
+  /**
+   * Clear blob URLs by context (useful for specific cleanup scenarios like redo)
+   */
+  clearByContext(contextPattern: string): number {
+    const urlsToRevoke = Array.from(this.activeBlobUrls.entries())
+      .filter(([_, data]) => data.context.includes(contextPattern));
+    
+    urlsToRevoke.forEach(([url, data]) => {
+      console.log(`🧹 Clearing blob URL by context [${contextPattern}]: ${url.substring(0, 50)}... (${data.context})`);
+      this.revokeObjectURL(url, `context-cleanup-${contextPattern}`);
+    });
+
+    if (urlsToRevoke.length > 0) {
+      memoryMonitor.takeSnapshot('blob-url-context-cleanup', {
+        contextPattern,
+        cleanedCount: urlsToRevoke.length,
+        totalActiveBlobUrls: this.activeBlobUrls.size
+      });
+    }
+
+    return urlsToRevoke.length;
+  }
 }
 
 // Create global instance

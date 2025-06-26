@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import SubmissionFeedback from '@/pages/student/SubmissionFeedback';
+import { useFeedbackWebSocket } from '@/hooks/feedback/useFeedbackWebSocket';
 
 interface AnalysisStatusProps {
   submissionUrl: string;
@@ -25,30 +26,26 @@ interface StatusResponse {
   };
 }
 
-// Wrapper component that accepts submissionId as prop
-const SubmissionFeedbackWrapper: React.FC<{ submissionId: string }> = ({ submissionId }) => {
-  // Mock the useParams hook by creating a context or using a different approach
-  // For now, let's use a simple approach by modifying the URL temporarily
-  React.useEffect(() => {
-    // Store the current URL
-    const currentUrl = window.location.pathname;
-    // Update the URL to include the submission ID
-    window.history.replaceState(null, '', `/student/submission/${submissionId}/feedback`);
-    
-    // Cleanup function to restore the original URL when component unmounts
-    return () => {
-      window.history.replaceState(null, '', currentUrl);
-    };
-  }, [submissionId]);
-
+// Wrapper component to handle the submission ID parameter
+const SubmissionFeedbackWrapper: React.FC<{ submissionId: string }> = ({  }) => {
   return <SubmissionFeedback />;
 };
 
 const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
+
+  // Use the new WebSocket hook for feedback updates
+  const handleFeedbackReady = useCallback(() => {
+    console.log('WebSocket detected feedback is ready, showing feedback component...');
+    setAnalysisComplete(true);
+  }, []);
+
+  const { isConnected, feedbackReady } = useFeedbackWebSocket({
+    submissionId: submissionUrl,
+    onFeedbackReady: handleFeedbackReady
+  });
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -182,31 +179,10 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
     };
   }, [submissionUrl, handleStatusUpdate, fetchStatus]);
 
-  // Effect to handle refresh when progress reaches 100%
-  useEffect(() => {
-    const totalProgress = calculateTotalProgress();
-    console.log('Current Progress:', totalProgress, 'Is Refreshing:', isRefreshing);
-    
-    if (totalProgress === 100 && !isRefreshing) {
-      console.log('Progress reached 100%, showing feedback component...');
-      const showFeedback = async () => {
-        setIsRefreshing(true);
-        try {
-          console.log('Waiting 2 seconds before showing feedback...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          console.log('Setting analysis complete, showing feedback component...');
-          
-          // Set analysis complete to show feedback component
-          setAnalysisComplete(true);
-        } catch (error) {
-          console.error('Error during feedback transition:', error);
-          setIsRefreshing(false);
-        }
-      };
-      
-      showFeedback();
-    }
-  }, [status?.status_logs, isRefreshing]);
+  // Show feedback component when WebSocket detects feedback is ready
+  if (analysisComplete || feedbackReady) {
+    return <SubmissionFeedbackWrapper submissionId={submissionUrl} />;
+  }
 
   const getStatusIcon = (status: 'not_started' | 'in_progress' | 'completed') => {
     switch (status) {
@@ -230,11 +206,6 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
         </CardContent>
       </Card>
     );
-  }
-
-  // Show feedback component when analysis is complete
-  if (analysisComplete) {
-    return <SubmissionFeedbackWrapper submissionId={submissionUrl} />;
   }
 
   if (!status) {
@@ -261,6 +232,11 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
                 {Math.round(calculateTotalProgress())}%
               </span>
             </div>
+            {isConnected && (
+              <div className="mt-2 text-xs text-green-600">
+                ✓ Connected to real-time updates
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -276,7 +252,7 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {(['fluency', 'grammar', 'pronunciation', 'vocabulary'] as const).map((aspect) => (
                     <div key={aspect} className="flex items-center gap-2">
                       {getStatusIcon(question[aspect])}
@@ -286,11 +262,6 @@ const AnalysisStatus: React.FC<AnalysisStatusProps> = ({ submissionUrl }) => {
                 </div>
               </div>
             ))}
-            {!status.status_logs?.questions && (
-              <div className="text-center text-gray-500 py-4">
-                <p>No question analysis data available yet.</p>
-              </div>
-            )}
           </div>
         </div>
       </CardContent>

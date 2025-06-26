@@ -11,6 +11,7 @@ import {
   startEditing,
   stopEditing,
   setSelectedQuestionIndex,
+  syncFeedbackForCurrentQuestion,
   setActiveTab,
   setOpenPopover,
   togglePopover,
@@ -149,6 +150,8 @@ export const useSubmissionState = (submissionId: string | undefined) => {
   useEffect(() => {
     if (submissionId) {
       console.log('Fetching submission:', submissionId);
+      // Clear TTS audio cache when switching submissions to prevent stale audio from previous recordings
+      dispatch(clearTTSAudio());
       dispatch(fetchSubmissionById(submissionId));
     }
   }, [submissionId, dispatch]);
@@ -164,10 +167,10 @@ export const useSubmissionState = (submissionId: string | undefined) => {
     }
   }, [selectedSubmission?.assignment_id, assignments, dispatch]);
 
-  // ✅ Cleanup TTS on unmount
+  // ✅ Cleanup TTS on unmount only (don't clear on tab switching)
   useEffect(() => {
     return () => {
-      console.log('Cleaning up TTS audio resources');
+      console.log('Cleaning up TTS audio resources on component unmount');
       dispatch(clearTTSAudio());
     };
   }, [dispatch]);
@@ -190,6 +193,7 @@ export const useSubmissionState = (submissionId: string | undefined) => {
     
     // UI actions
     setSelectedQuestionIndex: (index: number) => dispatch(setSelectedQuestionIndex(index)),
+    syncFeedbackForCurrentQuestion: () => dispatch(syncFeedbackForCurrentQuestion()),
     setActiveTab: (tab: string) => dispatch(setActiveTab(tab)),
     setOpenPopover: (popover: string | null) => dispatch(setOpenPopover(popover)),
     togglePopover: (popover: string) => dispatch(togglePopover(popover)),

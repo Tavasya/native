@@ -324,12 +324,20 @@ const submissionsSlice = createSlice({
     
     setSelectedQuestionIndex: (state, action: PayloadAction<number>) => {
       state.ui.selectedQuestionIndex = action.payload;
-      
-      // Update editing state for new question
-      if (state.selectedSubmission?.section_feedback?.[action.payload]) {
-        const feedback = state.selectedSubmission.section_feedback[action.payload].section_feedback;
+      // Don't automatically update tempFeedback - let components decide when to sync
+    },
+    
+    // New action to sync feedback when actually needed (not just navigation)
+    syncFeedbackForCurrentQuestion: (state) => {
+      const currentIndex = state.ui.selectedQuestionIndex;
+      if (state.selectedSubmission?.section_feedback?.[currentIndex]) {
+        const feedback = state.selectedSubmission.section_feedback[currentIndex].section_feedback;
         state.editing.tempFeedback = feedback;
         state.editing.teacherComment = feedback?.feedback || '';
+        state.editing.isDirty = false;
+      } else {
+        state.editing.tempFeedback = null;
+        state.editing.teacherComment = '';
         state.editing.isDirty = false;
       }
     },
@@ -359,6 +367,17 @@ const submissionsSlice = createSlice({
 
     setVocabularyOpen: (state, action: PayloadAction<{ [key: string]: boolean }>) => {
       state.ui.vocabularyOpen = action.payload;
+    },
+
+    // ✅ Clear all submission state (for page navigation cleanup)
+    clearSubmissionState: (state) => {
+      state.selectedSubmission = null;
+      state.editing = { ...initialEditingState };
+      state.ui = { ...initialUIState };
+      state.operations = {
+        updating: false,
+        updateError: null,
+      };
     },
 
     // ========== OPERATION STATE ACTIONS ==========
@@ -602,11 +621,13 @@ export const {
   
   // ✅ NEW: UI actions
   setSelectedQuestionIndex,
+  syncFeedbackForCurrentQuestion,
   setActiveTab,
   setOpenPopover,
   togglePopover,
   setGrammarOpen,
   setVocabularyOpen,
+  clearSubmissionState,
   
   // ✅ NEW: Operation actions
   setOperationLoading,

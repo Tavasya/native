@@ -11,6 +11,7 @@ import { ArrowLeft } from 'lucide-react';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { memoryMonitor } from '@/utils/memoryMonitor';
 import { MemoryUsageReporter } from '@/components/debug/MemoryUsageReporter';
+import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 // Custom Hooks
 import { useAssignmentData } from '@/hooks/assignment/useAssignmentData';
@@ -25,6 +26,10 @@ import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { startTestGlobally, resetTestState } from '@/features/assignments/assignmentSlice';
 import { useRedoSubmission } from '@/hooks/feedback/useRedoSubmission';
 import RedoPromptDialog from '@/components/student/RedoPromptDialog';
+import { clearTTSAudio } from '@/features/tts/ttsSlice';
+import { clearAssignmentRecordings, clearRecordings } from '@/features/submissions/submissionsSlice';
+import { clearPrepTime } from '@/features/assignments/prepTimeSlice';
+import { clearPractice } from '@/features/practice/practiceSlice';
 
 interface PreviewData {
   title: string;
@@ -74,6 +79,59 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       stopMonitoring();
     };
   }, [id, previewMode, hasGloballyStarted]);
+  
+  // Comprehensive cache clearing when leaving the page
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Clearing all cache for assignment practice page...');
+      
+      // Clear Redux state
+      if (id) {
+        dispatch(clearAssignmentRecordings(id));
+        dispatch(clearRecordings(id));
+      }
+      dispatch(clearTTSAudio());
+      dispatch(clearPrepTime());
+      dispatch(clearPractice());
+      
+      // Clear localStorage recordings for this assignment
+      if (id && typeof window !== 'undefined') {
+        try {
+          const recordings = localStorage.getItem('recordings');
+          if (recordings) {
+            const parsedRecordings = JSON.parse(recordings);
+            if (parsedRecordings[id]) {
+              delete parsedRecordings[id];
+              localStorage.setItem('recordings', JSON.stringify(parsedRecordings));
+              console.log('🗑️ Cleared localStorage recordings for assignment:', id);
+            }
+          }
+        } catch (error) {
+          console.error('Error clearing localStorage recordings:', error);
+        }
+      }
+      
+      // Clear blob URLs by context
+      const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
+      console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
+      
+      // Clear any remaining blob URLs that might be related to recordings
+      const remainingUrls = blobUrlTracker.getActiveBlobUrls();
+      remainingUrls.forEach(({ url, context }) => {
+        if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
+          blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
+        }
+      });
+      
+      // Force garbage collection if available
+      if (window.gc) {
+        window.gc();
+        console.log('🗑️ Forced garbage collection');
+      }
+      
+      console.log('✅ Cache clearing completed for assignment practice page');
+    };
+  }, [id, dispatch]);
   
   // User authentication
   const [userId, setUserId] = useState<string | null>(null);
@@ -617,8 +675,118 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     }
   };
 
+  // Manual cache clearing function for debugging
+  const clearAllCache = () => {
+    console.log('🧹 Manual cache clearing triggered...');
+    
+    // Clear Redux state
+    if (id) {
+      dispatch(clearAssignmentRecordings(id));
+      dispatch(clearRecordings(id));
+    }
+    dispatch(clearTTSAudio());
+    dispatch(clearPrepTime());
+    dispatch(clearPractice());
+    
+    // Clear localStorage recordings for this assignment
+    if (id && typeof window !== 'undefined') {
+      try {
+        const recordings = localStorage.getItem('recordings');
+        if (recordings) {
+          const parsedRecordings = JSON.parse(recordings);
+          if (parsedRecordings[id]) {
+            delete parsedRecordings[id];
+            localStorage.setItem('recordings', JSON.stringify(parsedRecordings));
+            console.log('🗑️ Cleared localStorage recordings for assignment:', id);
+          }
+        }
+      } catch (error) {
+        console.error('Error clearing localStorage recordings:', error);
+      }
+    }
+    
+    // Clear blob URLs by context
+    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
+    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
+    
+    // Clear any remaining blob URLs that might be related to recordings
+    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
+    remainingUrls.forEach(({ url, context }) => {
+      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
+        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
+      }
+    });
+    
+    // Force garbage collection if available
+    if (window.gc) {
+      window.gc();
+      console.log('🗑️ Forced garbage collection');
+    }
+    
+    // Log blob URL status
+    blobUrlTracker.logStatus();
+    
+    console.log('✅ Manual cache clearing completed');
+    
+    toast({
+      title: "Cache Cleared",
+      description: "All cache has been cleared for this assignment.",
+      duration: 3000,
+    });
+  };
+
   // Handle back navigation
   const handleBack = () => {
+    // Clear cache before navigating away
+    console.log('🧹 Clearing cache before navigation...');
+    
+    // Clear Redux state
+    if (id) {
+      dispatch(clearAssignmentRecordings(id));
+      dispatch(clearRecordings(id));
+    }
+    dispatch(clearTTSAudio());
+    dispatch(clearPrepTime());
+    dispatch(clearPractice());
+    
+    // Clear localStorage recordings for this assignment
+    if (id && typeof window !== 'undefined') {
+      try {
+        const recordings = localStorage.getItem('recordings');
+        if (recordings) {
+          const parsedRecordings = JSON.parse(recordings);
+          if (parsedRecordings[id]) {
+            delete parsedRecordings[id];
+            localStorage.setItem('recordings', JSON.stringify(parsedRecordings));
+            console.log('🗑️ Cleared localStorage recordings for assignment:', id);
+          }
+        }
+      } catch (error) {
+        console.error('Error clearing localStorage recordings:', error);
+      }
+    }
+    
+    // Clear blob URLs by context
+    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
+    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
+    
+    // Clear any remaining blob URLs that might be related to recordings
+    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
+    remainingUrls.forEach(({ url, context }) => {
+      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
+        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
+      }
+    });
+    
+    // Force garbage collection if available
+    if (window.gc) {
+      window.gc();
+      console.log('🗑️ Forced garbage collection');
+    }
+    
+    console.log('✅ Cache clearing completed before navigation');
+    
+    // Navigate away
     if (previewMode && onBack) {
       onBack();
     } else {
@@ -649,6 +817,18 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           <ArrowLeft className="h-4 w-4" />
           {previewMode ? 'Back to Editor' : 'Back to Dashboard'}
         </Button>
+        
+        {/* Debug cache clear button - only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearAllCache}
+            className="ml-auto text-xs"
+          >
+            🧹 Clear Cache
+          </Button>
+        )}
       </div>
       
       <div className="flex-1 flex items-center">

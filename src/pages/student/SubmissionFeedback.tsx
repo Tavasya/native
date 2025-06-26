@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -36,6 +36,7 @@ const SubmissionFeedback = () => {
     startEditing,
     stopEditing,
     setSelectedQuestionIndex,
+    syncFeedbackForCurrentQuestion,
     setActiveTab,
     setOpenPopover,
     setGrammarOpen,
@@ -94,6 +95,15 @@ const SubmissionFeedback = () => {
   const toggleVocabularyOpen = (key: string) => {
     setVocabularyOpen({ ...vocabularyOpen, [key]: !vocabularyOpen[key] });
   };
+
+  // Handle question navigation - only sync feedback when needed for feedback viewing
+  const handleQuestionSelect = useCallback((index: number) => {
+    setSelectedQuestionIndex(index);
+    // Only sync feedback if we're viewing feedback content (not just navigating)
+    if (canEdit || role === 'teacher') {
+      syncFeedbackForCurrentQuestion();
+    }
+  }, [setSelectedQuestionIndex, syncFeedbackForCurrentQuestion, canEdit, role]);
 
   // Loading state
   if (loading) {
@@ -227,7 +237,7 @@ const SubmissionFeedback = () => {
         <QuestionContent
           questions={selectedSubmission?.section_feedback || []}
           selectedQuestionIndex={selectedQuestionIndex}
-          onSelectQuestion={setSelectedQuestionIndex}
+          onSelectQuestion={handleQuestionSelect}
           audioRef={audioRef}
           audioUrl={currentQuestion?.audio_url || ''}
           transcript={currentQuestion?.transcript || ''}
