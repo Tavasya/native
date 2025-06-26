@@ -61,6 +61,25 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
     10: "Other vocabulary issues"
   };
 
+  // Helper function to check if a text is a filler word
+  const isFillerWord = (text: string): boolean => {
+    if (!text) return false;
+    
+    const cleanText = text.trim().toLowerCase();
+    
+    // Check for filler words: uh, um (case insensitive)
+    if (['uh', 'um'].includes(cleanText)) {
+      return true;
+    }
+    
+    // Check for standalone 'M' (case insensitive, with or without period)
+    if (cleanText === 'm' || cleanText === 'm.') {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Helper function to get category for a suggestion
   const getSuggestionCategory = (suggestion: any): number => {
     if (Array.isArray(suggestion.category)) {
@@ -71,11 +90,36 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
 
   // Helper function to check if vocabulary issue should be included in v3
   const shouldIncludeVocabularyIssue = (suggestion: any, isV3: boolean): boolean => {
-    if (!isV3) return true; // For v1/v2, include all suggestions
+    // Filter out filler words for all versions
+    const originalWord = suggestion.original_word || '';
+    if (isFillerWord(originalWord)) {
+      return false;
+    }
+    
+    // Filter out identical original and suggested words
+    const suggestedWord = suggestion.suggested_word || '';
+    if (areTextsSame(originalWord, suggestedWord)) {
+      return false;
+    }
+    
+    if (!isV3) {
+      // For v1/v2, we've already done the filtering above
+      return true;
+    }
     
     const category = getSuggestionCategory(suggestion);
     // Filter out categories: 4, 5, 8, 10
     return ![4, 5, 8, 10].includes(category);
+  };
+
+  // Helper function to check if original and suggested text are identical
+  const areTextsSame = (original: string, suggested: string): boolean => {
+    if (!original || !suggested) return false;
+    
+    const cleanOriginal = original.trim().toLowerCase();
+    const cleanSuggested = suggested.trim().toLowerCase();
+    
+    return cleanOriginal === cleanSuggested;
   };
 
   // Helper function to check if we should show categorized view
@@ -112,7 +156,7 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
     const categoryGroups: { [key: number]: Array<[string, any]> } = {};
     
     Object.entries(vocabularySuggestions).forEach(([key, suggestion]: [string, any]) => {
-      // Filter out categories 4, 5, 8, 10 for v3
+      // Filter out categories 4, 5, 8, 10 for v3 and also filter out filler words
       if (!shouldIncludeVocabularyIssue(suggestion, true)) return;
       
       const category = getSuggestionCategory(suggestion);
@@ -208,8 +252,10 @@ const VocabularyAnalysis: React.FC<VocabularyAnalysisProps> = ({
           // V2 Flat View or V1 Fallback
           <div className="space-y-3">
             {shouldShowVocabularySuggestions ? (
-              // V2 Flat View
-              Object.entries(vocabularySuggestions).map(([key, suggestion], index) => (
+              // V2 Flat View - filter out filler words
+              Object.entries(vocabularySuggestions)
+                .filter(([_, suggestion]) => shouldIncludeVocabularyIssue(suggestion, isV3Format))
+                .map(([key, suggestion], index) => (
                 <IssueCard
                   key={key}
                   title="Issue"

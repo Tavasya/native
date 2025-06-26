@@ -63,13 +63,55 @@ const GrammarAnalysis: React.FC<GrammarAnalysisProps> = ({
     11: "Other"
   };
 
+  // Helper function to check if a text is a filler word
+  const isFillerWord = (text: string): boolean => {
+    if (!text) return false;
+    
+    const cleanText = text.trim().toLowerCase();
+    
+    // Check for filler words: uh, um (case insensitive)
+    if (['uh', 'um'].includes(cleanText)) {
+      return true;
+    }
+    
+    // Check for standalone 'M' (case insensitive, with or without period)
+    if (cleanText === 'm' || cleanText === 'm.') {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Helper function to filter out grammar issues with category 8, 9, 10, or 11
   const shouldIncludeGrammarIssue = (issue: any): boolean => {
     // Check if the issue has a category field and if it's 8, 9, 10, or 11
     if (issue.category !== undefined && [8, 9, 10, 11].includes(issue.category)) {
       return false;
     }
+    
+    // Filter out filler words - check all possible locations
+    const originalPhrase = issue.original_phrase || issue.original || issue.correction?.original_phrase || '';
+    if (isFillerWord(originalPhrase)) {
+      return false;
+    }
+    
+    // Filter out identical original and suggested text
+    const suggestedCorrection = issue.suggested_correction || issue.correction?.suggested_correction || '';
+    if (areTextsSame(originalPhrase, suggestedCorrection)) {
+      return false;
+    }
+    
     return true;
+  };
+
+  // Helper function to check if original and suggested text are identical
+  const areTextsSame = (original: string, suggested: string): boolean => {
+    if (!original || !suggested) return false;
+    
+    const cleanOriginal = original.trim().toLowerCase();
+    const cleanSuggested = suggested.trim().toLowerCase();
+    
+    return cleanOriginal === cleanSuggested;
   };
 
   // Helper function to get category for an issue

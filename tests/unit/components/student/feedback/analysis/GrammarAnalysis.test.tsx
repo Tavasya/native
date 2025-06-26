@@ -624,4 +624,51 @@ describe('GrammarAnalysis', () => {
       expect(screen.getByText('The subject "he" requires the verb "doesn\'t" not "don\'t"')).toBeInTheDocument();
     });
   });
+
+  describe('Filler Word Filtering', () => {
+
+    it('filters out filler words from V2 format grammar corrections', () => {
+      const feedbackWithV2FillerWords = createBaseSectionFeedback({
+        grammar: {
+          grade: 7,
+          issues: [],
+          grammar_corrections: {
+            'correction1': {
+              original: 'uh, this is a sentence',
+              corrections: [{
+                type: 'filler_word',
+                explanation: 'Remove filler word',
+                phrase_index: 0,
+                sentence_text: 'uh, this is a sentence',
+                sentence_index: 0,
+                original_phrase: 'uh',
+                suggested_correction: 'this is a sentence',
+                category: 8
+              }]
+            },
+            'correction2': {
+              original: 'he don\'t like cats',
+              corrections: [{
+                type: 'subject_verb_agreement',
+                explanation: 'Subject-verb agreement error',
+                phrase_index: 1,
+                sentence_text: 'he don\'t like cats',
+                sentence_index: 1,
+                original_phrase: 'don\'t',
+                suggested_correction: 'doesn\'t',
+                category: 1
+              }]
+            }
+          }
+        } as any
+      });
+
+      render(<GrammarAnalysis {...mockProps} currentFeedback={feedbackWithV2FillerWords} />);
+      
+      // Should only show 1 issue (the non-filler word issue)
+      expect(screen.getByText('1 issue')).toBeInTheDocument();
+      // Should show the category name
+      expect(screen.getByText('Subject-verb agreement')).toBeInTheDocument();
+    });
+  });
 });

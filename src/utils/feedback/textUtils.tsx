@@ -211,6 +211,35 @@ export const createHighlightedText = (
     return ![4, 5, 8, 10].includes(category);
   };
 
+  // Helper function to filter out filler words and meaningless single letters
+  const isFillerWord = (text: string): boolean => {
+    if (!text) return false;
+    
+    const cleanText = text.trim().toLowerCase();
+    
+    // Check for filler words: uh, um (case insensitive)
+    if (['uh', 'um'].includes(cleanText)) {
+      return true;
+    }
+    
+    // Check for standalone 'M' (case insensitive, with or without period)
+    if (cleanText === 'm' || cleanText === 'm.') {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Helper function to check if original and suggested text are identical
+  const areTextsSame = (original: string, suggested: string): boolean => {
+    if (!original || !suggested) return false;
+    
+    const cleanOriginal = original.trim().toLowerCase();
+    const cleanSuggested = suggested.trim().toLowerCase();
+    
+    return cleanOriginal === cleanSuggested;
+  };
+
   // Helper function to check if we should show categorized view for vocabulary
   const hasVocabularyCategorizedSuggestions = (suggestions: any): boolean => {
     return Object.values(suggestions).some((suggestion: any) => suggestion.category !== undefined);
@@ -231,6 +260,18 @@ export const createHighlightedText = (
             return null;
           }
           
+          // Check if this is a filler word and should be excluded
+          const originalPhrase = correctionData?.original_phrase || correction.original || '';
+          if (isFillerWord(originalPhrase)) {
+            return null;
+          }
+          
+          // Check if original and suggested are the same
+          const suggestedCorrection = correctionData?.suggested_correction || '';
+          if (areTextsSame(originalPhrase, suggestedCorrection)) {
+            return null;
+          }
+          
           return {
             text: correctionData?.original_phrase || correction.original || '',
             explanation: correctionData?.explanation || '',
@@ -248,6 +289,21 @@ export const createHighlightedText = (
       if (Array.isArray(currentFeedback.grammar.issues)) {
         mistakesToHighlight = currentFeedback.grammar.issues
           .filter(shouldIncludeGrammarIssue) // Filter out category 8, 9, 10
+          .filter((issue: GrammarIssue) => {
+            // Filter out filler words
+            const originalPhrase = issue.correction?.original_phrase || issue.original || '';
+            if (isFillerWord(originalPhrase)) {
+              return false;
+            }
+            
+            // Filter out identical original and suggested
+            const suggestedCorrection = issue.correction?.suggested_correction || '';
+            if (areTextsSame(originalPhrase, suggestedCorrection)) {
+              return false;
+            }
+            
+            return true;
+          })
           .map((issue: GrammarIssue) => {
             let textToHighlight = issue.correction?.original_phrase || '';
             
@@ -288,6 +344,21 @@ export const createHighlightedText = (
       
       mistakesToHighlight = Object.entries(extendedVocabulary.vocabulary_suggestions)
         .filter(([_, suggestion]) => shouldIncludeVocabularyIssue(suggestion, isV3Format))
+        .filter(([_, suggestion]) => {
+          // Filter out filler words
+          const originalWord = suggestion.original_word || '';
+          if (isFillerWord(originalWord)) {
+            return false;
+          }
+          
+          // Filter out identical original and suggested
+          const suggestedWord = suggestion.suggested_word || '';
+          if (areTextsSame(originalWord, suggestedWord)) {
+            return false;
+          }
+          
+          return true;
+        })
         .map(([_, suggestion]) => ({
           text: suggestion.original_word || '',
           explanation: suggestion.explanation || '',
