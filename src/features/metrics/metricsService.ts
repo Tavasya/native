@@ -7,6 +7,7 @@ import {
   TeacherAssignmentWeekly,
   StudentEngagement,
   InactiveUser,
+  SubmissionTrend,
 } from './metricsTypes';
 
 interface StudentClass {
@@ -289,5 +290,41 @@ export async function getUserCreationData(): Promise<{
     created_at: user.created_at,
     onboarding_completed_at: user.onboarding_completed_at,
     view: user.view
+  }));
+}
+
+/**
+ * Fetches submission trends data for analytics.
+ */
+export async function getSubmissionTrends(): Promise<SubmissionTrend[]> {
+  const { data, error } = await supabase
+    .from('submissions')
+    .select(`
+      id,
+      assignment_id,
+      student_id,
+      status,
+      submitted_at,
+      assignments (
+        title
+      ),
+      users (
+        name
+      )
+    `)
+    .in('status', ['graded', 'awaiting_review'])
+    .not('submitted_at', 'is', null)
+    .order('submitted_at', { ascending: false });
+
+  if (error) throw error;
+  
+  return data.map(submission => ({
+    submission_id: submission.id,
+    assignment_id: submission.assignment_id,
+    student_id: submission.student_id,
+    student_name: (submission.users as any)?.name || 'Unknown Student',
+    status: submission.status as 'graded' | 'awaiting_review',
+    submitted_at: submission.submitted_at,
+    assignment_title: (submission.assignments as any)?.title
   }));
 }

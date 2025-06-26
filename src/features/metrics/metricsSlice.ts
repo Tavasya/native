@@ -8,6 +8,7 @@ import {
   TeacherAssignmentWeekly,
   StudentEngagement,
   InactiveUser,
+  SubmissionTrend,
 } from './metricsTypes';
 
 interface MetricsState {
@@ -19,6 +20,7 @@ interface MetricsState {
   studentEngagement: StudentEngagement[];
   inactiveUsers: InactiveUser[];
   selectedTeacher: AssignmentMetric | null;
+  submissionTrends: SubmissionTrend[];
   userCreationData: {
     user_id: string;
     name: string;
@@ -38,6 +40,7 @@ interface MetricsState {
   loadingStudentEngagement: boolean;
   loadingInactiveUsers: boolean;
   loadingUserCreationData: boolean;
+  loadingSubmissionTrends: boolean;
 
   errorLastLogins: string | null;
   errorAllLastLogins: string | null;
@@ -47,6 +50,7 @@ interface MetricsState {
   errorStudentEngagement: string | null;
   errorInactiveUsers: string | null;
   errorUserCreationData: string | null;
+  errorSubmissionTrends: string | null;
 
   // hideUser
   hidingUser: boolean;
@@ -70,6 +74,7 @@ const initialState: MetricsState = {
   studentEngagement: [],
   inactiveUsers: [],
   selectedTeacher: null,
+  submissionTrends: [],
   userCreationData: [],
 
   loadingLastLogins: false,
@@ -80,6 +85,7 @@ const initialState: MetricsState = {
   loadingStudentEngagement: false,
   loadingInactiveUsers: false,
   loadingUserCreationData: false,
+  loadingSubmissionTrends: false,
 
   errorLastLogins: null,
   errorAllLastLogins: null,
@@ -89,6 +95,7 @@ const initialState: MetricsState = {
   errorStudentEngagement: null,
   errorInactiveUsers: null,
   errorUserCreationData: null,
+  errorSubmissionTrends: null,
 
   hidingUser: false,
   errorHidingUser: null,
@@ -207,6 +214,18 @@ export const fetchUserCreationData = createAsyncThunk<
   }
 });
 
+export const fetchSubmissionTrends = createAsyncThunk<
+  SubmissionTrend[],
+  void,
+  { rejectValue: string }
+>('metrics/fetchSubmissionTrends', async (_, { rejectWithValue }) => {
+  try {
+    return await service.getSubmissionTrends();
+  } catch (err: any) {
+    return rejectWithValue(err.message);
+  }
+});
+
 /**
  * New thunk: hide a user by ID, then re-fetch lastLogins table.
  */
@@ -257,6 +276,7 @@ const metricsSlice = createSlice({
       state.studentEngagement = [];
       state.inactiveUsers = [];
       state.userCreationData = [];
+      state.submissionTrends = [];
 
       state.loadingLastLogins = false;
       state.loadingAllLastLogins = false;
@@ -266,6 +286,7 @@ const metricsSlice = createSlice({
       state.loadingStudentEngagement = false;
       state.loadingInactiveUsers = false;
       state.loadingUserCreationData = false;
+      state.loadingSubmissionTrends = false;
 
       state.errorLastLogins = null;
       state.errorAllLastLogins = null;
@@ -275,6 +296,7 @@ const metricsSlice = createSlice({
       state.errorStudentEngagement = null;
       state.errorInactiveUsers = null;
       state.errorUserCreationData = null;
+      state.errorSubmissionTrends = null;
 
       state.hidingUser = false;
       state.errorHidingUser = null;
@@ -452,6 +474,24 @@ const metricsSlice = createSlice({
       .addCase(fetchUserCreationData.rejected, (state, action) => {
         state.loadingUserCreationData = false;
         state.errorUserCreationData = action.payload || action.error.message || 'Error';
+      });
+
+    /** fetchSubmissionTrends **/
+    builder
+      .addCase(fetchSubmissionTrends.pending, (state) => {
+        state.loadingSubmissionTrends = true;
+        state.errorSubmissionTrends = null;
+      })
+      .addCase(
+        fetchSubmissionTrends.fulfilled,
+        (state, action: PayloadAction<SubmissionTrend[]>) => {
+          state.loadingSubmissionTrends = false;
+          state.submissionTrends = action.payload;
+        }
+      )
+      .addCase(fetchSubmissionTrends.rejected, (state, action) => {
+        state.loadingSubmissionTrends = false;
+        state.errorSubmissionTrends = action.payload || action.error.message || 'Error';
       });
 
     /** hideUserById **/

@@ -9,6 +9,7 @@ import {
   fetchStudentEngagement,
   fetchInactiveUsers,
   fetchUserCreationData,
+  fetchSubmissionTrends,
   hideUserById,
   loadMoreUsers,
   setSelectedTeacher,
@@ -23,6 +24,7 @@ import type {
 import AssignmentAnalyticsGraph from '@/components/dev/AssignmentAnalyticsGraph';
 import AssignmentListModal from '@/components/dev/AssignmentListModal';
 import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
+import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
 
 // Icon component types
 interface IconProps {
@@ -201,6 +203,7 @@ export default function DashboardPage() {
     dispatch(fetchStudentEngagement());
     dispatch(fetchInactiveUsers());
     dispatch(fetchUserCreationData());
+    dispatch(fetchSubmissionTrends());
   }, [dispatch, activeTab]);
 
   // Load class data separately
@@ -523,6 +526,9 @@ export default function DashboardPage() {
 
                 {/* User Growth Graph */}
                 <UserGrowthGraph />
+
+                {/* Submission Trends Graph */}
+                <SubmissionTrendsGraph />
 
                 {/* Assignment List Modal */}
                 {selectedTeacher && (

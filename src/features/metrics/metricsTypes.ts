@@ -47,4 +47,14 @@ export interface LastLogin {
     role: 'teacher' | 'student' | string;
     last_login: string | null;
   }
+
+  export interface SubmissionTrend {
+    submission_id: string;
+    assignment_id: string;
+    student_id: string;
+    student_name: string;
+    status: 'graded' | 'awaiting_review';
+    submitted_at: string;
+    assignment_title?: string;
+  }
   
