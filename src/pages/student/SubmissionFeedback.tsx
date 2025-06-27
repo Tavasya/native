@@ -1,6 +1,7 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { useParams } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
+import posthog from 'posthog-js';
 
 // Import our new components
 import FeedbackHeader from '@/components/student/feedback/FeedbackHeader';
@@ -87,13 +88,107 @@ const SubmissionFeedback = () => {
     }
   };
 
+  // PostHog tracking for report page visits
+  useEffect(() => {
+    if (selectedSubmission && currentAssignment && posthog.__loaded) {
+      try {
+        // Track report page visit
+        posthog.capture('report_page_viewed', {
+          submission_id: submissionId,
+          assignment_id: selectedSubmission.assignment_id,
+          assignment_title: currentAssignment.title,
+          student_role: role,
+          submission_status: selectedSubmission.status,
+          has_feedback: selectedSubmission.overall_assignment_score !== null,
+          question_count: currentAssignment.questions?.length || 0,
+          visit_timestamp: new Date().toISOString(),
+          is_return_visit: localStorage.getItem(`visited_${submissionId}`) ? true : false
+        });
+
+        // Mark this submission as visited for return visit tracking
+        localStorage.setItem(`visited_${submissionId}`, 'true');
+
+        // Track time spent on page
+        const startTime = Date.now();
+        return () => {
+          const timeSpent = Date.now() - startTime;
+          if (posthog.__loaded) {
+            try {
+              posthog.capture('report_page_time_spent', {
+                submission_id: submissionId,
+                time_spent_ms: timeSpent,
+                time_spent_seconds: Math.round(timeSpent / 1000),
+                exit_timestamp: new Date().toISOString()
+              });
+            } catch (error) {
+              // Silently fail
+            }
+          }
+        };
+      } catch (error) {
+        // Silently fail if PostHog has issues
+      }
+    }
+  }, [selectedSubmission, currentAssignment, submissionId, role]);
+
+  // Enhanced tab change handler with PostHog tracking
+  const handleTabChange = useCallback((tabValue: string) => {
+    setActiveTab(tabValue);
+    
+    // Track tab switching
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_tab_switched', {
+          submission_id: submissionId,
+          from_tab: activeTab,
+          to_tab: tabValue,
+          user_role: role,
+          question_index: selectedQuestionIndex,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
+  }, [setActiveTab, submissionId, activeTab, role, selectedQuestionIndex]);
+
   // Toggle functions for collapsibles
   const toggleGrammarOpen = (key: string) => {
     setGrammarOpen({ ...grammarOpen, [key]: !grammarOpen[key] });
+    
+    // Track grammar section toggle
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_grammar_section_toggled', {
+          submission_id: submissionId,
+          section_key: key,
+          is_opening: !grammarOpen[key],
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
   };
 
   const toggleVocabularyOpen = (key: string) => {
     setVocabularyOpen({ ...vocabularyOpen, [key]: !vocabularyOpen[key] });
+    
+    // Track vocabulary section toggle
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_vocabulary_section_toggled', {
+          submission_id: submissionId,
+          section_key: key,
+          is_opening: !vocabularyOpen[key],
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
   };
 
   // Handle question navigation - only sync feedback when needed for feedback viewing
@@ -103,7 +198,23 @@ const SubmissionFeedback = () => {
     if (canEdit || role === 'teacher') {
       syncFeedbackForCurrentQuestion();
     }
-  }, [setSelectedQuestionIndex, syncFeedbackForCurrentQuestion, canEdit, role]);
+    
+    // Track question navigation
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_question_selected', {
+          submission_id: submissionId,
+          question_index: index,
+          question_number: index + 1,
+          total_questions: currentAssignment?.questions?.length || 0,
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
+  }, [setSelectedQuestionIndex, syncFeedbackForCurrentQuestion, canEdit, role, submissionId, currentAssignment]);
 
   // Loading state
   if (loading) {
@@ -252,7 +363,7 @@ const SubmissionFeedback = () => {
           <CardContent className="p-4">
             <TabsContainer
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
               canEdit={canEdit}
               isEditing={isEditing}
               onEditSection={(section) => startEditing(section)}

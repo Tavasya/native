@@ -5,20 +5,31 @@ import CompletedAssignments from '@/components/student/CompletedAssignments';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClasses } from '@/features/class/classThunks';
 import { useToast } from "@/hooks/use-toast";
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 const StudentDashboard: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { toast } = useToast();
+  const { trackPageView, trackDashboardActivity } = useAnalytics();
   const { user } = useAppSelector(state => state.auth);
   const { classes, loading } = useAppSelector(state => state.classes);
   
+  // Track dashboard page view
+  useEffect(() => {
+    trackPageView('Student Dashboard', {
+      has_classes: classes.length > 0,
+      class_count: classes.length
+    });
+  }, [trackPageView, classes.length]);
+
   // Fetch classes on mount
   useEffect(() => {
     if (user) {
       dispatch(fetchClasses({ role: 'student', userId: user.id }));
+      trackDashboardActivity('classes_fetch_initiated');
     }
-  }, [user, dispatch]);
+  }, [user, dispatch, trackDashboardActivity]);
 
   // Handle redirect only after loading is complete and we're sure there are no classes
   useEffect(() => {
@@ -26,9 +37,10 @@ const StudentDashboard: React.FC = () => {
     
     // Only redirect if we have no classes
     if (classes.length === 0) {
+      trackDashboardActivity('redirected_to_join_class', { reason: 'no_classes' });
       navigate('/student/join-class');
     }
-  }, [classes, loading, navigate]);
+  }, [classes, loading, navigate, trackDashboardActivity]);
   
   const handleAddClass = () => {
     toast({
