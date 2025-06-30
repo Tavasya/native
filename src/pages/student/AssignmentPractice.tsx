@@ -676,7 +676,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   };
 
   // Manual cache clearing function for debugging
-  const clearAllCache = () => {
+  /* const clearAllCache = () => {
     console.log('🧹 Manual cache clearing triggered...');
     
     // Clear Redux state
@@ -733,7 +733,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       description: "All cache has been cleared for this assignment.",
       duration: 3000,
     });
-  };
+  }; */
 
   // Handle back navigation
   const handleBack = () => {
@@ -819,7 +819,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         </Button>
         
         {/* Debug cache clear button - only show in development */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* {process.env.NODE_ENV === 'development' && (
           <Button
             variant="outline"
             size="sm"
@@ -828,7 +828,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
           >
             🧹 Clear Cache
           </Button>
-        )}
+        )} */}
       </div>
       
       <div className="flex-1 flex items-center">

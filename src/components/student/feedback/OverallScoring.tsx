@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getScoreColor } from "@/utils/feedback/scoreUtils";
-import IELTSScoreDisplay from './IELTSScoreDisplay';
+// import IELTSScoreDisplay from './IELTSScoreDisplay';
 
 interface Score {
   avg_fluency_score: number | null;
@@ -44,9 +44,9 @@ const OverallScoring = ({
   return (
     <div className="mb-6">
       {/* IELTS Score Display - only show if there's a grade */}
-      {hasGrade && (
+      {/* {hasGrade && (
         <IELTSScoreDisplay grade={scores.overall_grade} />
-      )}
+      )} */}
 
       {/* Individual Scoring Sections - only show if no grade or when editing */}
       {(!hasGrade || isEditing) && (
