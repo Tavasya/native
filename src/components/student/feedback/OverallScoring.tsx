@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getScoreColor } from "@/utils/feedback/scoreUtils";
-// import IELTSScoreDisplay from './IELTSScoreDisplay';
+import IELTSScoreDisplay from './IELTSScoreDisplay';
 
 interface Score {
   avg_fluency_score: number | null;
@@ -40,46 +40,25 @@ const OverallScoring = ({
 }: OverallScoringProps) => {
   // Check if there's a grade available
   const hasGrade = scores.overall_grade !== null && scores.overall_grade !== undefined;
+  
+  // Control flags for display logic - easy to toggle features
+  const showIELTSScore = false; // Set to true to re-enable IELTS display
+  const alwaysShowOverallScoring = true; // Set to false to hide when there's a grade
 
   return (
     <div className="mb-6">
-      {/* IELTS Score Display - only show if there's a grade */}
-      {/* {hasGrade && (
+      {/* IELTS Score Display - controlled by showIELTSScore flag */}
+      {showIELTSScore && hasGrade && (
         <IELTSScoreDisplay grade={scores.overall_grade} />
-      )} */}
+      )}
 
-      {/* Individual Scoring Sections - only show if no grade or when editing */}
-      {(!hasGrade || isEditing) && (
+      {/* Individual Scoring Sections - show based on flags */}
+      {(alwaysShowOverallScoring || !hasGrade || isEditing) && (
         <>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-900">Overall Assignment Scoring</h3>
-            {canEdit ? (
+            {canEdit && (
               <div className="flex items-center gap-4">
-                {/* Overall Grade Input - Only shown when autograde is disabled */}
-                {!isAutoGradeEnabled && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Overall Grade:</span>
-                    {isEditing ? (
-                      <div className={cn(
-                        "bg-gray-50 px-3 py-1 rounded-md transition-all duration-200 w-20"
-                      )}>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={tempScores.overall_grade ?? ''}
-                          onChange={(e) => onScoreChange('overall_grade', e.target.value ? parseInt(e.target.value) : null)}
-                          className={`text-base font-bold text-center border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${getScoreColor(tempScores.overall_grade ?? null, isTest)}`}
-                          placeholder="Grade"
-                        />
-                      </div>
-                    ) : (
-                      <div className={`text-base font-bold ${getScoreColor(scores.overall_grade ?? null, isTest)}`}>
-                        {scores.overall_grade ?? 'Not graded'}
-                      </div>
-                    )}
-                  </div>
-                )}
                 <div className="flex gap-2">
                   {isEditing ? (
                     <>
@@ -109,19 +88,6 @@ const OverallScoring = ({
                   )}
                 </div>
               </div>
-            ) : (
-              // Student view - only show overall grade if it exists
-              scores.overall_grade !== undefined && scores.overall_grade !== null && (
-                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600">Overall Grade</span>
-                  <div className="flex items-center gap-1">
-                    <div className={`text-lg font-bold ${getScoreColor(scores.overall_grade, isTest)}`}>
-                      {scores.overall_grade}
-                    </div>
-                    <span className="text-sm font-medium text-gray-500">%</span>
-                  </div>
-                </div>
-              )
             )}
           </div>
 

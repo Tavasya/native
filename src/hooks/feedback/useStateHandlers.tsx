@@ -2,6 +2,7 @@
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { updateSubmission } from '@/features/submissions/submissionThunks';
+import { submissionService } from '@/features/submissions/submissionsService';
 import { 
   setOperationLoading,
   stopEditing,
@@ -117,27 +118,50 @@ export const useSubmissionHandlers = ({
     }
   };
 
-  // ✅ Enhanced with Redux operation tracking - local save only
-  const handleSaveOverallScores = () => {
-    if (!tempScores) {
+  // ✅ Enhanced with Redux operation tracking - saves to database without full refresh
+  const handleSaveOverallScores = async () => {
+    if (!tempScores || !selectedSubmission?.id) {
       toast({
         title: "Error",
-        description: "No scores found to update.",
+        description: "No scores found to update or submission not found.",
         variant: "destructive",
         duration: 5000,
       });
       return;
     }
 
-    // Just commit the changes to local Redux state
-    dispatch(commitTempChanges({ section: 'scores' }));
-    dispatch(stopEditing('overall'));
-    
-    toast({
-      title: "Success",
-      description: "Scores updated locally. Click 'Submit and Send' to save to database.",
-      duration: 3000,
-    });
+    try {
+      // First commit the changes to local state (optimistic update)
+      dispatch(commitTempChanges({ section: 'scores' }));
+      dispatch(stopEditing('overall'));
+
+      // Prepare updates for database - only include score fields
+      const { overall_grade, ...individualScores } = tempScores;
+      const updates: Omit<UpdateSubmissionDto, 'id'> = {
+        overall_assignment_score: individualScores
+      };
+      
+      // Include overall grade if it exists
+      if (overall_grade !== undefined && overall_grade !== null) {
+        updates.grade = overall_grade;
+      }
+
+      // Save to database directly without triggering Redux state refresh
+      await submissionService.updateSubmission(selectedSubmission.id, updates);
+
+      toast({
+        title: "Success",
+        description: "Scores saved successfully.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save scores. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
   };
 
   // ✅ Enhanced teacher comment handler
