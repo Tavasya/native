@@ -35,7 +35,7 @@ const OverallScoring = ({
   onSave,
   onCancel,
   onScoreChange,
-  isAutoGradeEnabled = true,
+  // isAutoGradeEnabled = true,
   isTest = false,
 }: OverallScoringProps) => {
   // Check if there's a grade available
