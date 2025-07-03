@@ -7,21 +7,15 @@ export const getScoreColor = (score: number | null, isTest: boolean = false): st
   if (isTest) {
     return "text-orange-500";
   }
-  if (score >= 90) return "text-green-500";
-  if (score >= 80) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  if (score >= 60) return "text-orange-400";
-  if (score >= 50) return "text-orange-500";
-  return "text-red-400";
+  if (score >= 70) return "text-green-500";
+  if (score >= 40) return "text-orange-500";
+  return "text-red-500";
 };
 
 export const getPhonemeColor = (score: number): string => {
-  if (score >= 90) return "text-green-500";
-  if (score >= 80) return "text-green-400";
-  if (score >= 70) return "text-yellow-400";
-  if (score >= 60) return "text-orange-400";
-  if (score >= 50) return "text-orange-500";
-  return "text-red-400";
+  if (score >= 85) return "text-green-500";
+  if (score >= 40) return "text-orange-500";
+  return "text-red-500";
 };
 
 export const getSpeedCategory = (wpm: number): SpeedCategory => {

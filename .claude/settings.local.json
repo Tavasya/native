@@ -15,7 +15,8 @@
       "Bash(find:*)",
       "Bash(npm run lint:*)",
       "Bash(mv:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git pull:*)"
     ],
     "deny": []
   }

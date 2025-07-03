@@ -83,12 +83,11 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
     }
 
     const feedbackParts = problemPhonemes.map(phoneme => {
-      if (phoneme.score >= 60) return `The /${phoneme.symbol}/ sound needs more emphasis and clarity.`;
-      if (phoneme.score >= 50) return `Focus on improving the /${phoneme.symbol}/ sound - try practicing it slowly.`;
-      return `The /${phoneme.symbol}/ sound needs significant improvement. Practice this sound in isolation first.`;
+      if (phoneme.score >= 40) return `Great job on the /${phoneme.symbol}/ sound! With a little more practice, you'll master it.`;
+      return `You're making progress with the /${phoneme.symbol}/ sound. Keep practicing and you'll improve!`;
     });
 
-    return `Issues found:\n• ${feedbackParts.join('\n• ')}`;
+    return `Keep up the great work!\n• ${feedbackParts.join('\n• ')}`;
   };
 
   // Close tooltip when clicking outside
@@ -114,27 +113,15 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-green-500">●</span>
-            <span>Perfect</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-green-400">●</span>
-            <span>Excellent</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-yellow-400">●</span>
-            <span>Good</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-orange-400">●</span>
-            <span>Fair</span>
+            <span>Excellent!</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-orange-500">●</span>
-            <span>Getting There</span>
+            <span>Good!</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-red-400">●</span>
-            <span>Keep Practicing</span>
+            <span className="text-red-500">●</span>
+            <span>Keep practicing!</span>
           </div>
         </div>
       </div>

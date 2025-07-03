@@ -250,87 +250,51 @@ describe('Score Calculation Utilities', () => {
   });
 
   describe('getScoreColor', () => {
-    it('should return correct color for excellent scores (90+)', () => {
+    it('should return correct color for great progress scores (70+)', () => {
       expect(getScoreColor(95)).toBe('text-green-500');
-      expect(getScoreColor(90)).toBe('text-green-500');
+      expect(getScoreColor(70)).toBe('text-green-500');
       expect(getScoreColor(100)).toBe('text-green-500');
     });
 
-    it('should return correct color for very good scores (80-89)', () => {
-      expect(getScoreColor(85)).toBe('text-green-400');
-      expect(getScoreColor(80)).toBe('text-green-400');
-      expect(getScoreColor(89)).toBe('text-green-400');
+    it('should return correct color for making progress scores (40-69)', () => {
+      expect(getScoreColor(65)).toBe('text-orange-500');
+      expect(getScoreColor(40)).toBe('text-orange-500');
+      expect(getScoreColor(69)).toBe('text-orange-500');
     });
 
-    it('should return correct color for good scores (70-79)', () => {
-      expect(getScoreColor(75)).toBe('text-yellow-400');
-      expect(getScoreColor(70)).toBe('text-yellow-400');
-      expect(getScoreColor(79)).toBe('text-yellow-400');
-    });
-
-    it('should return correct color for fair scores (60-69)', () => {
-      expect(getScoreColor(65)).toBe('text-orange-400');
-      expect(getScoreColor(60)).toBe('text-orange-400');
-      expect(getScoreColor(69)).toBe('text-orange-400');
-    });
-
-    it('should return correct color for poor scores (50-59)', () => {
-      expect(getScoreColor(55)).toBe('text-orange-500');
-      expect(getScoreColor(50)).toBe('text-orange-500');
-      expect(getScoreColor(59)).toBe('text-orange-500');
-    });
-
-    it('should return correct color for very poor scores (<50)', () => {
-      expect(getScoreColor(40)).toBe('text-red-400');
-      expect(getScoreColor(0)).toBe('text-red-400');
-      expect(getScoreColor(49)).toBe('text-red-400');
+    it('should return correct color for getting started scores (<40)', () => {
+      expect(getScoreColor(35)).toBe('text-red-500');
+      expect(getScoreColor(0)).toBe('text-red-500');
+      expect(getScoreColor(39)).toBe('text-red-500');
     });
 
     it('should handle edge cases and invalid inputs', () => {
-      expect(getScoreColor(-5)).toBe('text-red-400');
+      expect(getScoreColor(-5)).toBe('text-red-500');
       expect(getScoreColor(105)).toBe('text-green-500'); // Scores above 100
     });
   });
 
   describe('getPhonemeColor', () => {
-    it('should return correct color for excellent phoneme scores (90+)', () => {
+    it('should return correct color for great progress phoneme scores (85+)', () => {
       expect(getPhonemeColor(95)).toBe('text-green-500');
-      expect(getPhonemeColor(90)).toBe('text-green-500');
+      expect(getPhonemeColor(85)).toBe('text-green-500');
       expect(getPhonemeColor(100)).toBe('text-green-500');
     });
 
-    it('should return correct color for very good phoneme scores (80-89)', () => {
-      expect(getPhonemeColor(85)).toBe('text-green-400');
-      expect(getPhonemeColor(80)).toBe('text-green-400');
-      expect(getPhonemeColor(89)).toBe('text-green-400');
+    it('should return correct color for making progress phoneme scores (40-84)', () => {
+      expect(getPhonemeColor(65)).toBe('text-orange-500');
+      expect(getPhonemeColor(40)).toBe('text-orange-500');
+      expect(getPhonemeColor(84)).toBe('text-orange-500');
     });
 
-    it('should return correct color for good phoneme scores (70-79)', () => {
-      expect(getPhonemeColor(75)).toBe('text-yellow-400');
-      expect(getPhonemeColor(70)).toBe('text-yellow-400');
-      expect(getPhonemeColor(79)).toBe('text-yellow-400');
-    });
-
-    it('should return correct color for fair phoneme scores (60-69)', () => {
-      expect(getPhonemeColor(65)).toBe('text-orange-400');
-      expect(getPhonemeColor(60)).toBe('text-orange-400');
-      expect(getPhonemeColor(69)).toBe('text-orange-400');
-    });
-
-    it('should return correct color for poor phoneme scores (50-59)', () => {
-      expect(getPhonemeColor(55)).toBe('text-orange-500');
-      expect(getPhonemeColor(50)).toBe('text-orange-500');
-      expect(getPhonemeColor(59)).toBe('text-orange-500');
-    });
-
-    it('should return correct color for very poor phoneme scores (<50)', () => {
-      expect(getPhonemeColor(40)).toBe('text-red-400');
-      expect(getPhonemeColor(0)).toBe('text-red-400');
-      expect(getPhonemeColor(49)).toBe('text-red-400');
+    it('should return correct color for getting started phoneme scores (<40)', () => {
+      expect(getPhonemeColor(35)).toBe('text-red-500');
+      expect(getPhonemeColor(0)).toBe('text-red-500');
+      expect(getPhonemeColor(39)).toBe('text-red-500');
     });
 
     it('should handle edge cases for phonemes', () => {
-      expect(getPhonemeColor(-10)).toBe('text-red-400');
+      expect(getPhonemeColor(-10)).toBe('text-red-500');
       expect(getPhonemeColor(110)).toBe('text-green-500');
     });
   });
@@ -355,7 +319,7 @@ describe('Score Calculation Utilities', () => {
        expect(wordsToShow.map(w => w.word)).toEqual(['pronunciation', 'the', 'difficult']);
 
       // Test color coding
-      expect(getScoreColor(overallScore)).toBe('text-yellow-400'); // 72 is in 70-79 range
+      expect(getScoreColor(overallScore)).toBe('text-green-500'); // 72 is in 70+ range
     });
 
     it('should handle mixed quality pronunciation results', () => {
@@ -373,8 +337,8 @@ describe('Score Calculation Utilities', () => {
       
       // Verify color coding for different scores
       expect(getScoreColor(98)).toBe('text-green-500');
-      expect(getScoreColor(45)).toBe('text-red-400');
-      expect(getScoreColor(65)).toBe('text-orange-400');
+      expect(getScoreColor(45)).toBe('text-orange-500');
+      expect(getScoreColor(65)).toBe('text-orange-500');
     });
   });
 }); 
