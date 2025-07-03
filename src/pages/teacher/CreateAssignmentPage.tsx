@@ -939,7 +939,7 @@ const CreateAssignmentPage: React.FC = () => {
                                   <ChevronDown className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+                              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-80 overflow-y-auto" align="start">
                                 {templates.map((template: AssignmentTemplate) => (
                                   <div key={template.id}>
                                     <div className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 group">

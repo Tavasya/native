@@ -92,4 +92,16 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Disable focus ring globally */
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
+}
+
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
 } 
