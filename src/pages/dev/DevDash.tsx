@@ -163,6 +163,7 @@ export default function DashboardPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [devMessage, setDevMessage] = useState('');
   const [devError, setDevError] = useState('');
+  const [devMode, setDevMode] = useState<'localhost' | 'trigger'>('localhost');
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
@@ -294,35 +295,43 @@ export default function DashboardPage() {
         throw new Error('Submission not found');
       }
 
-      if (!submission.recordings || submission.recordings.length === 0) {
-        throw new Error('No recordings found for this submission');
+      if (devMode === 'localhost') {
+        // Localhost Mode: Call API with audio URLs
+        if (!submission.recordings || submission.recordings.length === 0) {
+          throw new Error('No recordings found for this submission');
+        }
+
+        // Format recordings to match the required format
+        const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
+
+        // Set submission status to pending
+        await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
+
+        // Call the API to redo the report
+        const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ 
+            audio_urls: audioUrls,
+            submission_url: submissionId.trim()
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to reprocess submission');
+        }
+
+        setDevMessage(`Successfully started reprocessing submission ${submissionId.trim()} via localhost API. Status changed to pending.`);
+      } else {
+        // Trigger Mode: Just change status to pending (Supabase trigger handles the rest)
+        await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
+        setDevMessage(`Successfully triggered reprocessing for submission ${submissionId.trim()}. Status changed to pending - Supabase trigger will handle processing.`);
       }
 
-      // Format recordings to match the required format
-      const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
-
-      // Set submission status to pending
-      await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
-
-      // Call the API to redo the report
-      const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify({ 
-          audio_urls: audioUrls,
-          submission_url: submissionId.trim()
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to reprocess submission');
-      }
-
-      setDevMessage(`Successfully started reprocessing submission ${submissionId.trim()}. Status changed to pending.`);
       setSubmissionId('');
     } catch (error: any) {
       setDevError(`Error: ${error.message || 'Unknown error occurred'}`);
@@ -635,6 +644,25 @@ export default function DashboardPage() {
                 
                 <div className="space-y-4">
                   <div>
+                    <label htmlFor="devMode" className="block text-sm font-medium text-gray-700 mb-2">
+                      Processing Mode
+                    </label>
+                    <select
+                      id="devMode"
+                      value={devMode}
+                      onChange={(e) => {
+                        setDevMode(e.target.value as 'localhost' | 'trigger');
+                        setDevMessage('');
+                        setDevError('');
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="localhost">Localhost Mode (Call API)</option>
+                      <option value="trigger">Trigger Mode (Supabase Trigger)</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label htmlFor="submissionId" className="block text-sm font-medium text-gray-700 mb-2">
                       Submission ID
                     </label>
@@ -697,12 +725,32 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">How it works:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• <strong>Redo Report:</strong> Fetches submission recordings, sets status to "pending", and calls the API to reprocess</li>
-                    <li>• <strong>View Report:</strong> Opens the submission feedback page in a new tab</li>
-                    <li>• The API will extract audio URLs in the required format and send them to localhost:8080</li>
-                  </ul>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Processing Modes:</h4>
+                  <div className="space-y-3 text-sm text-gray-600">
+                    <div>
+                      <strong className="text-blue-700">Localhost Mode:</strong>
+                      <ul className="ml-4 mt-1 space-y-1">
+                        <li>• Fetches submission recordings and extracts audio URLs</li>
+                        <li>• Sets submission status to "pending"</li>
+                        <li>• Calls localhost:8080 API with audio URLs</li>
+                        <li>• Best for developers with local API running</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <strong className="text-green-700">Trigger Mode:</strong>
+                      <ul className="ml-4 mt-1 space-y-1">
+                        <li>• Simply changes submission status to "pending"</li>
+                        <li>• Supabase trigger automatically handles processing</li>
+                        <li>• Perfect for non-developers or when API isn't available</li>
+                        <li>• Useful for helping students get their reports finished</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="pt-2 border-t border-gray-200">
+                      <strong>View Report:</strong> Opens the submission feedback page in a new tab
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
