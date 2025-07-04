@@ -50,6 +50,8 @@ interface QuestionContentProps {
   formatPrepTime?: (seconds: number) => string;
   onStartPrepTime?: () => void;
   showStartButton?: boolean;
+  // Audio-only mode props
+  isAudioOnlyMode?: boolean;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -85,7 +87,9 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   prepTimeRemaining = 0,
   formatPrepTime,
   onStartPrepTime,
-  showStartButton = false
+  showStartButton = false,
+  // Audio-only mode props
+  isAudioOnlyMode = false
 }) => {
   return (
     <div className={cn(
@@ -131,7 +135,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         {/* Normal Mode or Test Mode After Start */}
         {(!isTest || !showStartButton) && (
           <>
-            <QuestionDisplay currentQuestion={currentQuestion} isTestMode={isTest} />
+            <QuestionDisplay currentQuestion={currentQuestion} isTestMode={isTest} isAudioOnlyMode={isAudioOnlyMode} />
             
             {/* Audio Visualizer */}
             {isRecording && mediaStream && (

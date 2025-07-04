@@ -869,6 +869,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     hasUploadError={hasUploadError(currentQuestionIndex)}
                     isAutoAdvancing={isAutoAdvancing}
                     isTest={assignment.metadata?.isTest ?? false}
+                    isAudioOnlyMode={assignment.metadata?.audioOnlyMode ?? false}
                     isPrepTimeActive={isPrepTimeActive}
                     prepTimeRemaining={prepTimeRemaining}
                     formatPrepTime={formatPrepTime}

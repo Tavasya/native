@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
+import { Play, Loader2 } from "lucide-react";
 import { generateTTSAudio } from "@/features/tts/ttsService";
 import { useAppDispatch } from "@/app/hooks";
 import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
@@ -11,20 +11,24 @@ import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
 interface QuestionDisplayProps {
   currentQuestion: QuestionCard & { isCompleted?: boolean };
   isTestMode?: boolean;
+  isAudioOnlyMode?: boolean; // Enable audio-only for normal mode
 }
 
 const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   currentQuestion,
-  isTestMode = false
+  isTestMode = false,
+  isAudioOnlyMode = false
 }) => {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
   const isGeneratingAudio = useRef(false);
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
 
   const handlePlayQuestion = useCallback(async () => {
-    // Prevent duplicate audio generation
-    if (isGeneratingAudio.current) {
+    // Prevent duplicate audio generation or playing while already playing
+    if (isGeneratingAudio.current || isPlaying) {
       return;
     }
     
@@ -50,22 +54,37 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
       // Store in Redux
       dispatch(setTTSAudio({ key: cacheKey, url: audioUrl }));
       
-      // Play the audio
+      // Create and play the audio
       const audio = new Audio(audioUrl);
+      currentAudio.current = audio;
+      
+      // Set up event listeners
+      audio.addEventListener('loadstart', () => setIsPlaying(true));
+      audio.addEventListener('ended', () => {
+        setIsPlaying(false);
+        currentAudio.current = null;
+      });
+      audio.addEventListener('error', () => {
+        setIsPlaying(false);
+        currentAudio.current = null;
+      });
+      
       await audio.play();
     } catch (error) {
       console.error('Error playing question audio:', error);
+      setIsPlaying(false);
+      currentAudio.current = null;
     } finally {
       isGeneratingAudio.current = false;
       setIsLoading(false);
       dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));
     }
-  }, [currentQuestion.id, currentQuestion.question, currentQuestion.bulletPoints, dispatch]);
+  }, [currentQuestion.id, currentQuestion.question, currentQuestion.bulletPoints, dispatch, isPlaying]);
 
   // Helper function to determine if question text should be hidden
-  const shouldHideQuestionText = isTestMode && currentQuestion.type === 'normal';
+  const shouldHideQuestionText = (isTestMode || isAudioOnlyMode) && currentQuestion.type === 'normal';
 
-  // Auto-play audio for Part 1/3 questions in test mode
+  // Auto-play audio for Part 1/3 questions in test mode only
   useEffect(() => {
     const shouldAutoPlay = isTestMode && currentQuestion.type === 'normal';
     
@@ -74,12 +93,33 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
       // Call handlePlayQuestion directly without dependency
       handlePlayQuestion();
     }
-  }, [currentQuestion.id, isTestMode, hasAutoPlayed]); // Removed handlePlayQuestion from dependencies
+  }, [currentQuestion.id, isTestMode, hasAutoPlayed]);
 
   // Reset auto-play flag when question changes
   useEffect(() => {
     setHasAutoPlayed(false);
   }, [currentQuestion.id]);
+
+  // Cleanup audio when question changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (currentAudio.current) {
+        currentAudio.current.pause();
+        currentAudio.current = null;
+        setIsPlaying(false);
+      }
+    };
+  }, [currentQuestion.id]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (currentAudio.current) {
+        currentAudio.current.pause();
+        currentAudio.current = null;
+      }
+    };
+  }, []);
 
   return (
     <ScrollArea className="bg-white rounded-xl p-4 sm:p-6 mb-4 flex-grow overflow-auto" style={{ maxHeight: "420px" }}>
@@ -92,10 +132,10 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
               size="sm"
               className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
               onClick={handlePlayQuestion}
-              disabled={isLoading}
+              disabled={isLoading || isPlaying}
             >
-              {isLoading ? (
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              {isLoading || isPlaying ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <Play className="h-3 w-3" />
               )}
@@ -111,34 +151,52 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
         </div>
       ) : (
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg font-medium">Question</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              onClick={handlePlayQuestion}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
-            </Button>
-          </div>
           {shouldHideQuestionText ? (
+            // Audio-only layout with centered play button
             <div className="text-center py-8">
               <div className="text-gray-500 mb-4">
-                <Play className="h-8 w-8 mx-auto mb-2" />
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-16 w-16 rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mb-4"
+                  onClick={handlePlayQuestion}
+                  disabled={isLoading || isPlaying}
+                >
+                  {isLoading || isPlaying ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <Play className="h-6 w-6" />
+                  )}
+                </Button>
                 <p className="text-lg font-medium">Audio Only Question</p>
                 <p className="text-sm">
-                  {isLoading ? "Playing question audio..." : "Click the play button above to replay the question"}
+                  {isLoading ? "Loading question audio..." : 
+                   isPlaying ? "Playing question audio..." : 
+                   "Click the play button to hear the question"}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-gray-800">{currentQuestion.question}</p>
+            // Normal layout with header and text
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-medium">Question</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  onClick={handlePlayQuestion}
+                  disabled={isLoading || isPlaying}
+                >
+                  {isLoading || isPlaying ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-gray-800">{currentQuestion.question}</p>
+            </div>
           )}
         </div>
       )}
