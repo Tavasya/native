@@ -16,6 +16,7 @@ import {
   clearSelectedTeacher,
 } from '@/features/metrics/metricsSlice';
 import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
+import { submissionService } from '@/features/submissions/submissionsService';
 import type { RootState, AppDispatch } from '@/app/store';
 import type {
   LastLogin,
@@ -48,6 +49,12 @@ const BookIcon: React.FC<IconProps> = ({ className }) => (
 const AlertIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 20 20">
     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+  </svg>
+);
+
+const DevIcon: React.FC<IconProps> = ({ className }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+    <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
   </svg>
 );
 
@@ -152,6 +159,10 @@ export default function DashboardPage() {
     return sessionStorage.getItem('devDashActiveTab') || 'overview';
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [submissionId, setSubmissionId] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [devMessage, setDevMessage] = useState('');
+  const [devError, setDevError] = useState('');
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
@@ -233,6 +244,7 @@ export default function DashboardPage() {
     // { id: 'overview', name: 'Overview', icon: ChartIcon },
     { id: 'users', name: 'Users', icon: UserIcon },
     { id: 'assignments', name: 'Assignments', icon: BookIcon },
+    { id: 'dev', name: 'Dev', icon: DevIcon },
     // { id: 'engagement', name: 'Engagement', icon: ChartIcon },
   ] as const;
 
@@ -261,6 +273,73 @@ export default function DashboardPage() {
     }
 
     return 'No Teacher';
+  };
+
+  // Dev functions for handling submission reprocessing
+  const handleRedoReport = async () => {
+    if (!submissionId.trim()) {
+      setDevError('Please enter a submission ID');
+      return;
+    }
+
+    setIsProcessing(true);
+    setDevMessage('');
+    setDevError('');
+
+    try {
+      // First, get the submission details
+      const submission = await submissionService.getSubmissionById(submissionId.trim());
+      
+      if (!submission) {
+        throw new Error('Submission not found');
+      }
+
+      if (!submission.recordings || submission.recordings.length === 0) {
+        throw new Error('No recordings found for this submission');
+      }
+
+      // Format recordings to match the required format
+      const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
+
+      // Set submission status to pending
+      await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
+
+      // Call the API to redo the report
+      const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ 
+          audio_urls: audioUrls,
+          submission_url: submissionId.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reprocess submission');
+      }
+
+      setDevMessage(`Successfully started reprocessing submission ${submissionId.trim()}. Status changed to pending.`);
+      setSubmissionId('');
+    } catch (error: any) {
+      setDevError(`Error: ${error.message || 'Unknown error occurred'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleViewReport = () => {
+    if (!submissionId.trim()) {
+      setDevError('Please enter a submission ID');
+      return;
+    }
+
+    // Open the submission feedback page in a new tab
+    const url = `/student/submission/${submissionId.trim()}/feedback`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -541,6 +620,92 @@ export default function DashboardPage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {activeTab === 'dev' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Dev Tools</h2>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Submission Report Management</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="submissionId" className="block text-sm font-medium text-gray-700 mb-2">
+                      Submission ID
+                    </label>
+                    <input
+                      type="text"
+                      id="submissionId"
+                      value={submissionId}
+                      onChange={(e) => {
+                        setSubmissionId(e.target.value);
+                        setDevMessage('');
+                        setDevError('');
+                      }}
+                      placeholder="Enter submission ID..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={handleRedoReport}
+                      disabled={isProcessing || !submissionId.trim()}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                        isProcessing || !submissionId.trim()
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isProcessing ? 'Processing...' : 'Redo Report'}
+                    </button>
+
+                    <button
+                      onClick={handleViewReport}
+                      disabled={!submissionId.trim()}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                        !submissionId.trim()
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      View Report
+                    </button>
+                  </div>
+
+                  {devMessage && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex">
+                        <div className="text-green-700">{devMessage}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {devError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex">
+                        <AlertIcon className="text-red-500 mr-2 h-5 w-5" />
+                        <div className="text-red-700">{devError}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">How it works:</h4>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li>• <strong>Redo Report:</strong> Fetches submission recordings, sets status to "pending", and calls the API to reprocess</li>
+                    <li>• <strong>View Report:</strong> Opens the submission feedback page in a new tab</li>
+                    <li>• The API will extract audio URLs in the required format and send them to localhost:8080</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

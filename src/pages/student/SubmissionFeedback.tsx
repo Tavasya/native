@@ -255,8 +255,9 @@ const SubmissionFeedback = () => {
     );
   }
 
-  // Show pending submission for students
-  if (['pending', 'awaiting_review'].includes(selectedSubmission?.status || '') && role === 'student') {
+  // Show pending submission for students, and for teachers only when no feedback is available yet
+  if (['pending', 'awaiting_review'].includes(selectedSubmission?.status || '') && 
+      (role === 'student' || !currentQuestion)) {
     return (
       <PendingSubmission 
         submission={selectedSubmission}
