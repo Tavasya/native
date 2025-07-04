@@ -361,14 +361,14 @@ export const submissionService = {
       console.log('Number of audio URLs:', urls.length);
       console.log('Audio URLs:', urls);
       
-      // Commenting out API call and returning pending status
+      // Commenting out API call for dev - will be enabled in prod
       /*
-      console.log('Sending to /analyze endpoint:', {
+      console.log('Sending to /submit endpoint:', {
         audio_urls: urls,
         submission_url: submission_id
       });
       
-      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+      const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
