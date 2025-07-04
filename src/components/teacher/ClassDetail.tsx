@@ -114,6 +114,9 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     return new Set(savedState ? JSON.parse(savedState) : []);
   });
 
+  // Sorting state for each assignment
+  const [sortingState, setSortingState] = useState<Record<string, 'completed' | 'in_progress' | 'not_started' | 'all'>>({});
+
   // Save expanded state to sessionStorage whenever it changes
   useEffect(() => {
     sessionStorage.setItem(`expanded_assignments_${classId}`, JSON.stringify(Array.from(expanded)));
@@ -255,6 +258,36 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
     });
   };
 
+  // Helper function to get submission status category
+  const getSubmissionStatusCategory = (st: StudentSubmission) => {
+    const hasEverCompleted = st.has_ever_completed === true;
+    const currentStatus = st.status;
+    
+    if (hasEverCompleted) return 'completed';
+    if (currentStatus === 'in_progress') return 'in_progress';
+    return 'not_started';
+  };
+
+  // Helper function to sort and filter submissions by status
+  const getSortedSubmissions = (subs: StudentSubmission[], assignmentId: string) => {
+    const sortBy = sortingState[assignmentId] || 'all';
+    
+    // Create a copy of the array to avoid mutating the original
+    let filteredSubs = [...subs];
+    if (sortBy !== 'all') {
+      filteredSubs = subs.filter(st => getSubmissionStatusCategory(st) === sortBy);
+    }
+    
+    // Sort by status priority: completed first, then in_progress, then not_started
+    return filteredSubs.sort((a, b) => {
+      const statusOrder = { 'completed': 0, 'in_progress': 1, 'not_started': 2 };
+      const aStatus = getSubmissionStatusCategory(a);
+      const bStatus = getSubmissionStatusCategory(b);
+      return statusOrder[aStatus] - statusOrder[bStatus];
+    });
+  };
+
+
   const handleBackToDashboard = () => {
     sessionStorage.removeItem(`expanded_assignments_${classId}`);
     
@@ -373,6 +406,35 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
         </div>
       </div>
 
+      {/* Global Sort Filter */}
+      <div className="flex justify-between items-center mb-4">
+        <div></div>
+        <div className="flex items-center gap-2">
+          <label htmlFor="globalSort" className="text-sm font-medium text-gray-700">
+            Filter students by status:
+          </label>
+          <select
+            id="globalSort"
+            value={Object.values(sortingState)[0] || 'all'}
+            onChange={(e) => {
+              const value = e.target.value as 'completed' | 'in_progress' | 'not_started' | 'all';
+              // Apply the same filter to all assignments
+              const newSortingState: Record<string, 'completed' | 'in_progress' | 'not_started' | 'all'> = {};
+              assignmentRows.forEach(assignment => {
+                newSortingState[assignment.id] = value;
+              });
+              setSortingState(newSortingState);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="all">All Students</option>
+            <option value="completed">Completed</option>
+            <option value="in_progress">In Progress</option>
+            <option value="not_started">Not Started</option>
+          </select>
+        </div>
+      </div>
+
       {/* List */}
       {assignmentRows.map((a) => {
         const subs: StudentSubmission[] = submissions[a.id] || [];
@@ -430,7 +492,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                 <Separator className="my-2" />
                 {subs.length ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-full divide-y divide-gray-200">
+                      <table className="w-full min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           {[
@@ -452,7 +514,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {subs.map((st) => (
+                        {getSortedSubmissions(subs, a.id).map((st) => (
                           <tr key={st.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 w-1/5">
                               {st.student_name}
@@ -527,7 +589,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                      </table>
                   </div>
                 ) : (
                   <p className="text-center py-4 text-gray-500">No submissions yet.</p>

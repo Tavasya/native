@@ -9,6 +9,7 @@ import { SectionFeedback } from '@/types/feedback';
 
 interface TranscriptProps {
   transcript: string;
+  cleanTranscript?: string;
   currentFeedback: SectionFeedback | null;
   highlightType: 'none' | 'grammar' | 'vocabulary';
   selectedQuestionIndex: number;
@@ -18,6 +19,7 @@ interface TranscriptProps {
 
 const Transcript: React.FC<TranscriptProps> = ({
   transcript,
+  cleanTranscript,
   currentFeedback,
   highlightType,
   selectedQuestionIndex,
@@ -38,8 +40,13 @@ const Transcript: React.FC<TranscriptProps> = ({
   const effectiveHighlightType = showImproved && hasImprovedTranscript ? 'none' : highlightType;
   const effectiveFeedback = showImproved && hasImprovedTranscript ? null : currentFeedback;
 
+  // Use clean_transcript for grammar and vocabulary highlighting when available
+  const textForHighlighting = (highlightType === 'grammar' || highlightType === 'vocabulary') && cleanTranscript 
+    ? cleanTranscript 
+    : displayText;
+
   const highlightedText = createHighlightedText(
-    displayText || 'No transcript available.',
+    textForHighlighting || 'No transcript available.',
     effectiveFeedback,
     effectiveHighlightType,
     selectedQuestionIndex,

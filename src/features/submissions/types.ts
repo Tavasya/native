@@ -147,6 +147,7 @@ export interface QuestionFeedbackEntry {
   question_id: number;
   audio_url: string;
   transcript: string;
+  clean_transcript?: string;
   section_feedback: SectionFeedback;
   duration_feedback?: {
     ratio: number;

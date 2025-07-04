@@ -125,6 +125,7 @@ export const useSubmissionState = (submissionId: string | undefined) => {
       question_id: question.question_id,
       audio_url: audioUrl,
       transcript: question.transcript || '',
+      clean_transcript: question.clean_transcript || '',
       section_feedback: question.section_feedback,
       duration_feedback: question.duration_feedback
     };
@@ -138,7 +139,7 @@ export const useSubmissionState = (submissionId: string | undefined) => {
   // ✅ Computed values
   const isGraded = selectedSubmission?.status === 'graded';
   const isAwaitingReview = selectedSubmission?.status === 'awaiting_review';
-  const canEdit = isAwaitingReview && role === 'teacher';
+  const canEdit = role === 'teacher';
   
   // Get current assignment
   const currentAssignment = useMemo(() => {

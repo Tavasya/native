@@ -296,7 +296,7 @@ export default function DashboardPage() {
       }
 
       if (devMode === 'localhost') {
-        // Localhost Mode: Call API with audio URLs
+        // Localhost Mode: Only call API with audio URLs (don't change status)
         if (!submission.recordings || submission.recordings.length === 0) {
           throw new Error('No recordings found for this submission');
         }
@@ -304,10 +304,7 @@ export default function DashboardPage() {
         // Format recordings to match the required format
         const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
 
-        // Set submission status to pending
-        await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
-
-        // Call the API to redo the report
+        // Call the API to redo the report (don't change status)
         const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
           method: "POST",
           headers: { 
@@ -325,11 +322,21 @@ export default function DashboardPage() {
           throw new Error(errorData.error || 'Failed to reprocess submission');
         }
 
-        setDevMessage(`Successfully started reprocessing submission ${submissionId.trim()} via localhost API. Status changed to pending.`);
+        setDevMessage(`Successfully called localhost API for submission ${submissionId.trim()}. API will handle status changes.`);
       } else {
-        // Trigger Mode: Just change status to pending (Supabase trigger handles the rest)
-        await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
-        setDevMessage(`Successfully triggered reprocessing for submission ${submissionId.trim()}. Status changed to pending - Supabase trigger will handle processing.`);
+        // Trigger Mode: Change to in_progress first, then to pending after 1 second
+        await submissionService.updateSubmission(submissionId.trim(), { status: 'in_progress' });
+        
+        // Wait 1 second then change to pending
+        setTimeout(async () => {
+          try {
+            await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
+          } catch (error) {
+            console.error('Error setting status to pending:', error);
+          }
+        }, 1000);
+        
+        setDevMessage(`Successfully triggered reprocessing for submission ${submissionId.trim()}. Status changed to in_progress → pending - Supabase trigger will handle processing.`);
       }
 
       setSubmissionId('');

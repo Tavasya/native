@@ -353,6 +353,7 @@ const SubmissionFeedback = () => {
           audioRef={audioRef}
           audioUrl={currentQuestion?.audio_url || ''}
           transcript={currentQuestion?.transcript || ''}
+          cleanTranscript={currentQuestion?.clean_transcript}
           currentFeedback={currentFeedback || null}
           highlightType={activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'}
           openPopover={openPopover}

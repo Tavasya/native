@@ -14,6 +14,7 @@ interface QuestionContentProps {
   audioRef: React.RefObject<HTMLAudioElement>;
   audioUrl: string;
   transcript: string;
+  cleanTranscript?: string;
   currentFeedback: SectionFeedback | null;
   highlightType: 'none' | 'grammar' | 'vocabulary';
   openPopover: string | null;
@@ -28,6 +29,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   audioRef,
   audioUrl,
   transcript,
+  cleanTranscript,
   currentFeedback,
   highlightType,
   openPopover,
@@ -75,6 +77,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
 
         <Transcript
           transcript={transcript}
+          cleanTranscript={cleanTranscript}
           currentFeedback={currentFeedback}
           highlightType={highlightType}
           selectedQuestionIndex={selectedQuestionIndex}
