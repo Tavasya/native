@@ -70,6 +70,7 @@ const CreateAssignmentPage: React.FC = () => {
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
   const [autoGrade, setAutoGrade] = useState(true);
   const [isTest, setIsTest] = useState(false);
+  const [audioOnlyMode, setAudioOnlyMode] = useState(false);
   // Store original question mapping for tracking edits
   const [originalQuestionMapping, setOriginalQuestionMapping] = useState<Array<{
     questionId: string;
@@ -118,6 +119,7 @@ const CreateAssignmentPage: React.FC = () => {
       setDueTime(editData.due_time || '23:59');
       setAutoGrade(editData.metadata?.autoGrade ?? true);
       setIsTest(editData.metadata?.isTest ?? false);
+      setAudioOnlyMode(editData.metadata?.audioOnlyMode ?? false);
       
       // Restore the actual question cards that were edited
       if (editData.questions && editData.questions.length > 0) {
@@ -361,7 +363,7 @@ const CreateAssignmentPage: React.FC = () => {
           question: card.question.trim(),
           bulletPoints: card.bulletPoints?.map(bp => bp.trim())
         })),
-        metadata: { autoGrade, isTest },
+        metadata: { autoGrade, isTest, audioOnlyMode },
         status: 'not_started' as const
       };
 
@@ -662,7 +664,7 @@ const CreateAssignmentPage: React.FC = () => {
                     title: title,
                     due_date: dueDate,
                     due_time: dueTime,
-                    metadata: { autoGrade, isTest },
+                    metadata: { autoGrade, isTest, audioOnlyMode },
                     selectedParts: location.state?.editData?.metadata?.selectedParts || [],
                     actualQuestions: (() => {
                       const selectedParts = location.state?.editData?.metadata?.selectedParts || [];
@@ -923,6 +925,35 @@ const CreateAssignmentPage: React.FC = () => {
                             </div>
                           </div>
                           
+                          {/* Audio-Only Mode Setting */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-sm font-medium text-gray-700">Audio-Only Mode</Label>
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="focus:outline-none">
+                                      <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                    <p className="text-sm text-gray-700">Hide question text for Part 1 & 3 questions. Students will only hear audio without seeing the text.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                              <Switch
+                                id="audio-only-mode"
+                                checked={audioOnlyMode}
+                                onCheckedChange={setAudioOnlyMode}
+                              />
+                              <Label htmlFor="audio-only-mode" className="text-sm text-gray-600">
+                                {audioOnlyMode ? "Enabled" : "Disabled"}
+                              </Label>
+                            </div>
+                          </div>
+
                           {/* Assignment Templates */}
                           <div className="space-y-2">
                             <Label className="text-sm font-medium text-gray-700">Templates</Label>

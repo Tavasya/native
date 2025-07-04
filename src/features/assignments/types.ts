@@ -24,6 +24,7 @@ export interface Assignment {
   metadata: {
     autoGrade?: boolean;
     isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
     [key: string]: unknown;       // for future flags
   };
   status: AssignmentStatus;
@@ -47,6 +48,7 @@ export interface CreateAssignmentDto {
   metadata?: {
     autoGrade?: boolean;
     isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
     [key: string]: unknown;
   };
   status?: AssignmentStatus;
