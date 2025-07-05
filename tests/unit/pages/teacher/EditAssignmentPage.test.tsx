@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import CreateAssignmentPage from '@/pages/teacher/CreateAssignmentPage';
+import CreateAssignmentPage from '../../../../src/pages/teacher/CreateAssignmentPage';
 import { createMockStore } from '../../../utils/simple-redux-utils';
 
 // Mock Supabase
