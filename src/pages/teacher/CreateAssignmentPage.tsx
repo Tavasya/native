@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { createAssignment } from '@/features/assignments/assignmentThunks';
+import { createAssignment, updateAssignment } from '@/features/assignments/assignmentThunks';
 import { fetchAssignmentTemplates, createAssignmentTemplate, deleteAssignmentTemplate } from '@/features/assignmentTemplates/assignmentTemplateThunks';
 import { 
   fetchPublicParts, 
@@ -71,12 +71,6 @@ const CreateAssignmentPage: React.FC = () => {
   const [autoGrade, setAutoGrade] = useState(true);
   const [isTest, setIsTest] = useState(false);
   const [audioOnlyMode, setAudioOnlyMode] = useState(false);
-  // Store original question mapping for tracking edits
-  const [originalQuestionMapping, setOriginalQuestionMapping] = useState<Array<{
-    questionId: string;
-    partId: string;
-    originalQuestion: string;
-  }>>([]);
   
   // Part library state
   const [isPartLibraryOpen, setIsPartLibraryOpen] = useState(true);
@@ -122,36 +116,32 @@ const CreateAssignmentPage: React.FC = () => {
       setAudioOnlyMode(editData.metadata?.audioOnlyMode ?? false);
       
       // Restore the actual question cards that were edited
-      if (editData.questions && editData.questions.length > 0) {
-        setQuestionCards(editData.questions.map((q: any, index: number) => ({
-          id: q.id || `card-${index + 1}`,
-          type: q.type || 'normal',
-          question: q.question || '',
-          bulletPoints: q.bulletPoints || [],
-          speakAloud: q.speakAloud || false,
-          timeLimit: q.timeLimit || '1',
-          prepTime: q.prepTime || '0:15'
-        })));
+      if (editData.questions) {
+        let questionsArray = editData.questions;
         
-        // Store original question mapping for tracking edits
-        const mapping: Array<{questionId: string; partId: string; originalQuestion: string}> = [];
-        let questionIndex = 0;
+        // Handle case where questions might be stored as a JSON string
+        if (typeof questionsArray === 'string') {
+          try {
+            questionsArray = JSON.parse(questionsArray);
+          } catch (e) {
+            console.error('Failed to parse questions JSON:', e);
+            questionsArray = [];
+          }
+        }
         
-        editData.metadata?.selectedParts?.forEach((part: any) => {
-          const partQuestions = part.questions || [];
-          partQuestions.forEach((q: any) => {
-            if (editData.questions[questionIndex]) {
-              mapping.push({
-                questionId: editData.questions[questionIndex].id || `card-${questionIndex + 1}`,
-                partId: part.id,
-                originalQuestion: q.question
-              });
-            }
-            questionIndex++;
-          });
-        });
-        
-        setOriginalQuestionMapping(mapping);
+        // Ensure we have an array and it has items
+        if (Array.isArray(questionsArray) && questionsArray.length > 0) {
+          setQuestionCards(questionsArray.map((q: any, index: number) => ({
+            id: q.id || `card-${index + 1}`,
+            type: q.type || 'normal',
+            question: q.question || '',
+            bulletPoints: q.bulletPoints || [],
+            speakAloud: q.speakAloud || false,
+            timeLimit: q.timeLimit || '1',
+            prepTime: q.prepTime || '0:15'
+          })));
+          
+        }
       }
       
       // Clear the navigation state to prevent re-population on re-renders
@@ -353,23 +343,42 @@ const CreateAssignmentPage: React.FC = () => {
       // Combine date and time into ISO string
       const dueDateTime = new Date(`${dueDate}T${dueTime}`);
 
-      const assignmentData = {
-        class_id: classId!,
-        created_by: user || '',
-        title: title.trim(),
-        due_date: dueDateTime.toISOString(),
-        questions: questionCards.map(card => ({
-          ...card,
-          question: card.question.trim(),
-          bulletPoints: card.bulletPoints?.map(bp => bp.trim())
-        })),
-        metadata: { autoGrade, isTest, audioOnlyMode },
-        status: 'not_started' as const
-      };
-
-      await dispatch(createAssignment(assignmentData)).unwrap();
-
       const isEditing = location.state?.isEditing;
+      const assignmentId = location.state?.assignmentId;
+
+      if (isEditing && assignmentId) {
+        // Update existing assignment
+        const updateData = {
+          title: title.trim(),
+          due_date: dueDateTime.toISOString(),
+          questions: questionCards.map(card => ({
+            ...card,
+            question: card.question.trim(),
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+          })),
+          metadata: { autoGrade, isTest, audioOnlyMode },
+        };
+
+        await dispatch(updateAssignment({ assignmentId, data: updateData })).unwrap();
+      } else {
+        // Create new assignment
+        const assignmentData = {
+          class_id: classId!,
+          created_by: user || '',
+          title: title.trim(),
+          due_date: dueDateTime.toISOString(),
+          questions: questionCards.map(card => ({
+            ...card,
+            question: card.question.trim(),
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+          })),
+          metadata: { autoGrade, isTest, audioOnlyMode },
+          status: 'not_started' as const
+        };
+
+        await dispatch(createAssignment(assignmentData)).unwrap();
+      }
+
       const actionText = isEditing ? 'updated' : 'published';
       
       toast({ 
@@ -378,9 +387,10 @@ const CreateAssignmentPage: React.FC = () => {
       });
       navigate(`/class/${classId}`);
     } catch (err: any) {
+      const isEditing = location.state?.isEditing;
       toast({
-        title: 'Publish failed',
-        description: err?.message || 'Could not create assignment',
+        title: isEditing ? 'Update failed' : 'Publish failed',
+        description: err?.message || `Could not ${isEditing ? 'update' : 'create'} assignment`,
         variant: 'destructive'
       });
     }
@@ -658,102 +668,13 @@ const CreateAssignmentPage: React.FC = () => {
             <Button
               variant="ghost"
               onClick={() => {
-                // If we're editing from the builder, go back to builder with current data
-                if (location.state?.isEditing) {
-                  const returnedData = {
-                    title: title,
-                    due_date: dueDate,
-                    due_time: dueTime,
-                    metadata: { autoGrade, isTest, audioOnlyMode },
-                    selectedParts: location.state?.editData?.metadata?.selectedParts || [],
-                    actualQuestions: (() => {
-                      const selectedParts = location.state?.editData?.metadata?.selectedParts || [];
-                      
-                      if (selectedParts.length === 0) {
-                        // No parts, all questions are custom
-                        return [{
-                          partId: 'custom',
-                          questions: questionCards.map(q => ({
-                            question: q.question,
-                            isEdited: false,
-                            isCustom: true
-                          }))
-                        }];
-                      }
-                      
-                      // Map questions to their original parts
-                      const partQuestionsMap = new Map<string, Array<{question: string; isEdited: boolean; isCustom: boolean}>>();
-                      
-                      // Initialize map for each part
-                      selectedParts.forEach((part: any) => {
-                        partQuestionsMap.set(part.id, []);
-                      });
-                      
-                      // Add a custom part for any questions not mapped to original parts
-                      partQuestionsMap.set('custom', []);
-                      
-                      // Process each question card
-                      questionCards.forEach(q => {
-                        const mapping = originalQuestionMapping.find(m => m.questionId === q.id);
-                        
-                        if (mapping) {
-                          // This question belongs to an original part
-                          const partQuestions = partQuestionsMap.get(mapping.partId) || [];
-                          partQuestions.push({
-                            question: q.question,
-                            isEdited: q.question !== mapping.originalQuestion,
-                            isCustom: false
-                          });
-                          partQuestionsMap.set(mapping.partId, partQuestions);
-                        } else {
-                          // This is a custom question
-                          const customQuestions = partQuestionsMap.get('custom') || [];
-                          customQuestions.push({
-                            question: q.question,
-                            isEdited: false,
-                            isCustom: true
-                          });
-                          partQuestionsMap.set('custom', customQuestions);
-                        }
-                      });
-                      
-                      // Convert map to array format
-                      const result: Array<{partId: string; questions: Array<{question: string; isEdited: boolean; isCustom: boolean}>}> = [];
-                      
-                      selectedParts.forEach((part: any) => {
-                        const questions = partQuestionsMap.get(part.id) || [];
-                        if (questions.length > 0) {
-                          result.push({
-                            partId: part.id,
-                            questions: questions
-                          });
-                        }
-                      });
-                      
-                      // Add custom questions if any
-                      const customQuestions = partQuestionsMap.get('custom') || [];
-                      if (customQuestions.length > 0) {
-                        result.push({
-                          partId: 'custom',
-                          questions: customQuestions
-                        });
-                      }
-                      
-                      return result;
-                    })()
-                  };
-                  
-                  navigate(`/class/${classId}/builder`, {
-                    state: { returnedData }
-                  });
-                } else {
-                  navigate(`/class/${classId}`);
-                }
+                // Always go back to the class detail page
+                navigate(`/class/${classId}`);
               }}
               className="text-gray-600"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {location.state?.isEditing ? 'Back to builder' : 'Back to class'}
+              {location.state?.isEditing ? 'Back to class' : 'Back to class'}
             </Button>
 
             <div className="flex gap-4">

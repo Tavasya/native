@@ -5,6 +5,7 @@ import {
   fetchAssignmentByClass,
   fetchAssignmentById,
   deleteAssignment,
+  updateAssignment,
   updateAssignmentStatus,
   fetchLatestSubmissionsByAssignment,
   fetchClassStatistics,
@@ -105,6 +106,24 @@ const assignmentSlice = createSlice({
         }
       })
       .addCase(fetchAssignmentById.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // updateAssignment
+      .addCase(updateAssignment.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(updateAssignment.fulfilled, (s, a) => {
+        s.loading = false;
+        const updatedAssignment = a.payload;
+        const existingIndex = s.assignments.findIndex(assignment => assignment.id === updatedAssignment.id);
+        if (existingIndex >= 0) {
+          s.assignments[existingIndex] = updatedAssignment;
+        }
+      })
+      .addCase(updateAssignment.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload as string;
       })

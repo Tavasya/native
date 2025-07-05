@@ -460,6 +460,32 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const assignment = assignments.find(assignment => assignment.id === a.id);
+                      if (assignment) {
+                        navigate(`/class/${classId}/create-assignment`, {
+                          state: {
+                            isEditing: true,
+                            assignmentId: a.id,
+                            editData: {
+                              title: assignment.title,
+                              due_date: assignment.due_date.split('T')[0],
+                              due_time: assignment.due_date.split('T')[1]?.substring(0, 5) || '23:59',
+                              questions: assignment.questions,
+                              metadata: assignment.metadata
+                            }
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="text-gray-500 hover:text-red-600 hover:bg-red-50"
                     onClick={(e) => {
                       e.stopPropagation();

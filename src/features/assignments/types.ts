@@ -54,6 +54,20 @@ export interface CreateAssignmentDto {
   status?: AssignmentStatus;
 }
 
+export interface UpdateAssignmentDto {
+  title?: string;
+  topic?: string;
+  due_date?: string;          // ISO timestamp
+  questions?: QuestionCard[];
+  metadata?: {
+    autoGrade?: boolean;
+    isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
+    [key: string]: unknown;
+  };
+  status?: AssignmentStatus;
+}
+
 export interface StudentSubmission {
   id: string;
   student_id: string;

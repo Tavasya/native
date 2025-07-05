@@ -4,6 +4,7 @@ import {
     AssignmentStatus,
     StudentSubmission,
     CreateAssignmentDto,
+    UpdateAssignmentDto,
     SubmissionStatus,
   } from './types';
   import { supabase } from '@/integrations/supabase/client';
@@ -83,6 +84,28 @@ import {
         .eq('id', assignmentId);
   
       if (error) throw new Error(error.message);
+    },
+
+    async updateAssignment(
+      assignmentId: string,
+      dto: UpdateAssignmentDto,
+    ): Promise<Assignment> {
+      const { data, error } = await supabase
+        .from('assignments')
+        .update({
+          title: dto.title,
+          topic: dto.topic,
+          due_date: dto.due_date,
+          questions: dto.questions,
+          metadata: dto.metadata,
+          status: dto.status,
+        })
+        .eq('id', assignmentId)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as Assignment;
     },
   
     async deleteAssignment(assignmentId: string): Promise<void> {
