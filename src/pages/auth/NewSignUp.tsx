@@ -224,9 +224,9 @@ export default function NewSignUp() {
   const [cooldown, setCooldown] = useState(0);
   const [currentStep, setCurrentStep] = useState(1);
   const pollCountRef = useRef(0);
-  const cooldownTimerRef = useRef<NodeJS.Timeout>();
-  const pollIntervalRef = useRef<NodeJS.Timeout>();
-  const pollTimeoutRef = useRef<NodeJS.Timeout>();
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Student fields
   const [studentPhone, setStudentPhone] = useState('');
   const [studentDOB, setStudentDOB] = useState('');
@@ -290,7 +290,7 @@ export default function NewSignUp() {
     cooldownTimerRef.current = setInterval(() => {
       setCooldown(prev => {
         if (prev <= 1) {
-          clearInterval(cooldownTimerRef.current);
+          if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
           return 0;
         }
         return prev - 1;

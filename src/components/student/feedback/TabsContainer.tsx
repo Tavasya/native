@@ -20,7 +20,7 @@ interface TabsContainerProps {
   tempFeedback: SectionFeedback | null;
   currentQuestion: QuestionFeedback | null;
   averageScores: AverageScores;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   ttsAudioCache: { [key: string]: { url: string; timestamp: number } };
   ttsLoading: { [key: string]: boolean };
   dispatch: AppDispatch;

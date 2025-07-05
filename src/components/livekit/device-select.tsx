@@ -51,7 +51,7 @@ export function DeviceSelect({
   // onDeviceListChange,
   ...props
 }: DeviceSelectProps) {
-  const size = props.size || 'default';
+  const size = 'default';
 
   const room = useMaybeRoomContext();
   const { devices, activeDeviceId, setActiveMediaDevice } = useMediaDeviceSelect({
@@ -64,7 +64,7 @@ export function DeviceSelect({
   return (
     <Select value={activeDeviceId} onValueChange={setActiveMediaDevice}>
       <SelectTrigger className={cn(selectVariants({ size }), props.className)}>
-        {size !== 'sm' && (
+        {true && (
           <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
         )}
       </SelectTrigger>
