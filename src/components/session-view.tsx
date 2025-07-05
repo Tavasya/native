@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, forwardRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type AgentState,
   type ReceivedChatMessage,
   useRoomContext,
   useVoiceAssistant,
+  useTranscriptions,
 } from '@livekit/components-react';
 import { toastAlert } from '../components/alert-toast';
 import { AgentControlBar } from '../components/livekit/agent-control-bar/agent-control-bar';
@@ -28,15 +29,18 @@ interface SessionViewProps {
   sessionStarted: boolean;
 }
 
-export const SessionView = ({
+export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   appConfig,
   disabled,
   sessionStarted,
-  ref,
-}: React.ComponentProps<'div'> & SessionViewProps) => {
+}, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
   const { messages, send } = useChatAndTranscription();
+  const transcriptions = useTranscriptions();
+  
+  // Debug: Check if transcriptions are available at session level
+  console.log('🔥 Session view transcriptions:', transcriptions);
   const room = useRoomContext();
 
   useDebugMode();
@@ -89,7 +93,7 @@ export const SessionView = ({
   return (
     <main
       ref={ref}
-      inert={disabled}
+      {...(disabled ? { inert: "" as any } : {})}
       className={
         // prevent page scrollbar
         // when !chatOpen due to 'translate-y-20'
@@ -178,4 +182,4 @@ export const SessionView = ({
       </div>
     </main>
   );
-};
+});

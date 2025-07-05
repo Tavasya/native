@@ -19,16 +19,26 @@ export function transcriptionToChatMessage(
   textStream: TextStreamData,
   room: Room
 ): ReceivedChatMessage {
+  console.log('🔥 Converting transcription:', {
+    text: textStream.text,
+    participantIdentity: textStream.participantInfo.identity,
+    localParticipantIdentity: room.localParticipant.identity,
+    remoteParticipants: Array.from(room.remoteParticipants.values()).map(p => ({ identity: p.identity, isAgent: p.isAgent }))
+  });
+
+  const from = textStream.participantInfo.identity === room.localParticipant.identity
+    ? room.localParticipant
+    : Array.from(room.remoteParticipants.values()).find(
+        (p) => p.identity === textStream.participantInfo.identity
+      );
+
+  console.log('🔥 Found participant:', from);
+
   return {
     id: textStream.streamInfo.id,
     timestamp: textStream.streamInfo.timestamp,
     message: textStream.text,
-    from:
-      textStream.participantInfo.identity === room.localParticipant.identity
-        ? room.localParticipant
-        : Array.from(room.remoteParticipants.values()).find(
-            (p) => p.identity === textStream.participantInfo.identity
-          ),
+    from,
   };
 }
 

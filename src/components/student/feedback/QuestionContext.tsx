@@ -11,7 +11,7 @@ interface QuestionContentProps {
   questions: QuestionFeedback[];
   selectedQuestionIndex: number;
   onSelectQuestion: (index: number) => void;
-  audioRef: React.RefObject<HTMLAudioElement>;
+  audioRef: React.RefObject<HTMLAudioElement | null>;
   audioUrl: string;
   transcript: string;
   cleanTranscript?: string;

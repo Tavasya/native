@@ -25,6 +25,7 @@ export const ChatEntry = ({
   const { message, hasBeenEdited, time, locale, name } = useChatMessage(entry, messageFormatter);
 
   const isUser = entry.from?.isLocal ?? false;
+  const isAgent = entry.from?.isAgent ?? false;
   const messageOrigin = isUser ? 'remote' : 'local';
 
   return (
@@ -39,7 +40,10 @@ export const ChatEntry = ({
           {!hideName && <strong className="mt-2">{name}</strong>}
 
           {!hideTimestamp && (
-            <span className="align-self-end ml-auto font-mono text-xs opacity-0 transition-opacity ease-linear group-hover:opacity-100">
+            <span className={cn(
+              "align-self-end font-mono text-xs opacity-0 transition-opacity ease-linear group-hover:opacity-100",
+              isAgent ? "mr-auto" : "ml-auto"
+            )}>
               {hasBeenEdited && '*'}
               {time.toLocaleTimeString(locale, { timeStyle: 'short' })}
             </span>

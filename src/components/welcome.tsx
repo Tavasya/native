@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button_two';
+import { forwardRef } from 'react';
 
 interface WelcomeProps {
   disabled: boolean;
@@ -6,16 +7,15 @@ interface WelcomeProps {
   onStartCall: () => void;
 }
 
-export const Welcome = ({
+export const Welcome = forwardRef<HTMLDivElement, WelcomeProps>(({
   disabled,
   startButtonText,
   onStartCall,
-  ref,
-}: React.ComponentProps<'div'> & WelcomeProps) => {
+}, ref) => {
   return (
     <div
       ref={ref}
-      inert={disabled}
+      {...(disabled ? { inert: "" as any } : {})}
       className="fixed inset-0 z-10 mx-auto flex h-svh flex-col items-center justify-center text-center"
     >
       <svg
@@ -52,4 +52,4 @@ export const Welcome = ({
       </p>
     </div>
   );
-};
+});

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ConnectionDetails } from '@/server/index';
+import { ConnectionDetails } from '@/components/server/index';
 
 export default function useConnectionDetails() {
   // Generate room connection details, including:
@@ -17,15 +17,35 @@ export default function useConnectionDetails() {
     setConnectionDetails(null);
     const url = new URL(
       import.meta.env.VITE_CONN_DETAILS_ENDPOINT ?? '/api/connection-details',
-      window.location.origin
+      'http://localhost:3001'
     );
     fetch(url.toString())
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        // Check if response is actually JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Backend API not available - received HTML instead of JSON');
+        }
+        
+        return res.json();
+      })
       .then((data) => {
         setConnectionDetails(data);
       })
       .catch((error) => {
-        console.error('Error fetching connection details:', error);
+        // Suppress console error if backend is not available (common in dev)
+        if (error.message.includes('SyntaxError') || 
+            error.message.includes('HTTP 404') ||
+            error.message.includes('Backend API not available') ||
+            error.message.includes('Unexpected token')) {
+          console.warn('Backend API not available - this is expected when running frontend only');
+        } else {
+          console.error('Error fetching connection details:', error);
+        }
       });
   }, []);
 
