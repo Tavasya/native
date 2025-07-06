@@ -46,9 +46,24 @@ app.get('/api/connection-details', async (req, res) => {
     const customGreeting = req.query.greeting as string || "Hi I am Luna";
     const scenario = req.query.scenario as string || "";
     const instructions = req.query.instructions as string || "";
+    const conversationScript = req.query.conversationScript as string || "";
+    const scenarioLevel = req.query.scenarioLevel as string || "";
+    const scenarioTurns = req.query.scenarioTurns as string || "";
     
-    // Include scenario in participant name if provided
-    const scenarioSuffix = scenario ? `_scenario_${scenario}` : "";
+    console.log('🎭 Backend received scenario data:', {
+      scenario,
+      level: scenarioLevel,
+      turns: scenarioTurns,
+      scriptLength: conversationScript.length
+    });
+    
+    // Include scenario data in participant name if provided
+    let scenarioSuffix = "";
+    if (scenario) {
+      // Encode script data for agent (base64 to avoid URL issues)
+      const scriptData = conversationScript ? Buffer.from(conversationScript).toString('base64') : "";
+      scenarioSuffix = `_scenario_${scenario}_level_${scenarioLevel}_turns_${scenarioTurns}_script_${scriptData}`;
+    }
     const participantName = `user_${randomDigits}_say_${customGreeting.replace(/\s+/g, '_').toLowerCase()}${scenarioSuffix}`;
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;

@@ -97,12 +97,12 @@ export function ScenarioDashboard({ onScenarioSelect, selectedScenario }: Scenar
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-foreground mb-4 tracking-tight">
           Conversation Practice Scenarios
         </h1>
-        <p className="text-gray-600">
-          Choose a scenario to practice your English conversation skills with AI guidance
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          Choose a scenario to practice your English conversation skills with AI guidance and real-time feedback
         </p>
       </div>
 
@@ -110,12 +110,12 @@ export function ScenarioDashboard({ onScenarioSelect, selectedScenario }: Scenar
         {scenarios.map((scenario) => (
           <Card 
             key={scenario.id}
-            className={`cursor-pointer transition-all duration-300 hover:shadow-lg ${
+            className={`group cursor-pointer transition-all duration-300 hover:shadow-xl border-2 ${
               selectedScenario?.id === scenario.id 
-                ? 'ring-2 ring-blue-500 shadow-lg' 
-                : 'hover:shadow-md'
+                ? 'ring-2 ring-primary ring-offset-2 shadow-xl border-primary/30 bg-primary/5' 
+                : 'hover:shadow-lg hover:border-primary/20 border-border'
             } ${
-              hoveredScenario === scenario.id ? 'scale-105' : ''
+              hoveredScenario === scenario.id ? 'scale-[1.02] -translate-y-1' : ''
             }`}
             onMouseEnter={() => setHoveredScenario(scenario.id)}
             onMouseLeave={() => setHoveredScenario(null)}
@@ -123,15 +123,19 @@ export function ScenarioDashboard({ onScenarioSelect, selectedScenario }: Scenar
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{scenario.icon}</span>
+                <div className="flex items-center space-x-4">
+                  <div className="text-3xl group-hover:scale-110 transition-transform duration-300">
+                    {scenario.icon}
+                  </div>
                   <div>
-                    <CardTitle className="text-lg">{scenario.name}</CardTitle>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge className={getLevelColor(scenario.level)}>
+                    <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">
+                      {scenario.name}
+                    </CardTitle>
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Badge className={getLevelColor(scenario.level)} variant="secondary">
                         {scenario.level}
                       </Badge>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-muted-foreground font-medium">
                         ~{scenario.turns} turns
                       </span>
                     </div>
@@ -140,23 +144,29 @@ export function ScenarioDashboard({ onScenarioSelect, selectedScenario }: Scenar
               </div>
             </CardHeader>
             
-            <CardContent>
-              <CardDescription className="text-sm mb-4">
+            <CardContent className="space-y-4">
+              <CardDescription className="text-base leading-relaxed">
                 {scenario.description}
               </CardDescription>
               
-              <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-1">
+              <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
+                <p className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
                   Opening line:
                 </p>
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-sm text-foreground italic leading-relaxed">
                   "{scenario.greeting}"
                 </p>
               </div>
               
-              {selectedScenario?.id === scenario.id && (
-                <Button className="w-full" size="sm">
-                  Selected ✓
+              {selectedScenario?.id === scenario.id ? (
+                <Button className="w-full" size="sm" variant="default">
+                  <span className="mr-2">✓</span>
+                  Selected
+                </Button>
+              ) : (
+                <Button className="w-full" size="sm" variant="outline" 
+                       onClick={(e) => { e.stopPropagation(); onScenarioSelect(scenario); }}>
+                  Select Scenario
                 </Button>
               )}
             </CardContent>
@@ -165,14 +175,22 @@ export function ScenarioDashboard({ onScenarioSelect, selectedScenario }: Scenar
       </div>
 
       {selectedScenario && (
-        <div className="mt-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-900 mb-2">
-            Selected: {selectedScenario.name}
-          </h3>
-          <p className="text-blue-800 text-sm">
-            Click "Start Conversation" below to begin practicing with this scenario.
-          </p>
-        </div>
+        <Card className="mt-8 border-2 border-primary/30 bg-primary/5">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Badge variant="default" className="text-sm px-3 py-1">
+                Ready to Start
+              </Badge>
+              <span className="text-lg">{selectedScenario.icon}</span>
+            </div>
+            <h3 className="font-bold text-lg text-foreground mb-2">
+              {selectedScenario.name}
+            </h3>
+            <p className="text-muted-foreground">
+              Click "Start Conversation" below to begin practicing with this scenario.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

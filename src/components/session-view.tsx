@@ -18,8 +18,8 @@ import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
 import type { AppConfig } from '../lib/types';
 import { cn } from '@/lib/utils';
-import { SuggestedResponses } from './suggested-responses';
 import { ConversationProgress } from '@/components/livekit/conversation-progress';
+import { SettingsDropdown } from './settings-dropdown';
 import type { Scenario } from './scenario-dashboard';
 
 function isAgentAvailable(agentState: AgentState) {
@@ -41,6 +41,7 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
+  const [scriptAwareTurns, setScriptAwareTurns] = useState<number>(0);
   const { messages, send } = useChatAndTranscription();
   const transcriptions = useTranscriptions();
   
@@ -100,15 +101,23 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   };
 
   return (
-    <main
-      ref={ref}
-      {...(disabled ? { inert: "" as any } : {})}
-      className={
-        // prevent page scrollbar
-        // when !chatOpen due to 'translate-y-20'
-        cn(!chatOpen && 'max-h-svh overflow-hidden')
-      }
-    >
+    <>
+      {/* Settings Gear - OUTSIDE main container to avoid z-index issues */}
+      <div className="fixed top-4 right-4 z-[9999]">
+        <SettingsDropdown 
+          onDisconnect={() => room.disconnect()}
+        />
+      </div>
+
+      <main
+        ref={ref}
+        {...(disabled ? { inert: "" as any } : {})}
+        className={
+          // prevent page scrollbar
+          // when !chatOpen due to 'translate-y-20'
+          cn(!chatOpen && 'max-h-svh overflow-hidden')
+        }
+      >
       <ChatMessageView
         className={cn(
           'mx-auto min-h-svh w-full max-w-2xl px-3 pt-32 pb-40 transition-[opacity,translate] duration-300 ease-out md:px-0 md:pt-36 md:pb-48',
@@ -143,24 +152,27 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
         {/* Conversation Progress in header */}
         {selectedScenario && sessionStarted && (
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-            <ConversationProgress scenario={selectedScenario} />
+            <ConversationProgress 
+              scenario={selectedScenario} 
+              scriptAwareTurns={scriptAwareTurns}
+            />
           </div>
         )}
+        
         
         {/* skrim */}
         <div className="from-background absolute bottom-0 left-0 h-12 w-full translate-y-full bg-gradient-to-b to-transparent" />
       </div>
 
-      <MediaTiles chatOpen={chatOpen} />
+      <MediaTiles 
+        chatOpen={chatOpen} 
+        selectedScenario={selectedScenario}
+        sessionStarted={sessionStarted}
+        onResponseSelect={handleSuggestedResponse}
+        onTurnChange={setScriptAwareTurns}
+      />
 
-      {/* Suggested Responses */}
-      {selectedScenario && sessionStarted && (
-        <SuggestedResponses
-          scenario={selectedScenario}
-          onResponseSelect={handleSuggestedResponse}
-          disabled={!isAgentAvailable(agentState)}
-        />
-      )}
+      {/* Suggested Responses now integrated into AgentTile */}
 
       <div className="bg-background fixed right-0 bottom-0 left-0 z-50 px-3 pt-2 pb-3 md:px-12 md:pb-12">
         <motion.div
@@ -207,5 +219,6 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
         </motion.div>
       </div>
     </main>
+    </>
   );
 });

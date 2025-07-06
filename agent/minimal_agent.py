@@ -1,5 +1,8 @@
 import logging
 import time
+import json
+import base64
+import binascii
 
 from dotenv import load_dotenv
 
@@ -61,6 +64,13 @@ class MyAgent(Agent):
         # Store the context to access room later
         self.ctx = ctx
         
+        # Script-following state
+        self.conversation_script = []
+        self.scenario_level = None
+        self.scenario_turns = 0
+        self.current_turn = 1
+        self.is_script_mode = False
+        
         super().__init__(
             instructions="You are a helpful English conversation practice assistant. Follow the scenario instructions provided when available, or engage in general conversation practice.",
             stt=stt,
@@ -68,6 +78,40 @@ class MyAgent(Agent):
             tts=tts,
             # llm=openai.realtime.RealtimeModel(voice="alloy", turn_detection=None),
         )
+    
+    def _calculate_similarity(self, user_text: str, expected_text: str) -> float:
+        """Calculate text similarity for off-script detection (exact same logic as frontend)"""
+        if not user_text or not expected_text:
+            return 0.0
+        
+        import re
+        
+        user_words = [word for word in re.split(r'\s+', user_text.lower()) if len(word) > 2]
+        expected_words = [word for word in re.split(r'\s+', expected_text.lower()) if len(word) > 2]
+        
+        if len(user_words) == 0 or len(expected_words) == 0:
+            return 0.0
+        
+        common_words = [word for word in user_words if any(
+            expected in word or word in expected or word == expected 
+            for expected in expected_words
+        )]
+        
+        return len(common_words) / max(len(user_words), len(expected_words))
+    
+    async def _notify_frontend_turn_change(self, new_turn: int):
+        """Send turn advancement notification to frontend via data message"""
+        try:
+            import json
+            data = json.dumps({
+                "type": "turn_advancement", 
+                "turn": new_turn,
+                "timestamp": time.time()
+            })
+            await self.ctx.room.local_participant.publish_data(data.encode(), reliable=True)
+            logger.info(f"🔔 Notified frontend of turn advancement to {new_turn}")
+        except Exception as e:
+            logger.error(f"❌ Failed to notify frontend of turn change: {e}")
 
     async def on_enter(self):
         # Check if user has special naming convention to trigger Luna greeting
@@ -100,11 +144,36 @@ class MyAgent(Agent):
                 if len(parts) >= 4:  # user_XXXX_say_greeting_words
                     digits = parts[1]
                     
-                    # Check if this is a scenario-based session
+                    # Check if this is a scenario-based session with script
                     scenario_index = participant.name.find("_scenario_")
                     if scenario_index != -1:
-                        scenario_id = participant.name[scenario_index + 10:]  # Skip "_scenario_"
-                        logger.info(f"🎭 Scenario detected: {scenario_id} for user {digits}")
+                        # Parse scenario data from participant name
+                        try:
+                            name_parts = participant.name.split("_")
+                            scenario_idx = name_parts.index("scenario")
+                            level_idx = name_parts.index("level")
+                            turns_idx = name_parts.index("turns") 
+                            script_idx = name_parts.index("script")
+                            
+                            scenario_id = name_parts[scenario_idx + 1]
+                            self.scenario_level = name_parts[level_idx + 1]
+                            self.scenario_turns = int(name_parts[turns_idx + 1])
+                            
+                            # Decode base64 script data
+                            if script_idx + 1 < len(name_parts):
+                                script_b64 = name_parts[script_idx + 1]
+                                if script_b64:  # Check if not empty
+                                    script_json = base64.b64decode(script_b64).decode('utf-8')
+                                    self.conversation_script = json.loads(script_json)
+                                    self.is_script_mode = True
+                                    
+                                    logger.info(f"🎭 Script mode enabled for scenario {scenario_id}")
+                                    logger.info(f"🎭 Level: {self.scenario_level}, Turns: {self.scenario_turns}")
+                                    logger.info(f"🎭 Script loaded with {len(self.conversation_script)} turns")
+                                    
+                        except (ValueError, IndexError, json.JSONDecodeError, binascii.Error) as e:
+                            logger.error(f"❌ Failed to parse scenario data: {e}")
+                            self.is_script_mode = False
                     
                     # Extract greeting after "say_" and before "_scenario_" if present
                     say_index = participant.name.find("_say_")
@@ -113,9 +182,18 @@ class MyAgent(Agent):
                         greeting_part = participant.name[say_index + 5:end_index]  # Skip "_say_"
                         custom_greeting = greeting_part.replace("_", " ").strip()
                         
-                        logger.info(f"🔥 Luna greeting triggered for user {digits} with custom greeting: {custom_greeting}")
+                        logger.info(f"🔥 Luna greeting triggered for user {digits}")
+                        logger.info(f"🔥 Custom greeting: {custom_greeting}")
+                        logger.info(f"🔥 Script mode: {self.is_script_mode}")
+                        
                         # Use the exact custom greeting text only - no extra additions
                         await self.session.say(custom_greeting)
+                        
+                        # If in script mode, keep turn at 1 to expect user's response to turn 1 greeting
+                        # Don't advance yet - wait for user response
+                        if self.is_script_mode:
+                            logger.info(f"🎭 Staying on turn {self.current_turn} to await user's response to greeting")
+                        
                         return
         
         logger.info("🔍 No special naming pattern found, using default behavior")
@@ -127,6 +205,71 @@ class MyAgent(Agent):
             # for example, raise StopResponse to stop the agent from generating a reply
             logger.info("ignore empty user turn")
             raise StopResponse()
+        
+        # If in script mode, use scripted responses instead of LLM
+        if self.is_script_mode and self.conversation_script:
+            logger.info(f"🎭 Script mode: current turn {self.current_turn}, user said: '{new_message.text_content}'")
+            
+            # Find the script entry for current turn
+            current_script = None
+            for script_entry in self.conversation_script:
+                if script_entry.get("turn") == self.current_turn:
+                    current_script = script_entry
+                    break
+            
+            if current_script:
+                # Check if user response matches expected script (off-script detection)
+                expected_response = current_script.get("suggestedResponse", "")
+                user_text = new_message.text_content.strip()
+                
+                # Text similarity calculation for off-script detection
+                is_on_script = True
+                if expected_response:
+                    similarity = self._calculate_similarity(user_text, expected_response)
+                    is_on_script = similarity > 0.3  # Same threshold as frontend
+                    
+                    logger.info(f"🎯 Agent script check: user='{user_text}', expected='{expected_response}', similarity={similarity:.3f}, on_script={is_on_script}")
+                
+                # If user is on script, find the NEXT turn's response to give
+                if is_on_script:
+                    next_turn = self.current_turn + 1
+                    next_script = None
+                    for script_entry in self.conversation_script:
+                        if script_entry.get("turn") == next_turn:
+                            next_script = script_entry
+                            break
+                    
+                    if next_script:
+                        scripted_response = next_script.get("agent", "")
+                        logger.info(f"🎭 User on script - Using NEXT turn response for turn {next_turn}: '{scripted_response}'")
+                    else:
+                        # No next turn script, conversation may be ending
+                        scripted_response = "Thank you for the practice session!"
+                        logger.info(f"🎭 No next turn script found, using default ending response")
+                else:
+                    # User is off script, repeat current turn's response to help them get back on track
+                    scripted_response = current_script.get("agent", "")
+                    logger.info(f"🎭 User off script - Repeating current turn response for turn {self.current_turn}: '{scripted_response}'")
+                
+                # Speak the scripted response directly
+                await self.session.say(scripted_response)
+                
+                # Only advance turn if user was on script
+                if is_on_script:
+                    self.current_turn += 1
+                    logger.info(f"🎭 User on script - Advanced to turn {self.current_turn}")
+                    
+                    # Notify frontend of turn advancement
+                    await self._notify_frontend_turn_change(self.current_turn)
+                else:
+                    logger.info(f"🎭 User off script - Staying on turn {self.current_turn}")
+                
+                # Stop LLM from generating a response since we provided scripted one
+                raise StopResponse()
+            else:
+                logger.warning(f"🎭 No script entry found for turn {self.current_turn}, falling back to LLM")
+        
+        # Default behavior for non-script mode or when script is missing
 
 
 async def entrypoint(ctx: JobContext):

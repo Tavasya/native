@@ -27,6 +27,10 @@ export default function useConnectionDetails(selectedScenario?: Scenario) {
     if (selectedScenario) {
       url.searchParams.set('scenario', selectedScenario.id);
       url.searchParams.set('instructions', selectedScenario.instructions);
+      // Send the full conversation script for agent to follow
+      url.searchParams.set('conversationScript', JSON.stringify(selectedScenario.conversationScript));
+      url.searchParams.set('scenarioLevel', selectedScenario.level);
+      url.searchParams.set('scenarioTurns', selectedScenario.turns.toString());
     }
     fetch(url.toString())
       .then(async (res) => {
