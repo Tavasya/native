@@ -117,10 +117,21 @@ class MyAgent(Agent):
         # Check if user has special naming convention to trigger Luna greeting
         import asyncio
         
-        # Wait a bit for participants to join
-        await asyncio.sleep(2)
-        
-        # Get the room from context
+        # Keep retrying until we find a participant with special naming pattern
+        attempt = 0
+        while True:
+            await asyncio.sleep(2)  # Wait 2 seconds each time
+            attempt += 1
+            
+            # Check if we found a participant with special naming pattern
+            if await self._check_participants_for_greeting():
+                return  # Found one, exit early
+            
+            logger.info(f"🔍 Attempt {attempt}: No special participant found, retrying...")
+
+    async def _check_participants_for_greeting(self):
+        """Check all participants for special naming patterns and trigger greeting if found"""
+        """Returns True if special participant found and greeting triggered"""
         room = self.ctx.room
         all_participants = []
         
@@ -129,10 +140,14 @@ class MyAgent(Agent):
         all_participants.extend(remote_participants)
         logger.info(f"🔍 Found {len(remote_participants)} remote participants")
         
-        # Add local participant
-        if room.local_participant:
-            all_participants.append(room.local_participant)
-            logger.info(f"🔍 Found local participant")
+        # Only check local participant if we're connected
+        try:
+            if room.local_participant:
+                all_participants.append(room.local_participant)
+                logger.info(f"🔍 Found local participant")
+        except Exception:
+            # Not connected yet, skip local participant
+            pass
             
         logger.info(f"🔍 Checking {len(all_participants)} total participants")
         
@@ -194,10 +209,10 @@ class MyAgent(Agent):
                         if self.is_script_mode:
                             logger.info(f"🎭 Staying on turn {self.current_turn} to await user's response to greeting")
                         
-                        return
+                        return True  # Found and triggered greeting
         
-        logger.info("🔍 No special naming pattern found, using default behavior")
-        # Default behavior - no automatic greeting for minimal agent
+        logger.info("🔍 No special naming pattern found, waiting for participants to join")
+        return False  # No special participant found
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         # callback before generating a reply after user turn committed
