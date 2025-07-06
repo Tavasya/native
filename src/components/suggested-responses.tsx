@@ -146,8 +146,18 @@ export function SuggestedResponses({
     setLastEvaluatedTranscript('');
   }, [scenario]);
 
-  if (!scenario || scenario.level !== 'BEGINNER') {
-    return null; // Only show for beginner scenarios
+  if (!scenario) {
+    return null;
+  }
+
+  // Only show for BEGINNER (all turns) or INTERMEDIATE (turn 1 only)
+  if (scenario.level === 'ADVANCED') {
+    return null;
+  }
+
+  // For INTERMEDIATE, only show on turn 1
+  if (scenario.level === 'INTERMEDIATE' && currentTurn > 1) {
+    return null;
   }
 
   const currentScript = scenario.conversationScript.find(script => script.turn === currentTurn);

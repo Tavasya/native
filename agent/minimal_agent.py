@@ -242,32 +242,74 @@ class MyAgent(Agent):
                     if next_script:
                         scripted_response = next_script.get("agent", "")
                         logger.info(f"🎭 User on script - Using NEXT turn response for turn {next_turn}: '{scripted_response}'")
+                        
+                        # Speak the scripted response directly
+                        await self.session.say(scripted_response)
+                        
+                        # Advance turn and notify frontend
+                        self.current_turn += 1
+                        logger.info(f"🎭 User on script - Advanced to turn {self.current_turn}")
+                        await self._notify_frontend_turn_change(self.current_turn)
+                        
+                        # Stop LLM from generating a response since we provided scripted one
+                        raise StopResponse()
                     else:
-                        # No next turn script, conversation may be ending
-                        scripted_response = "Thank you for the practice session!"
-                        logger.info(f"🎭 No next turn script found, using default ending response")
+                        # No next turn script - check if we've reached the final turn
+                        if next_turn > self.scenario_turns:
+                            # We've completed all turns, provide ending message
+                            scripted_response = "Thank you for the practice session! That was excellent conversation practice."
+                            logger.info(f"🎭 Reached final turn {self.scenario_turns}, providing ending message")
+                            
+                            # Speak the ending message
+                            await self.session.say(scripted_response)
+                            
+                            # Advance turn for progress tracking
+                            self.current_turn += 1
+                            await self._notify_frontend_turn_change(self.current_turn)
+                            
+                            # Stop LLM since we provided ending message
+                            raise StopResponse()
+                        else:
+                            # More turns remaining - fall back to LLM for natural conversation
+                            logger.info(f"🎭 No next turn script found for turn {next_turn}, advancing turn and falling back to LLM")
+                            self.current_turn += 1
+                            await self._notify_frontend_turn_change(self.current_turn)
+                            # Don't raise StopResponse - let LLM handle the conversation
+                            return
                 else:
                     # User is off script, repeat current turn's response to help them get back on track
                     scripted_response = current_script.get("agent", "")
                     logger.info(f"🎭 User off script - Repeating current turn response for turn {self.current_turn}: '{scripted_response}'")
-                
-                # Speak the scripted response directly
-                await self.session.say(scripted_response)
-                
-                # Only advance turn if user was on script
-                if is_on_script:
-                    self.current_turn += 1
-                    logger.info(f"🎭 User on script - Advanced to turn {self.current_turn}")
                     
-                    # Notify frontend of turn advancement
-                    await self._notify_frontend_turn_change(self.current_turn)
-                else:
+                    # Speak the scripted response directly
+                    await self.session.say(scripted_response)
+                    
+                    # Stay on current turn
                     logger.info(f"🎭 User off script - Staying on turn {self.current_turn}")
-                
-                # Stop LLM from generating a response since we provided scripted one
-                raise StopResponse()
+                    
+                    # Stop LLM from generating a response since we provided scripted one
+                    raise StopResponse()
             else:
                 logger.warning(f"🎭 No script entry found for turn {self.current_turn}, falling back to LLM")
+                
+                # For turns without script entries, we still need to advance the turn after LLM responds
+                # Check if we've reached the final turn
+                if self.current_turn >= self.scenario_turns:
+                    # We've completed all turns, provide ending message
+                    logger.info(f"🎭 Reached final turn {self.scenario_turns}, providing ending message")
+                    await self.session.say("Thank you for the practice session! That was excellent conversation practice.")
+                    
+                    # Advance turn for progress tracking (shows completion)
+                    self.current_turn += 1
+                    await self._notify_frontend_turn_change(self.current_turn)
+                    
+                    # Stop LLM from generating a response since we provided ending message
+                    raise StopResponse()
+                else:
+                    # Advance turn for progress tracking (LLM conversation continues)
+                    self.current_turn += 1
+                    logger.info(f"🎭 Advanced to turn {self.current_turn} for LLM conversation")
+                    await self._notify_frontend_turn_change(self.current_turn)
         
         # Default behavior for non-script mode or when script is missing
 
