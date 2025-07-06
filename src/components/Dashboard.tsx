@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Check, Flame, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { scenarios, type Scenario } from './scenario-dashboard';
 
 interface Assignment {
-  id: number;
+  id: string;
   title: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
   duration: string;
   completed: boolean;
   type: 'Conversation';
   icon: string;
   description: string;
+  scenario: Scenario;
 }
 
 interface Week {
@@ -36,24 +38,28 @@ const Dashboard = () => {
   const [wordsLearned, setWordsLearned] = useState(0);
   const [userName] = useState('Alex');
 
+  // Convert scenarios to assignments format with duration estimates
+  const createAssignmentsFromScenarios = (): Assignment[] => {
+    return scenarios.map((scenario) => ({
+      id: scenario.id,
+      title: scenario.name,
+      difficulty: scenario.level,
+      duration: `${scenario.turns * 3} mins`, // Estimate 3 minutes per turn
+      completed: false,
+      type: 'Conversation' as const,
+      icon: scenario.icon,
+      description: scenario.description,
+      scenario: scenario
+    }));
+  };
+
   const [weeks, setWeeks] = useState<Week[]>([
     {
       weekNumber: 1,
       expanded: true,
       completed: 0,
-      total: 10,
-      assignments: [
-        { id: 1, title: "Coffee Corner", difficulty: "Easy", duration: "15 mins", completed: false, type: "Conversation", icon: "☕", description: "Practice ordering coffee with guided prompts and suggestions" },
-        { id: 2, title: "Restaurant Visit", difficulty: "Easy", duration: "20 mins", completed: false, type: "Conversation", icon: "🍽️", description: "Learn to order food and interact with restaurant staff" },
-        { id: 3, title: "Shopping Mall", difficulty: "Easy", duration: "18 mins", completed: false, type: "Conversation", icon: "🛍️", description: "Practice asking for help and making purchases" },
-        { id: 4, title: "Doctor's Appointment", difficulty: "Easy", duration: "22 mins", completed: false, type: "Conversation", icon: "🏥", description: "Learn to describe symptoms and book appointments" },
-        { id: 5, title: "Hotel Check-in", difficulty: "Easy", duration: "16 mins", completed: false, type: "Conversation", icon: "🏨", description: "Practice hotel conversations and making requests" },
-        { id: 6, title: "Public Transport", difficulty: "Easy", duration: "14 mins", completed: false, type: "Conversation", icon: "🚌", description: "Learn to ask for directions and buy tickets" },
-        { id: 7, title: "Bank Visit", difficulty: "Easy", duration: "19 mins", completed: false, type: "Conversation", icon: "🏦", description: "Practice banking conversations and transactions" },
-        { id: 8, title: "Grocery Store", difficulty: "Easy", duration: "17 mins", completed: false, type: "Conversation", icon: "🛒", description: "Learn to ask about products and prices" },
-        { id: 9, title: "Phone Call", difficulty: "Easy", duration: "21 mins", completed: false, type: "Conversation", icon: "📞", description: "Practice making and receiving phone calls" },
-        { id: 10, title: "Weather Chat", difficulty: "Easy", duration: "12 mins", completed: false, type: "Conversation", icon: "🌤️", description: "Learn to discuss weather and make small talk" }
-      ]
+      total: scenarios.length,
+      assignments: createAssignmentsFromScenarios()
     }
   ]);
 
@@ -70,14 +76,12 @@ const Dashboard = () => {
     setWeeks(prev => prev.map(week => ({
       ...week,
       assignments: week.assignments.map(assignment => {
-        const scenarioId = assignment.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-        const isCompleted = completedScenarioIds.includes(scenarioId);
+        const isCompleted = completedScenarioIds.includes(assignment.id);
         return { ...assignment, completed: isCompleted };
       }),
-      completed: week.assignments.filter(assignment => {
-        const scenarioId = assignment.title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-        return completedScenarioIds.includes(scenarioId);
-      }).length
+      completed: week.assignments.filter(assignment => 
+        completedScenarioIds.includes(assignment.id)
+      ).length
     })));
   }, []);
 
@@ -105,25 +109,11 @@ const Dashboard = () => {
   };
 
   const handleAssignmentClick = (assignment: Assignment) => {
-    // Navigate to Luna AI agent with the selected scenario
-    const scenarioMap: { [key: string]: string } = {
-      'Coffee Corner': 'coffee-corner',
-      'Restaurant Visit': 'restaurant-visit', 
-      'Shopping Mall': 'shopping-mall',
-      'Doctor\'s Appointment': 'doctors-appointment',
-      'Hotel Check-in': 'hotel-checkin',
-      'Public Transport': 'public-transport',
-      'Bank Visit': 'bank-visit',
-      'Grocery Store': 'grocery-store',
-      'Phone Call': 'phone-call',
-      'Weather Chat': 'weather-chat'
-    };
-    
-    const scenarioId = scenarioMap[assignment.title] || assignment.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-    navigate('/luna', { state: { selectedScenario: scenarioId } });
+    // Navigate to Luna app with the selected scenario data
+    navigate('/luna/', { state: { selectedScenario: assignment.scenario } });
   };
 
-  const toggleAssignment = (assignmentId: number) => {
+  const toggleAssignment = (assignmentId: string) => {
     setWeeks(prev => prev.map(week => ({
       ...week,
       assignments: week.assignments.map(assignment => 
@@ -137,9 +127,9 @@ const Dashboard = () => {
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'Easy': return 'text-green-600';
-      case 'Medium': return 'text-yellow-600';
-      case 'Hard': return 'text-red-600';
+      case 'BEGINNER': return 'text-green-600';
+      case 'INTERMEDIATE': return 'text-yellow-600';
+      case 'ADVANCED': return 'text-red-600';
       default: return 'text-gray-600';
     }
   };
@@ -163,7 +153,7 @@ const Dashboard = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-lg border p-6">
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                   <Flame className="w-4 h-4 text-orange-600" />
@@ -199,7 +189,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border p-6">
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                   <BookOpen className="w-4 h-4 text-blue-600" />
@@ -214,7 +204,7 @@ const Dashboard = () => {
 
 
           {/* Progress Bar */}
-          <div className="bg-white rounded-lg border p-4 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-6 shadow-sm">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-gray-600">COMPLETED {totalCompleted} / {totalAssignments}</span>
             </div>
@@ -230,9 +220,9 @@ const Dashboard = () => {
         {/* Week Sections */}
         <div className="space-y-4">
           {weeks.map((week, weekIndex) => (
-            <div key={week.weekNumber} className="bg-white rounded-lg border">
+            <div key={week.weekNumber} className="bg-white rounded-2xl border border-gray-200 shadow-sm">
               <div 
-                className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50"
+                className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50 rounded-t-2xl"
                 onClick={() => toggleWeek(weekIndex)}
               >
                 <div className="flex items-center gap-4">
@@ -254,7 +244,7 @@ const Dashboard = () => {
                     {week.assignments.map((assignment, index) => (
                       <div 
                         key={assignment.id}
-                        className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-all duration-200 hover:shadow-sm border border-transparent hover:border-gray-200"
                         onClick={() => handleAssignmentClick(assignment)}
                       >
                         <div className="w-6 text-center text-sm font-medium text-gray-500">
@@ -265,10 +255,10 @@ const Dashboard = () => {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
-                            <h3 className={`font-medium ${assignment.completed ? 'line-through text-gray-500' : 'text-blue-600'}`}>
+                            <h3 className={`font-medium ${assignment.completed ? 'line-through text-gray-500' : 'text-blue-600 hover:text-blue-700'}`}>
                               {assignment.title}
                             </h3>
-                            <span className={`text-xs px-2 py-1 rounded ${getDifficultyColor(assignment.difficulty)}`}>
+                            <span className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(assignment.difficulty)} bg-opacity-10`}>
                               {assignment.difficulty}
                             </span>
                             <span className="text-xs text-gray-500">
@@ -279,7 +269,7 @@ const Dashboard = () => {
                             {assignment.description}
                           </p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${getTypeColor(assignment.type)}`}>
+                        <span className={`text-xs px-3 py-1 rounded-full ${getTypeColor(assignment.type)}`}>
                           {assignment.type}
                         </span>
                         <div 
