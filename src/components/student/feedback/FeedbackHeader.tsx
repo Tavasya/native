@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, ChevronDown } from 'lucide-react';
+import { ArrowLeft, RotateCcw, ChevronDown, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu,
@@ -34,6 +34,7 @@ interface FeedbackHeaderProps {
   isStudent?: boolean;
   onRedo?: () => void;
   attempt?: number;
+  isPractice?: boolean;
 }
 
 const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
@@ -45,7 +46,8 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   studentId,
   isStudent = false,
   onRedo,
-  attempt
+  attempt,
+  isPractice = false
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,6 +75,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
 
     fetchAllSubmissions();
   }, [assignmentId, studentId]);
+  
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -100,6 +103,10 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     }
   };
 
+  const handleStartPractice = () => {
+    navigate('/student/practice-feedback');
+  };
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -118,6 +125,16 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         )}
       </div>
       <div className="flex items-center gap-2">
+        {isPractice && (
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 bg-[#272A69] text-white hover:bg-[#272A69]/90"
+            onClick={handleStartPractice}
+          >
+            <BookOpen className="h-4 w-4" />
+            Start Practice
+          </Button>
+        )}
         {allSubmissions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

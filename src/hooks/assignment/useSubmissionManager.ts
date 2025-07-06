@@ -38,6 +38,82 @@ export const useSubmissionManager = ({
 
     setIsSubmitting(true);
 
+    // Check if this is a practice assignment
+    const isPracticeAssignment = assignment.metadata?.isPractice === true;
+
+    if (isPracticeAssignment) {
+      // Handle practice assignment with new practice_sessions workflow
+      const { dismiss } = toast({
+        title: "Processing practice session...",
+        description: "Setting up your practice feedback session.",
+      });
+
+      try {
+        // Get the first (and likely only) recording for practice
+        const firstRecording = assignment.questions.map((question, index) => {
+          const recordingData = recordingsData?.[index.toString()];
+          const sessionRecording = sessionRecordings[index];
+          return recordingData?.uploadedUrl || sessionRecording?.uploadedUrl;
+        }).find(url => url);
+
+        if (!firstRecording) {
+          throw new Error('No recording found for practice session');
+        }
+
+        // Create practice session
+        const { data: sessionData, error: createError } = await supabase
+          .from('practice_sessions')
+          .insert({
+            user_id: userId,
+            original_audio_url: firstRecording,
+            status: 'transcript_ready'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Failed to create practice session:', createError);
+          throw new Error(`Database error: ${createError.message}`);
+        }
+        const sessionId = sessionData.id;
+
+        // Call backend API to improve transcript
+        const response = await fetch(`/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend request failed: ${response.status}`);
+        }
+
+        dismiss();
+        toast({
+          title: "Practice Session Started!",
+          description: "Your practice session is being processed. You'll see results shortly.",
+          duration: 3000,
+        });
+
+        // Navigate to practice feedback page
+        navigate(`/student/practice-feedback?session=${sessionId}`);
+
+      } catch (error) {
+        console.error('Practice session creation error:', error);
+        dismiss();
+        toast({
+          title: "Practice Session Failed",
+          description: error instanceof Error ? error.message : 'Failed to start practice session. Please try again.',
+          variant: "destructive",
+          duration: 8000,
+        });
+      }
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Regular assignment submission workflow
     const { dismiss } = toast({
       title: "Processing submission...",
       description: "Please wait while we analyze your recording.",

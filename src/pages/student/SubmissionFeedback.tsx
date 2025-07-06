@@ -285,6 +285,7 @@ const SubmissionFeedback = () => {
             isStudent={role === 'student'}
             onRedo={onRedo}
             attempt={selectedSubmission.attempt}
+            isPractice={currentAssignment?.metadata?.isPractice === true}
           />
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
             <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Report</h2>
@@ -315,6 +316,7 @@ const SubmissionFeedback = () => {
           isStudent={role === 'student'}
           onRedo={onRedo}
           attempt={selectedSubmission.attempt}
+          isPractice={currentAssignment?.metadata?.isPractice === true}
         />
 
         <SubmissionInfo
