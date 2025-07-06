@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Room, RoomEvent } from 'livekit-client';
 import { motion } from 'motion/react';
 import { RoomAudioRenderer, RoomContext, StartAudio } from '@livekit/components-react';
@@ -18,15 +19,52 @@ interface AppProps {
 }
 
 export function App({ appConfig }: AppProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const room = useMemo(() => new Room(), []);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | undefined>();
+  const [cameFromDashboard, setCameFromDashboard] = useState(false);
+  
+  // Always use the hook normally
   const { connectionDetails, refreshConnectionDetails } = useConnectionDetails(selectedScenario);
+
+  // Handle scenario selection from dashboard navigation
+  useEffect(() => {
+    if (location.state?.selectedScenario) {
+      console.log('🎯 Setting scenario from dashboard:', location.state.selectedScenario.id);
+      setCameFromDashboard(true);
+      setSelectedScenario(location.state.selectedScenario);
+      // Clear the state to prevent issues on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  // Auto-start session after scenario is set and connection details are ready
+  useEffect(() => {
+    console.log('🔍 Auto-start check:', {
+      cameFromDashboard,
+      hasScenario: !!selectedScenario,
+      scenarioId: selectedScenario?.id,
+      hasConnectionDetails: !!connectionDetails,
+      sessionStarted
+    });
+    
+    if (cameFromDashboard && selectedScenario && connectionDetails && !sessionStarted) {
+      console.log('🚀 Auto-starting session with scenario:', selectedScenario.id);
+      setSessionStarted(true);
+    }
+  }, [cameFromDashboard, selectedScenario, connectionDetails, sessionStarted]);
 
   useEffect(() => {
     const onDisconnected = () => {
       setSessionStarted(false);
       refreshConnectionDetails();
+      
+      // If user came from dashboard, navigate back to dashboard
+      if (cameFromDashboard) {
+        navigate('/luna/dashboard');
+      }
     };
     const onMediaDevicesError = (error: Error) => {
       toastAlert({
@@ -47,7 +85,7 @@ export function App({ appConfig }: AppProps) {
       room.off(RoomEvent.MediaDevicesError, onMediaDevicesError);
       room.off(RoomEvent.ConnectionStateChanged, onConnectionStateChanged);
     };
-  }, [room, refreshConnectionDetails]);
+  }, [room, refreshConnectionDetails, cameFromDashboard, navigate]);
 
   useEffect(() => {
     if (sessionStarted && room.state === 'disconnected' && connectionDetails) {
@@ -107,16 +145,18 @@ export function App({ appConfig }: AppProps) {
 
   return (
     <>
-      <MotionWelcome
-        key="welcome"
-        startButtonText={startButtonText}
-        onStartCall={() => setSessionStarted(true)}
-        onScenarioSelect={handleScenarioSelect}
-        disabled={sessionStarted}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: sessionStarted ? 0 : 1 }}
-        transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
-      />
+      {!cameFromDashboard && (
+        <MotionWelcome
+          key="welcome"
+          startButtonText={startButtonText}
+          onStartCall={() => setSessionStarted(true)}
+          onScenarioSelect={handleScenarioSelect}
+          disabled={sessionStarted}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: sessionStarted ? 0 : 1 }}
+          transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
+        />
+      )}
 
       <RoomContext.Provider value={room}>
         <RoomAudioRenderer />

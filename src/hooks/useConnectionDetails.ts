@@ -25,12 +25,15 @@ export default function useConnectionDetails(selectedScenario?: Scenario) {
     );
     url.searchParams.set('greeting', CUSTOM_GREETING);
     if (selectedScenario) {
+      console.log('🔍 Fetching connection details with scenario:', selectedScenario.id);
       url.searchParams.set('scenario', selectedScenario.id);
       url.searchParams.set('instructions', selectedScenario.instructions);
       // Send the full conversation script for agent to follow
       url.searchParams.set('conversationScript', JSON.stringify(selectedScenario.conversationScript));
       url.searchParams.set('scenarioLevel', selectedScenario.level);
       url.searchParams.set('scenarioTurns', selectedScenario.turns.toString());
+    } else {
+      console.log('🔍 Fetching connection details WITHOUT scenario');
     }
     fetch(url.toString())
       .then(async (res) => {
@@ -47,6 +50,7 @@ export default function useConnectionDetails(selectedScenario?: Scenario) {
         return res.json();
       })
       .then((data) => {
+        console.log('✅ Connection details received:', data);
         setConnectionDetails(data);
       })
       .catch((error) => {
@@ -63,8 +67,11 @@ export default function useConnectionDetails(selectedScenario?: Scenario) {
   }, [CUSTOM_GREETING, selectedScenario]);
 
   useEffect(() => {
-    fetchConnectionDetails();
-  }, [fetchConnectionDetails]);
+    // Only fetch connection details if we have a scenario
+    if (selectedScenario) {
+      fetchConnectionDetails();
+    }
+  }, [fetchConnectionDetails, selectedScenario]);
 
   return { connectionDetails, refreshConnectionDetails: fetchConnectionDetails };
 }
