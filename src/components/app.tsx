@@ -6,6 +6,7 @@ import { toastAlert } from './alert-toast';
 import { SessionView } from './session-view';
 import { Toaster } from './ui/sonner';
 import { Welcome } from './welcome';
+import type { Scenario } from './scenario-dashboard';
 import useConnectionDetails from '../hooks/useConnectionDetails';
 import type { AppConfig } from '../lib/types';
 
@@ -19,7 +20,8 @@ interface AppProps {
 export function App({ appConfig }: AppProps) {
   const room = useMemo(() => new Room(), []);
   const [sessionStarted, setSessionStarted] = useState(false);
-  const { connectionDetails, refreshConnectionDetails } = useConnectionDetails();
+  const [selectedScenario, setSelectedScenario] = useState<Scenario | undefined>();
+  const { connectionDetails, refreshConnectionDetails } = useConnectionDetails(selectedScenario);
 
   useEffect(() => {
     const onDisconnected = () => {
@@ -99,12 +101,17 @@ export function App({ appConfig }: AppProps) {
 
   const { startButtonText } = appConfig;
 
+  const handleScenarioSelect = (scenario: Scenario) => {
+    setSelectedScenario(scenario);
+  };
+
   return (
     <>
       <MotionWelcome
         key="welcome"
         startButtonText={startButtonText}
         onStartCall={() => setSessionStarted(true)}
+        onScenarioSelect={handleScenarioSelect}
         disabled={sessionStarted}
         initial={{ opacity: 0 }}
         animate={{ opacity: sessionStarted ? 0 : 1 }}
@@ -120,6 +127,7 @@ export function App({ appConfig }: AppProps) {
           appConfig={appConfig}
           disabled={!sessionStarted}
           sessionStarted={sessionStarted}
+          selectedScenario={selectedScenario}
           initial={{ opacity: 0 }}
           animate={{ opacity: sessionStarted ? 1 : 0 }}
           transition={{

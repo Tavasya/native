@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ConnectionDetails } from '@/components/server/index';
+import type { Scenario } from '@/components/scenario-dashboard';
 
-export default function useConnectionDetails() {
+export default function useConnectionDetails(selectedScenario?: Scenario) {
   // Generate room connection details, including:
   //   - A random Room name
   //   - A random Participant name
@@ -11,8 +12,8 @@ export default function useConnectionDetails() {
   // In real-world application, you would likely allow the user to specify their
   // own participant name, and possibly to choose from existing rooms to join.
 
-  // CUSTOM GREETING - Change this to modify what Luna says when you join
-  const CUSTOM_GREETING = "Hi I am jeffry";
+  // Use scenario greeting or fallback to custom greeting
+  const CUSTOM_GREETING = selectedScenario?.greeting || "Hi I am jeffry";
 
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
 
@@ -23,6 +24,10 @@ export default function useConnectionDetails() {
       'http://localhost:3001'
     );
     url.searchParams.set('greeting', CUSTOM_GREETING);
+    if (selectedScenario) {
+      url.searchParams.set('scenario', selectedScenario.id);
+      url.searchParams.set('instructions', selectedScenario.instructions);
+    }
     fetch(url.toString())
       .then(async (res) => {
         if (!res.ok) {
@@ -51,7 +56,7 @@ export default function useConnectionDetails() {
           console.error('Error fetching connection details:', error);
         }
       });
-  }, [CUSTOM_GREETING]);
+  }, [CUSTOM_GREETING, selectedScenario]);
 
   useEffect(() => {
     fetchConnectionDetails();
