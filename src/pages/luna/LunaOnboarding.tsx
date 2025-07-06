@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '@/app/store';
+import { saveOnboarding, setOnboardingAnswers, OnboardingAnswers } from '@/features/roadmap';
 
 const onboardingQuestions = [
   {
@@ -67,6 +70,9 @@ const personalizationSteps = [
 
 const OnboardingFlow: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+  const { user } = useSelector((state: RootState) => state.auth);
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [selectedOption, setSelectedOption] = useState<string>('');
@@ -120,12 +126,32 @@ const OnboardingFlow: React.FC = () => {
     }
   };
 
-  const handleComplete = () => {
-    // Store answers in localStorage
-    localStorage.setItem('lunaOnboardingAnswers', JSON.stringify(answers));
-    
-    // Navigate to Dashboard
-    navigate('/luna/dashboard');
+  const handleComplete = async () => {
+    try {
+      if (!user?.id) {
+        console.error('User not authenticated');
+        return;
+      }
+      
+      const onboardingAnswers: OnboardingAnswers = {
+        'target-score': answers['target-score'],
+        'study-time': answers['study-time'],
+        'test-timeline': answers['test-timeline'],
+        'current-score': answers['current-score']
+      };
+
+      // Save to Redux and backend
+      dispatch(saveOnboarding({ answers: onboardingAnswers, userId: user.id }));
+      dispatch(setOnboardingAnswers(onboardingAnswers));
+
+      // Still store in localStorage for backward compatibility
+      localStorage.setItem('lunaOnboardingAnswers', JSON.stringify(answers));
+      
+      // Navigate to Dashboard
+      navigate('/luna/dashboard');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+    }
   };
 
   if (showPersonalization) {

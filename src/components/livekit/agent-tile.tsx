@@ -1,6 +1,6 @@
-import { type AgentState, BarVisualizer, type TrackReference, useTranscriptions } from '@livekit/components-react';
+import { type AgentState, BarVisualizer, type TrackReference } from '@livekit/components-react';
 import { cn } from '@/lib/utils';
-import { forwardRef, useMemo } from 'react';
+import { forwardRef } from 'react';
 
 interface AgentAudioTileProps {
   state: AgentState;
@@ -13,30 +13,30 @@ export const AgentTile = forwardRef<HTMLDivElement, AgentAudioTileProps>(({
   audioTrack,
   className,
 }, ref) => {
-  const transcriptions = useTranscriptions();
+  // const transcriptions = useTranscriptions();
   
   // Get the latest agent transcript only
-  const latestAgentTranscript = useMemo(() => {
-    // Look for transcripts that are likely from the agent
-    // Agents usually have different participant identity patterns
-    const agentTranscripts = transcriptions.filter(t => {
-      const text = t.text.trim();
-      const participantIdentity = t.participantInfo?.identity || '';
-      
-      // Skip empty text
-      if (!text) return false;
-      
-      // Agent typically has identity that doesn't include "user" or is system-generated
-      const isLikelyAgent = !participantIdentity.includes('user') && 
-                           (participantIdentity.includes('agent') || 
-                            participantIdentity.length === 0 ||
-                            participantIdentity.startsWith('lk-'));
-      
-      return isLikelyAgent;
-    });
-    
-    return agentTranscripts[agentTranscripts.length - 1]?.text || '';
-  }, [transcriptions]);
+  // const latestAgentTranscript = useMemo(() => {
+  //   // Look for transcripts that are likely from the agent
+  //   // Agents usually have different participant identity patterns
+  //   const agentTranscripts = transcriptions.filter(t => {
+  //     const text = t.text.trim();
+  //     const participantIdentity = t.participantInfo?.identity || '';
+  //     
+  //     // Skip empty text
+  //     if (!text) return false;
+  //     
+  //     // Agent typically has identity that doesn't include "user" or is system-generated
+  //     const isLikelyAgent = !participantIdentity.includes('user') && 
+  //                          (participantIdentity.includes('agent') || 
+  //                           participantIdentity.length === 0 ||
+  //                           participantIdentity.startsWith('lk-'));
+  //     
+  //     return isLikelyAgent;
+  //   });
+  //   
+  //   return agentTranscripts[agentTranscripts.length - 1]?.text || '';
+  // }, [transcriptions]);
 
 
   return (
