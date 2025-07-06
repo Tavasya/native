@@ -60,25 +60,43 @@ export const useSubmissionManager = ({
           throw new Error('No recording found for practice session');
         }
 
-        // Create practice session
-        const { data: sessionData, error: createError } = await supabase
+        // Check if a practice session already exists for this audio URL to prevent duplicates
+        const { data: existingSessions, error: searchError } = await supabase
           .from('practice_sessions')
-          .insert({
-            user_id: userId,
-            original_audio_url: firstRecording,
-            status: 'transcript_ready'
-          })
-          .select()
-          .single();
+          .select('*')
+          .eq('user_id', userId)
+          .eq('original_audio_url', firstRecording)
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        if (createError) {
-          console.error('Failed to create practice session:', createError);
-          throw new Error(`Database error: ${createError.message}`);
+        let sessionId: string;
+
+        if (!searchError && existingSessions && existingSessions.length > 0) {
+          // Use existing session
+          sessionId = existingSessions[0].id;
+          console.log('Using existing practice session:', sessionId);
+        } else {
+          // Create practice session
+          const { data: sessionData, error: createError } = await supabase
+            .from('practice_sessions')
+            .insert({
+              user_id: userId,
+              original_audio_url: firstRecording,
+              status: 'transcript_ready'
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Failed to create practice session:', createError);
+            throw new Error(`Database error: ${createError.message}`);
+          }
+          sessionId = sessionData.id;
+          console.log('Created new practice session:', sessionId);
         }
-        const sessionId = sessionData.id;
 
         // Call backend API to improve transcript
-        const response = await fetch(`/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
+        const response = await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -96,7 +114,7 @@ export const useSubmissionManager = ({
           duration: 3000,
         });
 
-        // Navigate to practice feedback page
+        // Navigate to practice feedback page to show transcript improvement
         navigate(`/student/practice-feedback?session=${sessionId}`);
 
       } catch (error) {
@@ -199,6 +217,7 @@ export const useSubmissionManager = ({
           duration: 5000,
         });
       } catch (analysisError) {
+        console.warn('Analysis error (submission still succeeded):', analysisError);
         dismiss();
         toast({
           title: "Assignment Submitted",

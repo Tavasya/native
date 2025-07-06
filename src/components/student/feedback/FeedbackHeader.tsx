@@ -12,6 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Submission {
   id: string;
@@ -53,6 +56,9 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   const location = useLocation();
   const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchAllSubmissions = async () => {
@@ -103,8 +109,49 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     }
   };
 
-  const handleStartPractice = () => {
-    navigate('/student/practice-feedback');
+  const handleStartPractice = async () => {
+    try {
+      // Get current user ID
+      const { data: { session: userSession } } = await supabase.auth.getSession();
+      if (!userSession?.user?.id) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to start practice",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create practice session
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: userSession.user.id,
+          status: 'transcript_processing'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to create practice session:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create practice session",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPracticeSessionId(data.id);
+      setShowPracticeModal(true);
+    } catch (err) {
+      console.error('Practice session creation error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to start practice session",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -212,6 +259,23 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
           </Button>
         )}
       </div>
+      
+      {/* Practice Session Modal */}
+      {practiceSessionId && (
+        <PracticeSessionModal
+          isOpen={showPracticeModal}
+          onClose={() => setShowPracticeModal(false)}
+          sessionId={practiceSessionId}
+          onComplete={() => {
+            setShowPracticeModal(false);
+            setPracticeSessionId(null);
+            toast({
+              title: "Practice Complete!",
+              description: "Great job! You've completed the practice session.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

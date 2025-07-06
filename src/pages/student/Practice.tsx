@@ -5,14 +5,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { supabase } from '@/integrations/supabase/client';
-import { improveTranscript, clearPractice, startRecording, stopRecording, setRecordingError, assessPronunciation } from '@/features/practice/practiceSlice';
+import { startRecording, stopRecording, setRecordingError } from '@/features/practice/practiceSlice';
 import { RecordingService } from '@/features/practice/recordingService';
+import { PracticeSession } from '@/features/practice/practiceTypes';
+import { practiceService } from '@/features/practice/practiceService';
 
 interface SectionFeedback {
   audio_url: string;
   transcript: string;
   question_id: number;
-  section_feedback: any;
+  section_feedback: Record<string, unknown>;
 }
 
 const Practice: React.FC = () => {
@@ -20,7 +22,7 @@ const Practice: React.FC = () => {
   const dispatch = useAppDispatch();
   const { submissionId } = useParams<{ submissionId: string }>();
   const { user } = useAppSelector(state => state.auth);
-  const { currentPractice, loading, error, recording, pronunciationAssessment } = useAppSelector(state => state.practice);
+  const { recording, pronunciationAssessment } = useAppSelector(state => state.practice);
   const [longestScript, setLongestScript] = useState<SectionFeedback | null>(null);
   const [isLoadingScript, setIsLoadingScript] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -29,23 +31,113 @@ const Practice: React.FC = () => {
   const [highlightedWords, setHighlightedWords] = useState<Set<string>>(new Set());
   const [recordingService] = useState(() => new RecordingService());
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  
+  // Practice session state
+  const [practiceSession, setPracticeSession] = useState<PracticeSession | null>(null);
+  const [isImproving, setIsImproving] = useState(false);
+  const [improvementError, setImprovementError] = useState<string | null>(null);
 
   const handleBack = () => {
     navigate(-1);
   };
 
   const handleImproveTranscript = async () => {
-    if (!longestScript?.transcript) return;
+    if (!longestScript?.transcript || !user?.id) return;
     
     try {
-      await dispatch(improveTranscript({
-        transcript: longestScript.transcript,
-        targetBandIncrease: 2.0
-      })).unwrap();
-      setShowImproved(true);
-      setHighlightedWords(new Set()); // Reset highlighted words
+      setIsImproving(true);
+      setImprovementError(null);
+      
+      // First check if a practice session already exists for this audio URL
+      const { data: existingSessions, error: searchError } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('original_audio_url', longestScript.audio_url)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (searchError) {
+        console.error('Error checking existing sessions:', searchError);
+        // Continue with creation if we can't check
+      }
+
+      let sessionId: string;
+      let sessionData: PracticeSession;
+
+      if (existingSessions && existingSessions.length > 0) {
+        // Use existing session
+        console.log('Using existing practice session:', existingSessions[0].id);
+        sessionData = existingSessions[0];
+        sessionId = sessionData.id;
+        setPracticeSession(sessionData);
+        
+        // If it already has improved transcript, show it immediately
+        if (sessionData.improved_transcript) {
+          setShowImproved(true);
+          setIsImproving(false);
+          setHighlightedWords(new Set());
+          return;
+        }
+      } else {
+        // Create a new practice session
+        const { data: newSessionData, error: createError } = await supabase
+          .from('practice_sessions')
+          .insert({
+            user_id: user.id,
+            original_audio_url: longestScript.audio_url,
+            original_transcript: longestScript.transcript,
+            status: 'transcript_ready'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          throw new Error(`Failed to create practice session: ${createError.message}`);
+        }
+
+        sessionData = newSessionData;
+        sessionId = sessionData.id;
+        console.log('Created new practice session:', sessionId);
+      }
+      
+      // Call backend API to improve transcript
+      await practiceService.improveTranscriptAPI(sessionId);
+      
+      // Set up real-time subscription to watch for updates
+      const channel = supabase
+        .channel(`practice_session_${sessionId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'practice_sessions',
+          filter: `id=eq.${sessionId}`
+        }, (payload) => {
+          const updatedSession = payload.new as PracticeSession;
+          setPracticeSession(updatedSession);
+          
+          if (updatedSession.status === 'transcript_ready' && updatedSession.improved_transcript) {
+            setShowImproved(true);
+            setIsImproving(false);
+            setHighlightedWords(new Set()); // Reset highlighted words
+            
+            // Clean up subscription
+            supabase.removeChannel(channel);
+          } else if (updatedSession.status === 'failed') {
+            setImprovementError(updatedSession.error_message || 'Failed to improve transcript');
+            setIsImproving(false);
+            supabase.removeChannel(channel);
+          }
+        })
+        .subscribe();
+
+      // Set initial session state
+      setPracticeSession(sessionData);
+      
     } catch (error) {
       console.error('Failed to improve transcript:', error);
+      setImprovementError(error instanceof Error ? error.message : 'Failed to improve transcript');
+      setIsImproving(false);
     }
   };
 
@@ -53,7 +145,8 @@ const Practice: React.FC = () => {
     setShowImproved(false);
     setHighlightedWords(new Set());
     setAudioBlob(null);
-    dispatch(clearPractice());
+    setPracticeSession(null);
+    setImprovementError(null);
   };
 
   const handleStartRecording = async () => {
@@ -202,13 +295,12 @@ const Practice: React.FC = () => {
   };
 
   const handleAssessPronunciation = async () => {
-    if (!audioBlob || !currentPractice) return;
+    if (!audioBlob || !practiceSession) return;
     
     try {
-      await dispatch(assessPronunciation({
-        audioBlob,
-        referenceText: currentPractice.improvedTranscript
-      })).unwrap();
+      // For now, we'll skip pronunciation assessment since the API method doesn't exist
+      // This can be implemented later when the backend supports it
+      console.log('Pronunciation assessment not yet implemented');
     } catch (error) {
       console.error('Pronunciation assessment failed:', error);
     }
@@ -270,11 +362,11 @@ const Practice: React.FC = () => {
                           variant="default"
                           size="sm"
                           onClick={handleImproveTranscript}
-                          disabled={loading}
+                          disabled={isImproving}
                           className="flex items-center gap-2"
                         >
                           <Sparkles className="h-4 w-4" />
-                          {loading ? 'Improving...' : 'Improve +2.0'}
+                          {isImproving ? 'Improving...' : 'Improve'}
                         </Button>
                       )}
                       {showImproved && (
@@ -290,21 +382,21 @@ const Practice: React.FC = () => {
                     </div>
                   </div>
 
-                  {error && (
+                  {improvementError && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="text-red-600">{error}</p>
+                      <p className="text-red-600">{improvementError}</p>
                     </div>
                   )}
 
                   <div className="bg-gray-50 rounded-lg p-6">
                     <h3 className="font-medium text-gray-900 mb-4">
-                      {showImproved && currentPractice ? 'Improved Transcript' : 'Original Transcript'}
+                      {showImproved && practiceSession ? 'Improved Transcript' : 'Original Transcript'}
                     </h3>
                     
-                    {showImproved && currentPractice ? (
+                    {showImproved && practiceSession ? (
                       <div>
                         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-blue-800 font-medium">This is an improved version band +2.0</p>
+                          <p className="text-blue-800 font-medium">This is an improved version</p>
                           <p className="text-blue-700 text-sm mt-1">Click on words/phrases that you would want to remember in the future.</p>
                           <p className="text-blue-600 text-sm mt-2">
                             Words highlighted: {highlightedWords.size}/10
@@ -312,7 +404,7 @@ const Practice: React.FC = () => {
                         </div>
                         
                         <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                          {renderInteractiveText(currentPractice.improvedTranscript)}
+                          {renderInteractiveText(practiceSession.improved_transcript || '')}
                         </div>
                         
                         {highlightedWords.size > 0 && (
@@ -465,13 +557,13 @@ const Practice: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-gray-500">
-                      Character count: {showImproved && currentPractice 
-                        ? currentPractice.improvedTranscript.length 
-                        : longestScript.transcript.length} characters
-                    </p>
-                  </div>
+                                      <div className="text-center pt-4">
+                      <p className="text-sm text-gray-500">
+                        Character count: {showImproved && practiceSession 
+                          ? (practiceSession.improved_transcript?.length || 0)
+                          : longestScript.transcript.length} characters
+                      </p>
+                    </div>
                 </div>
               </CardContent>
             </Card>

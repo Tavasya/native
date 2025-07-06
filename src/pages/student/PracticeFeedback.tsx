@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mic, Square, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mic, Square, Upload, Loader2, Play } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
+import { PracticeSession } from '@/features/practice/practiceTypes';
+import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
 
-interface PracticeSession {
-  id: string;
-  user_id: string;
-  original_audio_url: string | null;
-  original_transcript: string | null;
-  improved_transcript: string | null;
-  status: 'transcript_processing' | 'transcript_ready' | 'practicing_sentences' | 'practicing_words' | 'practicing_full_transcript' | 'completed' | 'failed' | 'abandoned';
-  created_at: string;
-  updated_at: string;
-}
+
 
 const PracticeFeedback: React.FC = () => {
   const navigate = useNavigate();
@@ -27,6 +20,7 @@ const PracticeFeedback: React.FC = () => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
   
   const {
     isRecording,
@@ -177,10 +171,10 @@ const PracticeFeedback: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      setSession(prev => prev ? {
+      setSession((prev: PracticeSession | null) => prev ? {
         ...prev,
         original_audio_url: data.publicUrl,
-        status: 'transcript_ready'
+        status: 'transcript_ready' as const
       } : null);
     } catch (err) {
       setError(`Failed to upload audio: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -194,7 +188,7 @@ const PracticeFeedback: React.FC = () => {
       setError(null);
       setIsSubmitting(true);
       
-      const response = await fetch(`/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,9 +215,31 @@ const PracticeFeedback: React.FC = () => {
     setError(null);
     setAudioBlob(null);
     setRecordingTime(0);
+    setShowPracticeModal(false);
     if (intervalId) {
       clearInterval(intervalId);
       setIntervalId(null);
+    }
+  };
+
+  const handleStartPracticeSession = async () => {
+    if (!sessionId) return;
+    
+    try {
+      setError(null);
+      // Start the practice session which will trigger the backend to create sentences
+      await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/start-practice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      // Open the modal
+      setShowPracticeModal(true);
+    } catch (err) {
+      setError('Failed to start practice session');
+      console.error('Error starting practice session:', err);
     }
   };
 
@@ -425,12 +441,24 @@ const PracticeFeedback: React.FC = () => {
                       The improved transcript shows enhanced vocabulary, better structure, and more sophisticated language patterns.
                     </p>
                     
-                    <Button
-                      onClick={handleReset}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      Start New Practice
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleStartPracticeSession}
+                        className="bg-green-600 hover:bg-green-700"
+                        size="lg"
+                      >
+                        <Play className="h-5 w-5 mr-2" />
+                        Start Practice Session
+                      </Button>
+                      
+                      <Button
+                        onClick={handleReset}
+                        variant="outline"
+                        size="lg"
+                      >
+                        Start New Practice
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -438,6 +466,19 @@ const PracticeFeedback: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Practice Session Modal */}
+      {sessionId && (
+        <PracticeSessionModal
+          isOpen={showPracticeModal}
+          onClose={() => setShowPracticeModal(false)}
+          sessionId={sessionId}
+          onComplete={() => {
+            setShowPracticeModal(false);
+            // Could show a success message or navigate somewhere
+          }}
+        />
+      )}
     </div>
   );
 };
