@@ -11,6 +11,9 @@ export default function useConnectionDetails() {
   // In real-world application, you would likely allow the user to specify their
   // own participant name, and possibly to choose from existing rooms to join.
 
+  // CUSTOM GREETING - Change this to modify what Luna says when you join
+  const CUSTOM_GREETING = "Hi I am jeffry";
+
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
 
   const fetchConnectionDetails = useCallback(() => {
@@ -19,6 +22,7 @@ export default function useConnectionDetails() {
       import.meta.env.VITE_CONN_DETAILS_ENDPOINT ?? '/api/connection-details',
       'http://localhost:3001'
     );
+    url.searchParams.set('greeting', CUSTOM_GREETING);
     fetch(url.toString())
       .then(async (res) => {
         if (!res.ok) {
@@ -47,7 +51,7 @@ export default function useConnectionDetails() {
           console.error('Error fetching connection details:', error);
         }
       });
-  }, []);
+  }, [CUSTOM_GREETING]);
 
   useEffect(() => {
     fetchConnectionDetails();

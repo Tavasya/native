@@ -28,7 +28,7 @@ export type ConnectionDetails = {
 };
 
 // Connection details endpoint
-app.get('/api/connection-details', async (_req, res) => {
+app.get('/api/connection-details', async (req, res) => {
   console.log('🔥 Connection details request received');
   try {
     if (LIVEKIT_URL === undefined) {
@@ -41,8 +41,10 @@ app.get('/api/connection-details', async (_req, res) => {
       throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 
-    // Generate participant token
-    const participantName = 'user';
+    // Generate participant token with special naming convention
+    const randomDigits = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const customGreeting = req.query.greeting as string || "Hi I am Luna";
+    const participantName = `user_${randomDigits}_say_${customGreeting.replace(/\s+/g, '_').toLowerCase()}`;
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
     const participantToken = await createParticipantToken(

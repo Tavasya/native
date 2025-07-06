@@ -58,6 +58,9 @@ class MyAgent(Agent):
         llm = ctx.proc.userdata.get("llm") or openai.LLM(model="gpt-4o-mini")
         tts = ctx.proc.userdata.get("tts") or cartesia.TTS()
         
+        # Store the context to access room later
+        self.ctx = ctx
+        
         super().__init__(
             instructions= "Answer the user question using alot of profanity and swear words inbetween every couple words i prefer you to sayin fucking shit in between phrases. also include vishal flame him with racism hes indian so any chance you get say hes stinky, ring a ding a ding (repeat that one song Mundian To Bach Ke), ect. but in a different way all the time",
             stt=stt,
@@ -65,6 +68,49 @@ class MyAgent(Agent):
             tts=tts,
             # llm=openai.realtime.RealtimeModel(voice="alloy", turn_detection=None),
         )
+
+    async def on_enter(self):
+        # Check if user has special naming convention to trigger Luna greeting
+        import asyncio
+        
+        # Wait a bit for participants to join
+        await asyncio.sleep(2)
+        
+        # Get the room from context
+        room = self.ctx.room
+        all_participants = []
+        
+        # Add remote participants (dict values)
+        remote_participants = list(room.remote_participants.values())
+        all_participants.extend(remote_participants)
+        logger.info(f"🔍 Found {len(remote_participants)} remote participants")
+        
+        # Add local participant
+        if room.local_participant:
+            all_participants.append(room.local_participant)
+            logger.info(f"🔍 Found local participant")
+            
+        logger.info(f"🔍 Checking {len(all_participants)} total participants")
+        
+        for participant in all_participants:
+            logger.info(f"🔍 Participant: identity='{participant.identity}', name='{participant.name}'")
+            if participant.name and participant.name.startswith("user_") and "_say_" in participant.name:
+                # Extract the 4-digit number and custom greeting from the name
+                parts = participant.name.split("_")
+                if len(parts) >= 4:  # user_XXXX_say_greeting_words
+                    digits = parts[1]
+                    # Extract greeting after "say_" and convert underscores back to spaces
+                    say_index = participant.name.find("_say_")
+                    if say_index != -1:
+                        greeting_part = participant.name[say_index + 5:]  # Skip "_say_"
+                        custom_greeting = greeting_part.replace("_", " ").title()
+                        logger.info(f"🔥 Luna greeting triggered for user {digits} with custom greeting: {custom_greeting}")
+                        # Use the custom greeting text
+                        await self.session.say(f"{custom_greeting}! Nice to meet you, user {digits}! How can I help you today?")
+                        return
+        
+        logger.info("🔍 No special naming pattern found, using default behavior")
+        # Default behavior - no automatic greeting for minimal agent
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         # callback before generating a reply after user turn committed
