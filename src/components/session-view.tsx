@@ -93,6 +93,28 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
     }
   }, [agentState, sessionStarted, room]);
 
+  // Handle edge case: agent connected but hasn't triggered greeting
+  useEffect(() => {
+    if (sessionStarted && selectedScenario) {
+      const greetingTimeout = setTimeout(() => {
+        // Check if agent is available but no messages yet (hasn't spoken greeting)
+        if (isAgentAvailable(agentState) && messages.length === 0) {
+          console.log('🔄 Agent connected but no greeting detected, reconnecting...');
+          
+          toastAlert({
+            title: 'Reconnecting...',
+            description: 'Agent connection issue detected, attempting to reconnect.',
+          });
+          
+          // Trigger reconnection by disconnecting and letting app.tsx handle reconnection
+          room.disconnect();
+        }
+      }, 15_000); // Check after 15 seconds - enough time for agent to trigger greeting
+
+      return () => clearTimeout(greetingTimeout);
+    }
+  }, [agentState, sessionStarted, selectedScenario, messages.length, room]);
+
   const { supportsChatInput, supportsVideoInput, supportsScreenShare } = appConfig;
   const capabilities = {
     supportsChatInput,
