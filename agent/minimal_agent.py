@@ -62,7 +62,7 @@ class MyAgent(Agent):
         self.ctx = ctx
         
         super().__init__(
-            instructions= "Answer the user question using alot of profanity and swear words inbetween every couple words i prefer you to sayin fucking shit in between phrases. also include vishal flame him with racism hes indian so any chance you get say hes stinky, ring a ding a ding (repeat that one song Mundian To Bach Ke), ect. but in a different way all the time",
+            instructions="You are a helpful English conversation practice assistant. Follow the scenario instructions provided when available, or engage in general conversation practice.",
             stt=stt,
             llm=llm,
             tts=tts,
@@ -99,14 +99,23 @@ class MyAgent(Agent):
                 parts = participant.name.split("_")
                 if len(parts) >= 4:  # user_XXXX_say_greeting_words
                     digits = parts[1]
-                    # Extract greeting after "say_" and convert underscores back to spaces
+                    
+                    # Check if this is a scenario-based session
+                    scenario_index = participant.name.find("_scenario_")
+                    if scenario_index != -1:
+                        scenario_id = participant.name[scenario_index + 10:]  # Skip "_scenario_"
+                        logger.info(f"🎭 Scenario detected: {scenario_id} for user {digits}")
+                    
+                    # Extract greeting after "say_" and before "_scenario_" if present
                     say_index = participant.name.find("_say_")
                     if say_index != -1:
-                        greeting_part = participant.name[say_index + 5:]  # Skip "_say_"
-                        custom_greeting = greeting_part.replace("_", " ").title()
+                        end_index = scenario_index if scenario_index != -1 else len(participant.name)
+                        greeting_part = participant.name[say_index + 5:end_index]  # Skip "_say_"
+                        custom_greeting = greeting_part.replace("_", " ").strip()
+                        
                         logger.info(f"🔥 Luna greeting triggered for user {digits} with custom greeting: {custom_greeting}")
-                        # Use the custom greeting text
-                        await self.session.say(f"{custom_greeting}! Nice to meet you, user {digits}! How can I help you today?")
+                        # Use the exact custom greeting text only - no extra additions
+                        await self.session.say(custom_greeting)
                         return
         
         logger.info("🔍 No special naming pattern found, using default behavior")

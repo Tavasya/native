@@ -1,16 +1,21 @@
 import { type AgentState, useVoiceAssistant } from '@livekit/components-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import type { Scenario } from '../scenario-dashboard';
 
 interface ConversationProgressProps {
   className?: string;
+  scenario?: Scenario;
 }
 
-export function ConversationProgress({ className }: ConversationProgressProps) {
+export function ConversationProgress({ className, scenario }: ConversationProgressProps) {
   const { state } = useVoiceAssistant();
   const [conversationTurns, setConversationTurns] = useState(0);
   const [lastState, setLastState] = useState<AgentState>('disconnected');
   const [animatingTurn, setAnimatingTurn] = useState<number | null>(null);
+  
+  // Use scenario turns or default to 10
+  const maxTurns = scenario?.turns || 10;
   
   // Debug render
   console.log('🎨 ConversationProgress render: state=', state, 'turns=', conversationTurns);
@@ -18,12 +23,12 @@ export function ConversationProgress({ className }: ConversationProgressProps) {
   useEffect(() => {
     console.log('🔄 ConversationProgress: state changed from', lastState, 'to', state);
     
-    // Count a conversation turn when agent finishes speaking and goes back to listening
-    // This represents a complete exchange (user spoke, agent responded)
-    if (state === 'listening' && lastState === 'speaking') {
-      const newTurn = Math.min(conversationTurns + 1, 10);
+    // Count a conversation turn when user starts speaking (agent goes from listening to thinking)
+    // This represents the start of a new user turn
+    if (state === 'thinking' && lastState === 'listening') {
+      const newTurn = Math.min(conversationTurns + 1, maxTurns);
       if (newTurn > conversationTurns) {
-        console.log('🎯 New conversation turn:', newTurn);
+        console.log('🎯 New conversation turn (user speaking):', newTurn);
         setAnimatingTurn(newTurn - 1); // Index of the turn being animated
         setConversationTurns(newTurn);
         
@@ -32,17 +37,18 @@ export function ConversationProgress({ className }: ConversationProgressProps) {
       }
     }
     
-    // Also trigger on speaking start for immediate visual feedback
-    if (state === 'speaking' && lastState !== 'speaking') {
-      console.log('🗣️ Agent started speaking');
-    }
-    
     setLastState(state);
-  }, [state, lastState, conversationTurns]);
+  }, [state, lastState, conversationTurns, maxTurns]);
+
+  // Reset conversation turns when scenario changes
+  useEffect(() => {
+    setConversationTurns(0);
+    setAnimatingTurn(null);
+  }, [scenario]);
   
   return (
     <div className={cn('flex items-center justify-center', className)}>
-      {Array.from({ length: 10 }, (_, i) => {
+      {Array.from({ length: maxTurns }, (_, i) => {
         const isFilled = i < conversationTurns;
         const isAnimating = animatingTurn === i;
         
@@ -54,7 +60,7 @@ export function ConversationProgress({ className }: ConversationProgressProps) {
                 isFilled ? 'bg-blue-500' : 'bg-gray-300'
               ])} 
             />
-            {i < 9 && (
+            {i < maxTurns - 1 && (
               <div 
                 className={cn([
                   'h-1 w-4 relative overflow-hidden bg-gray-300'

@@ -18,6 +18,9 @@ import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
 import type { AppConfig } from '../lib/types';
 import { cn } from '@/lib/utils';
+import { SuggestedResponses } from './suggested-responses';
+import { ConversationProgress } from '@/components/livekit/conversation-progress';
+import type { Scenario } from './scenario-dashboard';
 
 function isAgentAvailable(agentState: AgentState) {
   return agentState == 'listening' || agentState == 'thinking' || agentState == 'speaking';
@@ -27,12 +30,14 @@ interface SessionViewProps {
   appConfig: AppConfig;
   disabled: boolean;
   sessionStarted: boolean;
+  selectedScenario?: Scenario;
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   appConfig,
   disabled,
   sessionStarted,
+  selectedScenario,
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
@@ -47,6 +52,10 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
 
   async function handleSendMessage(message: string) {
     await send(message);
+  }
+
+  const handleSuggestedResponse = async (response: string) => {
+    await handleSendMessage(response);
   }
 
   useEffect(() => {
@@ -130,11 +139,28 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
             Room: {room.name || 'Connecting...'}
           </div>
         </div>
+        
+        {/* Conversation Progress in header */}
+        {selectedScenario && sessionStarted && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+            <ConversationProgress scenario={selectedScenario} />
+          </div>
+        )}
+        
         {/* skrim */}
         <div className="from-background absolute bottom-0 left-0 h-12 w-full translate-y-full bg-gradient-to-b to-transparent" />
       </div>
 
       <MediaTiles chatOpen={chatOpen} />
+
+      {/* Suggested Responses */}
+      {selectedScenario && sessionStarted && (
+        <SuggestedResponses
+          scenario={selectedScenario}
+          onResponseSelect={handleSuggestedResponse}
+          disabled={!isAgentAvailable(agentState)}
+        />
+      )}
 
       <div className="bg-background fixed right-0 bottom-0 left-0 z-50 px-3 pt-2 pb-3 md:px-12 md:pb-12">
         <motion.div
