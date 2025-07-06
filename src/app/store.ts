@@ -13,6 +13,7 @@ import metricsReducer from '@/features/metrics/metricsSlice'
 import prepTimeReducer from '@/features/assignments/prepTimeSlice'
 import practiceReducer from '@/features/practice/practiceSlice'
 import libraryReducer from '@/features/library/librarySlice'
+import roadmapReducer from '@/features/roadmap/roadmapSlice'
 
 // Configure persist options
 const persistConfig = {
@@ -34,6 +35,7 @@ const rootReducer = combineReducers({
   prepTime: prepTimeReducer,
   practice: practiceReducer,
   library: libraryReducer,
+  roadmap: roadmapReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -52,6 +54,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       prepTime: prepTimeReducer(undefined, action),
       practice: practiceReducer(undefined, action),
       library: libraryReducer(undefined, action),
+      roadmap: roadmapReducer(undefined, action),
     };
   }
   return rootReducer(state, action);

@@ -6,12 +6,10 @@ import { RoomAudioRenderer, RoomContext, StartAudio } from '@livekit/components-
 import { toastAlert } from './alert-toast';
 import { SessionView } from './session-view';
 import { Toaster } from './ui/sonner';
-import { Welcome } from './welcome';
 import type { Scenario } from './scenario-dashboard';
 import useConnectionDetails from '../hooks/useConnectionDetails';
 import type { AppConfig } from '../lib/types';
 
-const MotionWelcome = motion.create(Welcome);
 const MotionSessionView = motion.create(SessionView);
 
 interface AppProps {
@@ -37,8 +35,13 @@ export function App({ appConfig }: AppProps) {
       setSelectedScenario(location.state.selectedScenario);
       // Clear the state to prevent issues on refresh
       window.history.replaceState({}, document.title);
+    } else {
+      // If no scenario and not in a session, redirect to dashboard
+      if (!sessionStarted) {
+        navigate('/luna/dashboard');
+      }
     }
-  }, [location.state]);
+  }, [location.state, sessionStarted, navigate]);
 
   // Auto-start session after scenario is set and connection details are ready
   useEffect(() => {
@@ -137,15 +140,16 @@ export function App({ appConfig }: AppProps) {
     }
   };
 
-  const { startButtonText } = appConfig;
-
-  const handleScenarioSelect = (scenario: Scenario) => {
-    setSelectedScenario(scenario);
-  };
+  // Commented out unused variables since Welcome component is disabled
+  // const { startButtonText } = appConfig;
+  // const handleScenarioSelect = (scenario: Scenario) => {
+  //   setSelectedScenario(scenario);
+  // };
 
   return (
     <>
-      {!cameFromDashboard && (
+      {/* Commented out - no longer needed since users come from dashboard */}
+      {/* {!cameFromDashboard && (
         <MotionWelcome
           key="welcome"
           startButtonText={startButtonText}
@@ -156,7 +160,7 @@ export function App({ appConfig }: AppProps) {
           animate={{ opacity: sessionStarted ? 0 : 1 }}
           transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
         />
-      )}
+      )} */}
 
       <RoomContext.Provider value={room}>
         <RoomAudioRenderer />

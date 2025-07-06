@@ -45,7 +45,7 @@ app.get('/api/connection-details', async (req, res) => {
     const randomDigits = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     const customGreeting = req.query.greeting as string || "Hi I am Luna";
     const scenario = req.query.scenario as string || "";
-    const instructions = req.query.instructions as string || "";
+   
     const conversationScript = req.query.conversationScript as string || "";
     const scenarioLevel = req.query.scenarioLevel as string || "";
     const scenarioTurns = req.query.scenarioTurns as string || "";

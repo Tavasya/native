@@ -7,7 +7,6 @@ import {
   type ReceivedChatMessage,
   useRoomContext,
   useVoiceAssistant,
-  useTranscriptions,
 } from '@livekit/components-react';
 import { toastAlert } from '../components/alert-toast';
 import { AgentControlBar } from '../components/livekit/agent-control-bar/agent-control-bar';
@@ -21,6 +20,9 @@ import { cn } from '@/lib/utils';
 import { ConversationProgress } from '@/components/livekit/conversation-progress';
 import { SettingsDropdown } from './settings-dropdown';
 import type { Scenario } from './scenario-dashboard';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/app/store';
+import { completionService } from '@/features/roadmap';
 
 function isAgentAvailable(agentState: AgentState) {
   return agentState == 'listening' || agentState == 'thinking' || agentState == 'speaking';
@@ -42,11 +44,9 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
   const [scriptAwareTurns, setScriptAwareTurns] = useState<number>(0);
+  const [completionTracked, setCompletionTracked] = useState(false);
   const { messages, send } = useChatAndTranscription();
-  const transcriptions = useTranscriptions();
-  
-  // Debug: Check if transcriptions are available at session level
-  console.log('🔥 Session view transcriptions:', transcriptions);
+  const { user } = useSelector((state: RootState) => state.auth);
   const room = useRoomContext();
 
   useDebugMode();
@@ -114,6 +114,44 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
       return () => clearTimeout(greetingTimeout);
     }
   }, [agentState, sessionStarted, selectedScenario, messages.length, room]);
+
+  // Auto-end conversation when we reach the final turn
+  useEffect(() => {
+    if (selectedScenario && scriptAwareTurns >= selectedScenario.turns && !completionTracked) {
+      console.log(`🎯 Conversation completed! Reached turn ${scriptAwareTurns}/${selectedScenario.turns}, ending call...`);
+      
+      // Mark assignment as complete
+      if (user?.id) {
+        completionService.markAssignmentComplete({
+          userId: user.id,
+          assignmentId: selectedScenario.id,
+          assignmentType: 'conversation',
+          scenarioName: selectedScenario.name
+        }).then(result => {
+          if (result.success) {
+            console.log(`✅ Conversation completion tracked in database`);
+          } else {
+            console.error(`❌ Failed to track completion:`, result.error);
+          }
+        });
+        setCompletionTracked(true);
+      }
+      
+      // Add a small delay to let the final message finish playing
+      const endCallTimeout = setTimeout(() => {
+        // Only disconnect if still connected to avoid multiple disconnection attempts
+        if (room.state === 'connected') {
+          toastAlert({
+            title: 'Conversation Completed!',
+            description: `Great job completing ${selectedScenario.name}!`,
+          });
+          room.disconnect();
+        }
+      }, 2000); // Reduced to 2 second delay for better responsiveness
+      
+      return () => clearTimeout(endCallTimeout);
+    }
+  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id]);
 
   const { supportsChatInput, supportsVideoInput, supportsScreenShare } = appConfig;
   const capabilities = {

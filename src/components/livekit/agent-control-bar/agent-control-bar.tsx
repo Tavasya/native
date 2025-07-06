@@ -2,15 +2,9 @@
 
 import * as React from 'react';
 import { Track } from 'livekit-client';
-import { BarVisualizer, useRemoteParticipants, useTranscriptions } from '@livekit/components-react';
-import { ChatTextIcon, PhoneDisconnectIcon } from '@phosphor-icons/react/dist/ssr';
-import { ChatInput } from '@/components/livekit/chat/chat-input';
-import { Button } from '@/components/ui/button';
-import { Toggle } from '@/components/ui/toggle';
+import { useTranscriptions } from '@livekit/components-react';
 import { AppConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { DeviceSelect } from '../device-select';
-import { TrackToggle } from '../track-toggle';
 import { UseAgentControlBarProps, useAgentControlBar } from './hooks/use-agent-control-bar';
 
 export interface AgentControlBarProps
@@ -37,10 +31,7 @@ export function AgentControlBar({
   onDeviceError,
   ...props
 }: AgentControlBarProps) {
-  const participants = useRemoteParticipants();
-  const [chatOpen, setChatOpen] = React.useState(false);
-  const [isSendingMessage, setIsSendingMessage] = React.useState(false);
-  const [captionsEnabled, setCaptionsEnabled] = React.useState(true);
+  const [chatOpen] = React.useState(false);
   const transcriptions = useTranscriptions();
   
   // Get the latest agent transcript only
@@ -65,37 +56,14 @@ export function AgentControlBar({
     return agentTranscripts[agentTranscripts.length - 1]?.text || '';
   }, [transcriptions]);
 
-  const isAgentAvailable = participants.some((p) => p.isAgent);
-  const isInputDisabled = !chatOpen || !isAgentAvailable || isSendingMessage;
-
   const {
-    micTrackRef,
-    visibleControls,
-    cameraToggle,
-    microphoneToggle,
-    screenShareToggle,
-    handleAudioDeviceChange,
-    handleVideoDeviceChange,
-    handleDisconnect,
     pushToTalk,
   } = useAgentControlBar({
     controls,
     saveUserChoices,
   });
 
-  const handleSendMessage = async (message: string) => {
-    setIsSendingMessage(true);
-    try {
-      await onSendMessage?.(message);
-    } finally {
-      setIsSendingMessage(false);
-    }
-  };
 
-  const onLeave = () => {
-    handleDisconnect();
-    onDisconnect?.();
-  };
 
   React.useEffect(() => {
     onChatOpenChange?.(chatOpen);

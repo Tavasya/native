@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { App as MainApp } from '@/components/app';
 import Dashboard from '@/components/Dashboard';
+import LunaOnboarding from './LunaOnboarding';
 import { APP_CONFIG_DEFAULTS } from '@/../app-config';
 import { AppConfig } from '@/lib/types';
 import { getAppConfig } from '../../lib/util_voice_agent';
@@ -37,6 +38,7 @@ function App() {
       
       <Routes>
         <Route path="/" element={<MainApp appConfig={appConfig} />} />
+        <Route path="/onboarding" element={<LunaOnboarding />} />
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
       

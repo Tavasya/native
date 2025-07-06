@@ -1,26 +1,8 @@
-import { type AgentState, useVoiceAssistant, useTranscriptions } from '@livekit/components-react';
+import { type AgentState, useVoiceAssistant } from '@livekit/components-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import type { Scenario } from '../scenario-dashboard';
 
-// Text similarity function for off-script detection (same as SuggestedResponses)
-function calculateSimilarity(userText: string, expectedText: string): number {
-  if (!userText || !expectedText) return 0;
-  
-  const userWords = userText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-  const expectedWords = expectedText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-  
-  if (userWords.length === 0 || expectedWords.length === 0) return 0;
-  
-  const commonWords = userWords.filter(word => 
-    expectedWords.some(expected => 
-      expected.includes(word) || word.includes(expected) || 
-      word === expected
-    )
-  );
-  
-  return commonWords.length / Math.max(userWords.length, expectedWords.length);
-}
 
 interface ConversationProgressProps {
   className?: string;
@@ -30,7 +12,6 @@ interface ConversationProgressProps {
 
 export function ConversationProgress({ className, scenario, scriptAwareTurns }: ConversationProgressProps) {
   const { state } = useVoiceAssistant();
-  const transcriptions = useTranscriptions();
   const [conversationTurns, setConversationTurns] = useState(0);
   const [lastState, setLastState] = useState<AgentState>('disconnected');
   const [animatingTurn, setAnimatingTurn] = useState<number | null>(null);
@@ -38,8 +19,8 @@ export function ConversationProgress({ className, scenario, scriptAwareTurns }: 
   // Use scenario turns or default to 10
   const maxTurns = scenario?.turns || 10;
   
-  // Debug render
-  console.log('🎨 ConversationProgress render: state=', state, 'turns=', conversationTurns);
+  // Debug render (commented out to reduce log noise during session end)
+  // console.log('🎨 ConversationProgress render: state=', state, 'turns=', conversationTurns);
   
 
   useEffect(() => {
