@@ -38,8 +38,9 @@ export const AgentTile = forwardRef<HTMLDivElement, AgentAudioTileProps>(({
     return agentTranscripts[agentTranscripts.length - 1]?.text || '';
   }, [transcriptions]);
 
+
   return (
-    <div ref={ref} className={cn(className)}>
+    <div ref={ref} className={cn('flex flex-col items-center', className)}>
       {/* Bar Visualizer */}
       <BarVisualizer
         barCount={5}

@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { AgentTile } from './agent-tile';
 import { AvatarTile } from './avatar-tile';
 import { VideoTile } from './video-tile';
+import { SuggestedResponses } from '../suggested-responses';
+import type { Scenario } from '../scenario-dashboard';
 
 const MotionVideoTile = motion.create(VideoTile);
 const MotionAgentTile = motion.create(AgentTile);
@@ -88,9 +90,13 @@ export function useLocalTrackRef(source: Track.Source) {
 
 interface MediaTilesProps {
   chatOpen: boolean;
+  selectedScenario?: Scenario;
+  sessionStarted?: boolean;
+  onResponseSelect?: (response: string) => void;
+  onTurnChange?: (turn: number) => void;
 }
 
-export function MediaTiles({ chatOpen }: MediaTilesProps) {
+export function MediaTiles({ chatOpen, selectedScenario, sessionStarted, onResponseSelect, onTurnChange }: MediaTilesProps) {
   const {
     state: agentState,
     audioTrack: agentAudioTrack,
@@ -120,6 +126,7 @@ export function MediaTiles({ chatOpen }: MediaTilesProps) {
   const avatarLayoutTransition = transition;
 
   const isAvatar = agentVideoTrack !== undefined;
+  const isAgentAvailable = agentState === 'listening' || agentState === 'thinking' || agentState === 'speaking';
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-8 bottom-32 z-50 md:top-12 md:bottom-40">
@@ -207,6 +214,21 @@ export function MediaTiles({ chatOpen }: MediaTilesProps) {
             </AnimatePresence>
           </div>
         </div>
+        
+        {/* Suggested Responses positioned outside agent tile */}
+        {selectedScenario && sessionStarted && onResponseSelect && !chatOpen && (
+          <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 pointer-events-auto z-60">
+            <div className="w-80 max-w-sm">
+              <SuggestedResponses
+                scenario={selectedScenario}
+                onResponseSelect={onResponseSelect}
+                disabled={!isAgentAvailable}
+                onTurnChange={onTurnChange}
+                agentState={agentState}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

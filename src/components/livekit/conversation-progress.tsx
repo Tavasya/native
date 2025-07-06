@@ -1,15 +1,36 @@
-import { type AgentState, useVoiceAssistant } from '@livekit/components-react';
+import { type AgentState, useVoiceAssistant, useTranscriptions } from '@livekit/components-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import type { Scenario } from '../scenario-dashboard';
 
+// Text similarity function for off-script detection (same as SuggestedResponses)
+function calculateSimilarity(userText: string, expectedText: string): number {
+  if (!userText || !expectedText) return 0;
+  
+  const userWords = userText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  const expectedWords = expectedText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  
+  if (userWords.length === 0 || expectedWords.length === 0) return 0;
+  
+  const commonWords = userWords.filter(word => 
+    expectedWords.some(expected => 
+      expected.includes(word) || word.includes(expected) || 
+      word === expected
+    )
+  );
+  
+  return commonWords.length / Math.max(userWords.length, expectedWords.length);
+}
+
 interface ConversationProgressProps {
   className?: string;
   scenario?: Scenario;
+  scriptAwareTurns?: number; // For BEGINNER scenarios, sync with SuggestedResponses turn count
 }
 
-export function ConversationProgress({ className, scenario }: ConversationProgressProps) {
+export function ConversationProgress({ className, scenario, scriptAwareTurns }: ConversationProgressProps) {
   const { state } = useVoiceAssistant();
+  const transcriptions = useTranscriptions();
   const [conversationTurns, setConversationTurns] = useState(0);
   const [lastState, setLastState] = useState<AgentState>('disconnected');
   const [animatingTurn, setAnimatingTurn] = useState<number | null>(null);
@@ -20,25 +41,31 @@ export function ConversationProgress({ className, scenario }: ConversationProgre
   // Debug render
   console.log('🎨 ConversationProgress render: state=', state, 'turns=', conversationTurns);
   
+
   useEffect(() => {
     console.log('🔄 ConversationProgress: state changed from', lastState, 'to', state);
     
-    // Count a conversation turn when user starts speaking (agent goes from listening to thinking)
-    // This represents the start of a new user turn
-    if (state === 'thinking' && lastState === 'listening') {
+      // For BEGINNER scenarios, sync with scriptAwareTurns from SuggestedResponses
+    if (scenario?.level === 'BEGINNER' && scriptAwareTurns !== undefined && scriptAwareTurns !== conversationTurns) {
+      console.log('🔄 ConversationProgress: Syncing with SuggestedResponses turns:', scriptAwareTurns);
+      setConversationTurns(scriptAwareTurns);
+      setAnimatingTurn(scriptAwareTurns - 1);
+      setTimeout(() => setAnimatingTurn(null), 600);
+    }
+    // For non-BEGINNER scenarios, use simple turn counting
+    else if (scenario?.level !== 'BEGINNER' && state === 'thinking' && lastState === 'listening') {
       const newTurn = Math.min(conversationTurns + 1, maxTurns);
       if (newTurn > conversationTurns) {
-        console.log('🎯 New conversation turn (user speaking):', newTurn);
-        setAnimatingTurn(newTurn - 1); // Index of the turn being animated
+        console.log('🎯 ConversationProgress: Basic turn advancement:', newTurn);
+        setAnimatingTurn(newTurn - 1);
         setConversationTurns(newTurn);
         
-        // Clear animation after it completes
         setTimeout(() => setAnimatingTurn(null), 600);
       }
     }
     
     setLastState(state);
-  }, [state, lastState, conversationTurns, maxTurns]);
+  }, [state, lastState, conversationTurns, maxTurns, scriptAwareTurns, scenario]);
 
   // Reset conversation turns when scenario changes
   useEffect(() => {
@@ -56,19 +83,21 @@ export function ConversationProgress({ className, scenario }: ConversationProgre
           <div key={i} className="flex items-center">
             <div 
               className={cn([
-                'h-4 w-4 rounded-full transition-colors duration-500 ease-out',
-                isFilled ? 'bg-blue-500' : 'bg-gray-300'
+                'h-4 w-4 rounded-full transition-all duration-500 ease-out border-2',
+                isFilled 
+                  ? 'bg-primary border-primary shadow-sm shadow-primary/50' 
+                  : 'bg-muted border-border'
               ])} 
             />
             {i < maxTurns - 1 && (
               <div 
                 className={cn([
-                  'h-1 w-4 relative overflow-hidden bg-gray-300'
+                  'h-1 w-4 relative overflow-hidden bg-muted rounded-full'
                 ])}
               >
                 <div
                   className={cn([
-                    'h-full bg-blue-500 transition-all duration-500 ease-out',
+                    'h-full bg-primary transition-all duration-500 ease-out rounded-full',
                     isFilled ? 'w-full' : 'w-0'
                   ])}
                   style={{
