@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Mic, Square, Upload, Loader2, Play } from 'lucide-react';
@@ -18,8 +18,10 @@ import {
   createPracticeSession,
   submitForImprovement,
   addHighlight,
-  removeHighlight
+  removeHighlight,
+  setHighlights
 } from '@/features/practice/practiceSlice';
+import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 
 
@@ -102,6 +104,33 @@ const PracticeFeedback: React.FC = () => {
       clearPracticeAudioState();
     };
   }, [sessionId, dispatch, intervalId, resetRecording]);
+
+  const handleAutoNavigateToPracticeState = useCallback((sessionData: PracticeSession) => {
+    // Auto-navigate to the appropriate practice state based on session status
+    switch (sessionData.status) {
+      case 'practicing_sentences':
+      case 'practicing_words':
+      case 'practicing_full_transcript':
+        // Open the practice modal to continue where they left off
+        setShowPracticeModal(true);
+        break;
+      case 'completed':
+        // Show completion state - could navigate to results page
+        console.log('Practice session completed');
+        break;
+      case 'failed':
+        // Show error state
+        dispatch(setSessionError(sessionData.error_message || 'Practice session failed'));
+        break;
+      case 'abandoned':
+        // Show abandoned state with option to restart
+        console.log('Practice session was abandoned');
+        break;
+      default:
+        // For other states (transcript_processing, transcript_ready), stay on current page
+        break;
+    }
+  }, [dispatch]);
   
   // Load session data when URL contains session ID
   useEffect(() => {
@@ -110,6 +139,11 @@ const PracticeFeedback: React.FC = () => {
         .unwrap()
         .then((sessionData) => {
           setSessionId(sessionData.id);
+          
+          // Load highlights from session data if they exist
+          if (sessionData.highlights && Array.isArray(sessionData.highlights)) {
+            dispatch(setHighlights(sessionData.highlights));
+          }
           
           // Set appropriate loading states based on session status
           if (sessionData.status === 'transcript_ready' && sessionData.original_audio_url && !sessionData.improved_transcript) {
@@ -126,7 +160,7 @@ const PracticeFeedback: React.FC = () => {
           dispatch(setSessionError(`Failed to load practice session: ${err instanceof Error ? err.message : 'Unknown error'}`));
         });
     }
-  }, [urlSessionId, dispatch]);
+  }, [urlSessionId, dispatch, handleAutoNavigateToPracticeState]);
 
   // Real-time subscription
   useEffect(() => {
@@ -141,6 +175,11 @@ const PracticeFeedback: React.FC = () => {
         }, (payload) => {
           const updatedSession = payload.new as PracticeSession;
           dispatch(setSession(updatedSession));
+          
+          // Update highlights if they changed
+          if (updatedSession.highlights && Array.isArray(updatedSession.highlights)) {
+            dispatch(setHighlights(updatedSession.highlights));
+          }
           
           // Update loading states based on status changes
           if (updatedSession.status === 'transcript_ready') {
@@ -275,7 +314,7 @@ const PracticeFeedback: React.FC = () => {
     // Reset audio recording hook state
     resetRecording();
     
-    // Clear Redux practice state
+        // Clear Redux practice state
     dispatch(clearPractice());
     dispatch(clearRecording());
     dispatch(clearSession());
@@ -323,34 +362,12 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
-  const handleAutoNavigateToPracticeState = (sessionData: PracticeSession) => {
-    // Auto-navigate to the appropriate practice state based on session status
-    switch (sessionData.status) {
-      case 'practicing_sentences':
-      case 'practicing_words':
-      case 'practicing_full_transcript':
-        // Open the practice modal to continue where they left off
-        setShowPracticeModal(true);
-        break;
-      case 'completed':
-        // Show completion state - could navigate to results page
-        console.log('Practice session completed');
-        break;
-      case 'failed':
-        // Show error state
-        dispatch(setSessionError(sessionData.error_message || 'Practice session failed'));
-        break;
-      case 'abandoned':
-        // Show abandoned state with option to restart
-        console.log('Practice session was abandoned');
-        break;
-      default:
-        // For other states (transcript_processing, transcript_ready), stay on current page
-        break;
-    }
-  };
-
   const clearPracticeAudioState = () => {
+    // Clear all practice-related blob URLs using the tracker
+    const clearedCount = blobUrlTracker.clearByContext('practice');
+    if (clearedCount > 0) {
+      console.log(`🧹 Cleared ${clearedCount} practice-related blob URLs`);
+    }
     
     // Clear localStorage recordings
     if (typeof window !== 'undefined') {
@@ -380,7 +397,7 @@ const PracticeFeedback: React.FC = () => {
   };
 
   const handleWordClick = (word: string, position: number) => {
-    const existingHighlight = highlights.find(h => h.position === position);
+    const existingHighlight = highlights.find(h => h.word === word && h.position === position);
     if (existingHighlight) {
       dispatch(removeHighlight(position));
     } else {
@@ -388,33 +405,28 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
-  const renderHighlightableText = (text: string) => {
+  const renderHighlightableText = (text: string, isClickable: boolean = true) => {
     const words = text.split(/(\s+)/);
-    let wordPosition = 0; // Track position of actual words (not spaces)
-    
     return words.map((word, index) => {
       const cleanWord = word.trim();
+      const isHighlighted = highlights.some(h => h.word === cleanWord && h.position === index);
       
       if (cleanWord && /\w/.test(cleanWord)) {
-        const currentPosition = wordPosition;
-        const isHighlighted = highlights.some(h => h.position === currentPosition);
-        wordPosition++; // Increment only for actual words
-        
         return (
           <span
             key={index}
-            className={`cursor-pointer transition-colors duration-200 ${
+            className={`${isClickable ? 'cursor-pointer' : 'cursor-default'} transition-colors duration-200 ${
               isHighlighted 
                 ? 'bg-yellow-200 text-yellow-900 rounded px-1' 
-                : 'hover:bg-gray-100 rounded px-1'
+                : isClickable ? 'hover:bg-gray-100 rounded px-1' : ''
             }`}
-            onClick={() => handleWordClick(cleanWord, currentPosition)}
+            onClick={isClickable ? () => handleWordClick(cleanWord, index) : undefined}
           >
             {word}
           </span>
         );
       }
-      return word; // Return spaces and punctuation as-is
+      return word;
     });
   };
 
@@ -626,13 +638,20 @@ const PracticeFeedback: React.FC = () => {
                     
                     <div className="space-y-3">
                       <h4 className="font-medium text-green-700">Improved Transcript</h4>
-                      <p className="text-xs text-gray-600 mb-2">
-                        Click on words to highlight them for focused practice
-                      </p>
+                      {session.status !== 'completed' && (
+                        <p className="text-xs text-gray-600 mb-2">
+                          Click on words to highlight them for focused practice
+                        </p>
+                      )}
+                      {session.status === 'completed' && highlights.length > 0 && (
+                        <p className="text-xs text-gray-600 mb-2">
+                          Highlighted words from your practice session
+                        </p>
+                      )}
                       <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                         <div className="text-sm whitespace-pre-wrap">
                           {session.improved_transcript 
-                            ? renderHighlightableText(session.improved_transcript)
+                            ? renderHighlightableText(session.improved_transcript, session.status !== 'completed')
                             : 'No improved transcript available'}
                         </div>
                       </div>
@@ -645,15 +664,19 @@ const PracticeFeedback: React.FC = () => {
                             {highlights.map((highlight, index) => (
                               <span
                                 key={index}
-                                className="inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm"
+                                className={`inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm ${
+                                  session.status === 'completed' ? '' : ''
+                                }`}
                               >
                                 {highlight.word}
-                                <button
-                                  onClick={() => dispatch(removeHighlight(highlight.position))}
-                                  className="text-yellow-700 hover:text-yellow-900"
-                                >
-                                  ×
-                                </button>
+                                {session.status !== 'completed' && (
+                                  <button
+                                    onClick={() => dispatch(removeHighlight(highlight.position))}
+                                    className="text-yellow-700 hover:text-yellow-900"
+                                  >
+                                    ×
+                                  </button>
+                                )}
                               </span>
                             ))}
                           </div>
@@ -667,28 +690,50 @@ const PracticeFeedback: React.FC = () => {
                       The improved transcript shows enhanced vocabulary, better structure, and more sophisticated language patterns.
                     </p>
                     
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={session.status === 'completed' ? undefined : handleStartPracticeSession}
-                        className={session.status === 'completed' 
-                          ? "bg-gray-400 cursor-not-allowed" 
-                          : "bg-green-600 hover:bg-green-700"
-                        }
-                        size="lg"
-                        disabled={session.status === 'completed'}
-                      >
-                        <Play className="h-5 w-5 mr-2" />
-                        {session.status === 'completed' ? 'Completed' : 'Start Practice Session'}
-                      </Button>
-                      
-                      <Button
-                        onClick={handleReset}
-                        variant="outline"
-                        size="lg"
-                      >
-                        Start New Practice
-                      </Button>
-                    </div>
+                    {session.status === 'completed' ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-green-800">Practice Session Completed!</h4>
+                            <p className="text-sm text-green-600">Great job! You've successfully completed your practice session.</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                          <Button
+                            onClick={handleReset}
+                            className="bg-blue-600 hover:bg-blue-700"
+                            size="lg"
+                          >
+                            Start New Practice
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={handleStartPracticeSession}
+                          className="bg-green-600 hover:bg-green-700"
+                          size="lg"
+                        >
+                          <Play className="h-5 w-5 mr-2" />
+                          Start Practice Session
+                        </Button>
+                        
+                        <Button
+                          onClick={handleReset}
+                          variant="outline"
+                          size="lg"
+                        >
+                          Start New Practice
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -727,7 +772,6 @@ const PracticeFeedback: React.FC = () => {
                   </div>
                 </div>
               )}
-              
               
               {session.status === 'failed' && (
                 <div className="space-y-6">

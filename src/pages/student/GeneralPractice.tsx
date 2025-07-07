@@ -2,19 +2,22 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QuestionCard } from '@/features/assignments/types';
 import { supabase } from '@/integrations/supabase/client';
-import { useAppSelector } from '@/app/hooks';
+import { useAppSelector, useAppDispatch } from '@/app/hooks';
+import { setSession } from '@/features/practice/practiceSlice';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 const GeneralPractice: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
+  const { currentSession } = useAppSelector(state => state.practice);
   const [practiceAssignmentId, setPracticeAssignmentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const setupInProgress = useRef(false);
 
   // Hardcoded practice assignment questions
-  const practiceQuestions: QuestionCard[] = [
+  const practiceQuestions: QuestionCard[] = React.useMemo(() => [
     {
       id: 'q1',
       type: 'normal',
@@ -23,7 +26,7 @@ const GeneralPractice: React.FC = () => {
       timeLimit: '2',
       prepTime: '1'
     }
-  ];
+  ], []);
 
   useEffect(() => {
     const setupPracticeAssignment = async () => {
@@ -31,6 +34,26 @@ const GeneralPractice: React.FC = () => {
         setError('User not authenticated');
         setLoading(false);
         return;
+      }
+
+      // Check if we already have a session in Redux state
+      if (currentSession) {
+        console.log('Found existing session in Redux state:', currentSession.status);
+        // Navigate based on existing session status - all states go to practice feedback page
+        switch (currentSession.status) {
+          case 'completed':
+          case 'transcript_processing':
+          case 'transcript_ready':
+          case 'practicing_sentences':
+          case 'practicing_words':
+          case 'practicing_full_transcript':
+          case 'failed':
+          case 'abandoned':
+            navigate(`/student/practice-feedback?session=${currentSession.id}`);
+            return;
+          default:
+            break;
+        }
       }
 
       // Prevent duplicate execution (especially in React Strict Mode)
@@ -83,21 +106,9 @@ const GeneralPractice: React.FC = () => {
           // Check for existing practice sessions and redirect based on status
           console.log('Checking for existing practice sessions for user:', user.id);
           
-          // First, check if there are any practice sessions at all for this user
-          const { data: allPracticeSessions, error: allSessionsError } = await supabase
-            .from('practice_sessions')
-            .select('id, status, improved_transcript, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-          
-          console.log('All practice sessions for user:', { allPracticeSessions, allSessionsError });
-          if (allPracticeSessions && allPracticeSessions.length > 0) {
-            console.log('Practice session statuses:', allPracticeSessions.map(s => ({ id: s.id, status: s.status })));
-          }
-          
           const { data: practiceSessions, error: practiceSessionError } = await supabase
             .from('practice_sessions')
-            .select('id, status, improved_transcript')
+            .select('*')
             .eq('user_id', user.id)
             .in('status', ['transcript_processing', 'transcript_ready', 'practicing_sentences', 'practicing_words', 'practicing_full_transcript', 'completed', 'failed', 'abandoned', 'start_practice'])
             .order('created_at', { ascending: false })
@@ -110,8 +121,31 @@ const GeneralPractice: React.FC = () => {
             // Continue with normal flow if we can't check practice sessions
           } else if (practiceSessions && practiceSessions.length > 0) {
             const session = practiceSessions[0];
-            console.log('Found active practice session with status:', session.status, 'redirecting to feedback:', session.id);
-            navigate(`/student/practice-feedback?session=${session.id}`);
+            console.log('Found active practice session with status:', session.status);
+            
+            // Load session into Redux state
+            dispatch(setSession(session));
+            
+            // Navigate based on session status - all states go to practice feedback page
+            switch (session.status) {
+              case 'completed':
+                console.log('Session completed, showing on feedback page');
+                navigate(`/student/practice-feedback?session=${session.id}`);
+                break;
+              case 'transcript_processing':
+              case 'transcript_ready':
+              case 'practicing_sentences':
+              case 'practicing_words':
+              case 'practicing_full_transcript':
+              case 'failed':
+              case 'abandoned':
+                console.log('Session in progress or needs attention, redirecting to feedback page');
+                navigate(`/student/practice-feedback?session=${session.id}`);
+                break;
+              default:
+                console.log('Unknown session status, continuing with normal flow');
+                break;
+            }
             return;
           } else {
             console.log('No active practice sessions found, continuing with normal flow');
@@ -194,7 +228,35 @@ const GeneralPractice: React.FC = () => {
     };
 
     setupPracticeAssignment();
-  }, [user]);
+  }, [user, dispatch, currentSession, navigate, practiceQuestions]);
+
+  // Handle session state changes from Redux
+  useEffect(() => {
+    if (currentSession && !setupInProgress.current) {
+      console.log('Redux session state changed:', currentSession.status);
+      
+      // Navigate based on current session status - all states go to practice feedback page
+      switch (currentSession.status) {
+        case 'completed':
+          console.log('Session completed via Redux, showing on feedback page');
+          navigate(`/student/practice-feedback?session=${currentSession.id}`);
+          break;
+        case 'transcript_processing':
+        case 'transcript_ready':
+        case 'practicing_sentences':
+        case 'practicing_words':
+        case 'practicing_full_transcript':
+        case 'failed':
+        case 'abandoned':
+          console.log('Session in progress via Redux, redirecting to feedback page');
+          navigate(`/student/practice-feedback?session=${currentSession.id}`);
+          break;
+        default:
+          console.log('Unknown session status from Redux');
+          break;
+      }
+    }
+  }, [currentSession, navigate]);
 
   // Navigate to the real assignment once it's created
   useEffect(() => {
