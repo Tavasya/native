@@ -9,9 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { memoryMonitor } from '@/utils/memoryMonitor';
-import { MemoryUsageReporter } from '@/components/debug/MemoryUsageReporter';
-import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 // Custom Hooks
 import { useAssignmentData } from '@/hooks/assignment/useAssignmentData';
@@ -66,24 +63,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     state.assignments.testMode?.hasGloballyStarted?.[id || ''] || false
   );
   
-  // Memory monitoring setup for main component
-  useEffect(() => {
-    memoryMonitor.takeSnapshot('AssignmentPractice-init', {
-      assignmentId: id,
-      previewMode,
-      hasGloballyStarted
-    });
-    
-    // Start continuous monitoring every 30 seconds
-    const stopMonitoring = memoryMonitor.startMonitoring(30000);
-    
-    return () => {
-      memoryMonitor.takeSnapshot('AssignmentPractice-cleanup', {
-        assignmentId: id
-      });
-      stopMonitoring();
-    };
-  }, [id, previewMode, hasGloballyStarted]);
   
   // Comprehensive cache clearing when leaving the page
   useEffect(() => {
@@ -116,17 +95,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         }
       }
       
-      // Clear blob URLs by context
-      const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-      console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-      
-      // Clear any remaining blob URLs that might be related to recordings
-      const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-      remainingUrls.forEach(({ url, context }) => {
-        if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-          blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-        }
-      });
       
       // Force garbage collection if available
       if (window.gc) {
@@ -411,12 +379,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Update hasRecorded when question changes
   useEffect(() => {
     if (assignment) {
-      memoryMonitor.takeSnapshot('question-change-start', {
-        currentQuestionIndex,
-        isTestMode,
-        assignmentQuestionCount: assignment.questions.length,
-        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
-      });
       
       // In test mode, hasRecorded is managed by the test state, not by existing recordings
       if (!isTestMode) {
@@ -434,10 +396,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       // Reset timer when question changes
       setTimerResetTrigger(prev => prev + 1);
       
-      memoryMonitor.takeSnapshot('question-change-complete', {
-        currentQuestionIndex,
-        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
-      });
     }
   }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio, isTestMode]);
 
@@ -628,26 +586,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       }
     }
     
-    // Clear blob URLs by context
-    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-    
-    // Clear any remaining blob URLs that might be related to recordings
-    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-    remainingUrls.forEach(({ url, context }) => {
-      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-      }
-    });
-    
     // Force garbage collection if available
     if (window.gc) {
       window.gc();
       console.log('🗑️ Forced garbage collection');
     }
-    
-    // Log blob URL status
-    blobUrlTracker.logStatus();
     
     console.log('✅ Manual cache clearing completed');
     
@@ -689,17 +632,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       }
     }
     
-    // Clear blob URLs by context
-    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-    
-    // Clear any remaining blob URLs that might be related to recordings
-    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-    remainingUrls.forEach(({ url, context }) => {
-      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-      }
-    });
     
     // Force garbage collection if available
     if (window.gc) {
@@ -730,7 +662,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
-      <MemoryUsageReporter />
       <div className="flex items-center gap-4 py-4">
         <Button
           variant="ghost"

@@ -80,24 +80,41 @@ const GeneralPractice: React.FC = () => {
             return;
           }
 
-          // Check for existing practice sessions in transcript_ready status
+          // Check for existing practice sessions and redirect based on status
+          console.log('Checking for existing practice sessions for user:', user.id);
+          
+          // First, check if there are any practice sessions at all for this user
+          const { data: allPracticeSessions, error: allSessionsError } = await supabase
+            .from('practice_sessions')
+            .select('id, status, improved_transcript, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          console.log('All practice sessions for user:', { allPracticeSessions, allSessionsError });
+          if (allPracticeSessions && allPracticeSessions.length > 0) {
+            console.log('Practice session statuses:', allPracticeSessions.map(s => ({ id: s.id, status: s.status })));
+          }
+          
           const { data: practiceSessions, error: practiceSessionError } = await supabase
             .from('practice_sessions')
             .select('id, status, improved_transcript')
-            .eq('student_id', user.id)
-            .eq('status', 'transcript_ready')
+            .eq('user_id', user.id)
+            .in('status', ['transcript_processing', 'transcript_ready', 'practicing_sentences', 'practicing_words', 'practicing_full_transcript', 'completed', 'failed', 'abandoned', 'start_practice'])
             .order('created_at', { ascending: false })
             .limit(1);
+
+          console.log('Active practice sessions query result:', { practiceSessions, practiceSessionError });
 
           if (practiceSessionError) {
             console.error('Error checking practice sessions:', practiceSessionError);
             // Continue with normal flow if we can't check practice sessions
           } else if (practiceSessions && practiceSessions.length > 0) {
             const session = practiceSessions[0];
-            // If there's a practice session in transcript_ready status, redirect to practice feedback
-            console.log('Found practice session in transcript_ready status, redirecting to feedback:', session.id);
+            console.log('Found active practice session with status:', session.status, 'redirecting to feedback:', session.id);
             navigate(`/student/practice-feedback?session=${session.id}`);
             return;
+          } else {
+            console.log('No active practice sessions found, continuing with normal flow');
           }
           
           // No completed submission, continue with practice

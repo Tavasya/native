@@ -20,7 +20,6 @@ import {
   addHighlight,
   removeHighlight
 } from '@/features/practice/practiceSlice';
-import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 
 
@@ -349,11 +348,6 @@ const PracticeFeedback: React.FC = () => {
   };
 
   const clearPracticeAudioState = () => {
-    // Clear all practice-related blob URLs using the tracker
-    const clearedCount = blobUrlTracker.clearByContext('practice');
-    if (clearedCount > 0) {
-      console.log(`🧹 Cleared ${clearedCount} practice-related blob URLs`);
-    }
     
     // Clear localStorage recordings
     if (typeof window !== 'undefined') {
