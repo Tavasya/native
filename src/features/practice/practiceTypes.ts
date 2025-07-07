@@ -1,26 +1,13 @@
-export interface PracticeRequest {
-  transcript: string;
-  targetBandIncrease: number;
-}
-
-export interface PracticeResponse {
-  improvedTranscript: string;
-  highlightedWords: string[];
-  originalTranscript: string;
-  bandIncrease: number;
-}
-
 export interface RecordingState {
   isRecording: boolean;
   audioUrl: string | null;
+  audioBlob: Blob | null;
+  recordingTime: number;
   recordingError: string | null;
   hasRecording: boolean;
 }
 
 export interface PracticeState {
-  currentPractice: PracticeResponse | null;
-  loading: boolean;
-  error: string | null;
   recording: RecordingState;
   pronunciationAssessment: PronunciationAssessmentState | null;
   // Session-based practice state

@@ -1,15 +1,13 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PracticeState, PracticeRequest, PracticeResponse, PracticeSession } from './practiceTypes';
-import { practiceService } from './practiceService';
+import { PracticeState, PracticeSession } from './practiceTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 const initialState: PracticeState = {
-  currentPractice: null,
-  loading: false,
-  error: null,
   recording: {
     isRecording: false,
     audioUrl: null,
+    audioBlob: null,
+    recordingTime: 0,
     recordingError: null,
     hasRecording: false,
   },
@@ -21,14 +19,6 @@ const initialState: PracticeState = {
   isSubmitting: false,
   highlights: [],
 };
-
-export const improveTranscript = createAsyncThunk(
-  'practice/improveTranscript',
-  async (request: PracticeRequest) => {
-    const response = await practiceService.improveTranscript(request);
-    return response;
-  }
-);
 
 export const assessPronunciation = createAsyncThunk(
   'practice/assessPronunciation',
@@ -99,14 +89,15 @@ const practiceSlice = createSlice({
   initialState,
   reducers: {
     clearPractice: (state) => {
-      state.currentPractice = null;
-      state.error = null;
       state.recording = {
         isRecording: false,
         audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
         recordingError: null,
         hasRecording: false,
       };
+      state.pronunciationAssessment = null;
     },
     clearSession: (state) => {
       state.currentSession = null;
@@ -126,18 +117,23 @@ const practiceSlice = createSlice({
     setSubmitting: (state, action: PayloadAction<boolean>) => {
       state.isSubmitting = action.payload;
     },
-    setError: (state, action: PayloadAction<string>) => {
-      state.error = action.payload;
-      state.loading = false;
-    },
     startRecording: (state) => {
       state.recording.isRecording = true;
       state.recording.recordingError = null;
     },
-    stopRecording: (state, action: PayloadAction<{ audioUrl: string }>) => {
+    stopRecording: (state, action: PayloadAction<{ audioUrl: string; audioBlob?: Blob }>) => {
       state.recording.isRecording = false;
       state.recording.audioUrl = action.payload.audioUrl;
+      if (action.payload.audioBlob) {
+        state.recording.audioBlob = action.payload.audioBlob;
+      }
       state.recording.hasRecording = true;
+    },
+    setRecordingTime: (state, action: PayloadAction<number>) => {
+      state.recording.recordingTime = action.payload;
+    },
+    setAudioBlob: (state, action: PayloadAction<Blob | null>) => {
+      state.recording.audioBlob = action.payload;
     },
     setRecordingError: (state, action: PayloadAction<string>) => {
       state.recording.isRecording = false;
@@ -147,6 +143,8 @@ const practiceSlice = createSlice({
       state.recording = {
         isRecording: false,
         audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
         recordingError: null,
         hasRecording: false,
       };
@@ -169,19 +167,6 @@ const practiceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(improveTranscript.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(improveTranscript.fulfilled, (state, action: PayloadAction<PracticeResponse>) => {
-        state.loading = false;
-        state.currentPractice = action.payload;
-        state.error = null;
-      })
-      .addCase(improveTranscript.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to improve transcript';
-      })
       .addCase(assessPronunciation.pending, (state) => {
         state.pronunciationAssessment = {
           overallScore: 0,
@@ -255,9 +240,10 @@ export const {
   setSession,
   setSessionError,
   setSubmitting,
-  setError, 
   startRecording, 
   stopRecording, 
+  setRecordingTime,
+  setAudioBlob,
   setRecordingError, 
   clearRecording, 
   clearPronunciationAssessment,

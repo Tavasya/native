@@ -16,7 +16,6 @@ import LibraryTemplateView from '@/pages/teacher/LibraryTemplateView'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
-import Practice from "@/pages/student/Practice"
 import GeneralPractice from "@/pages/student/GeneralPractice"
 import NewLogin from '@/pages/auth/NewLogin'
 import SignUpSimple from '@/pages/auth/SignUpSimple'
@@ -124,7 +123,6 @@ export default function AppRoutes() {
             <Route path="/student/join-class" element={<JoinClass />} />
             <Route path="/student/practice" element={<GeneralPractice />} />
             <Route path="/student/practice-feedback" element={<PracticeFeedback />} />
-            <Route path="/student/practice/:submissionId" element={<Practice />} />
             {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
           </Route>
           

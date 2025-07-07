@@ -1,4 +1,4 @@
-import { PracticeRequest, PracticeResponse, PracticeSession } from './practiceTypes';
+import { PracticeSession } from './practiceTypes';
 
 const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
 
@@ -31,26 +31,6 @@ export const practiceService = {
     }
   },
 
-  async improveTranscript(request: PracticeRequest): Promise<PracticeResponse> {
-    // Note: This method is kept for backward compatibility but should be replaced
-    // with direct API calls from components. The actual improvement is now handled
-    // by the backend via createPracticeSession + improve-transcript endpoint.
-    
-    console.warn('improveTranscript called - this should be replaced with direct API calls');
-    
-    try {
-      // For now, return a mock response to maintain compatibility
-      return {
-        improvedTranscript: request.transcript,
-        highlightedWords: [],
-        originalTranscript: request.transcript,
-        bandIncrease: request.targetBandIncrease,
-      };
-    } catch (error) {
-      console.error('Error in improveTranscript:', error);
-      throw new Error('Failed to improve transcript');
-    }
-  },
 
   async improveTranscriptAPI(sessionId: string): Promise<{ success: boolean; message: string }> {
     try {

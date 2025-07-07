@@ -16,14 +16,13 @@ import {
   setSubmitting,
   loadPracticeSession,
   createPracticeSession,
-  submitForImprovement,
   addHighlight,
   removeHighlight,
-  setHighlights
+  setHighlights,
+  setRecordingTime,
+  setAudioBlob
 } from '@/features/practice/practiceSlice';
 import { blobUrlTracker } from '@/utils/blobUrlTracker';
-
-
 
 const PracticeFeedback: React.FC = () => {
   const navigate = useNavigate();
@@ -31,18 +30,18 @@ const PracticeFeedback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const urlSessionId = searchParams.get('session');
   
-  // Redux state
   const { 
     currentSession: session, 
     sessionLoading: isLoading, 
     sessionError: error, 
     isSubmitting,
-    highlights
+    highlights,
+    recording: { audioBlob, recordingTime }
   } = useAppSelector(state => state.practice);
   
+  const { user } = useAppSelector(state => state.auth);
+  
   const [sessionId, setSessionId] = useState<string | null>(urlSessionId);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
   const [showPracticeModal, setShowPracticeModal] = useState(false);
   
@@ -53,8 +52,7 @@ const PracticeFeedback: React.FC = () => {
     resetRecording
   } = useAudioRecording({
     onRecordingComplete: (blob, audioUrl) => {
-      setAudioBlob(blob);
-      // Store the audio URL for cleanup
+      dispatch(setAudioBlob(blob));
       if (typeof window !== 'undefined') {
         const recordings = JSON.parse(localStorage.getItem('recordings') || '{}');
         recordings[`practice_${sessionId || 'temp'}`] = { blob, url: audioUrl };
@@ -65,13 +63,11 @@ const PracticeFeedback: React.FC = () => {
       dispatch(setSessionError(errorMessage));
     }
   });
-  
 
-  // Timer for recording
   useEffect(() => {
     if (isRecording) {
       const timer = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        dispatch(setRecordingTime(recordingTime + 1));
       }, 1000);
       setIntervalId(timer);
       return () => clearInterval(timer);
@@ -81,79 +77,57 @@ const PracticeFeedback: React.FC = () => {
         setIntervalId(null);
       }
     }
-  }, [isRecording, intervalId]);
+  }, [isRecording, intervalId, recordingTime, dispatch]);
 
-  // Cleanup audio state when sessionId changes or component unmounts
   useEffect(() => {
     return () => {
-      // Clear local audio state
-      setAudioBlob(null);
-      setRecordingTime(0);
       if (intervalId) {
         clearInterval(intervalId);
       }
-      
-      // Reset audio recording hook state
       resetRecording();
-      
-      // Clear Redux practice state
       dispatch(clearPractice());
       dispatch(clearRecording());
-      
-      // Clear practice audio state
       clearPracticeAudioState();
     };
   }, [sessionId, dispatch, intervalId, resetRecording]);
 
   const handleAutoNavigateToPracticeState = useCallback((sessionData: PracticeSession) => {
-    // Auto-navigate to the appropriate practice state based on session status
     switch (sessionData.status) {
       case 'practicing_sentences':
       case 'practicing_words':
       case 'practicing_full_transcript':
-        // Open the practice modal to continue where they left off
         setShowPracticeModal(true);
         break;
       case 'completed':
-        // Show completion state - could navigate to results page
-        console.log('Practice session completed');
+        console.log('Practice session completed - showing transcript review UI');
+        setShowPracticeModal(false);
+        dispatch(setSubmitting(false));
         break;
       case 'failed':
-        // Show error state
         dispatch(setSessionError(sessionData.error_message || 'Practice session failed'));
         break;
       case 'abandoned':
-        // Show abandoned state with option to restart
         console.log('Practice session was abandoned');
         break;
       default:
-        // For other states (transcript_processing, transcript_ready), stay on current page
         break;
     }
   }, [dispatch]);
   
-  // Load session data when URL contains session ID
   useEffect(() => {
     if (urlSessionId) {
       dispatch(loadPracticeSession(urlSessionId))
         .unwrap()
         .then((sessionData) => {
           setSessionId(sessionData.id);
-          
-          // Load highlights from session data if they exist
           if (sessionData.highlights && Array.isArray(sessionData.highlights)) {
             dispatch(setHighlights(sessionData.highlights));
           }
-          
-          // Set appropriate loading states based on session status
           if (sessionData.status === 'transcript_ready' && sessionData.original_audio_url && !sessionData.improved_transcript) {
             dispatch(setSubmitting(true));
           } else if (sessionData.status === 'transcript_processing') {
-            // Session is being processed, show loading state
             dispatch(setSubmitting(true));
           }
-          
-          // Auto-navigate to appropriate practice state
           handleAutoNavigateToPracticeState(sessionData);
         })
         .catch((err) => {
@@ -162,7 +136,6 @@ const PracticeFeedback: React.FC = () => {
     }
   }, [urlSessionId, dispatch, handleAutoNavigateToPracticeState]);
 
-  // Real-time subscription
   useEffect(() => {
     if (sessionId) {
       const channel = supabase
@@ -175,15 +148,10 @@ const PracticeFeedback: React.FC = () => {
         }, (payload) => {
           const updatedSession = payload.new as PracticeSession;
           dispatch(setSession(updatedSession));
-          
-          // Update highlights if they changed
           if (updatedSession.highlights && Array.isArray(updatedSession.highlights)) {
             dispatch(setHighlights(updatedSession.highlights));
           }
-          
-          // Update loading states based on status changes
           if (updatedSession.status === 'transcript_ready') {
-            // Only stop submitting if we have an improved transcript
             if (updatedSession.improved_transcript) {
               dispatch(setSubmitting(false));
             }
@@ -192,9 +160,12 @@ const PracticeFeedback: React.FC = () => {
           } else if (updatedSession.status === 'failed') {
             dispatch(setSubmitting(false));
             dispatch(setSessionError(updatedSession.error_message || 'Practice session failed'));
+          } else if (updatedSession.status === 'completed') {
+            // Handle completed status - ensure modal is closed and state is updated
+            setShowPracticeModal(false);
+            dispatch(setSubmitting(false));
+            console.log('Practice session completed via real-time update');
           }
-          
-          // Auto-navigate when status changes to practice states
           if (['practicing_sentences', 'practicing_words', 'practicing_full_transcript'].includes(updatedSession.status)) {
             setShowPracticeModal(true);
           }
@@ -210,27 +181,16 @@ const PracticeFeedback: React.FC = () => {
   const handleStartPractice = async () => {
     try {
       dispatch(setSessionError(''));
-      
-      // Clear previous audio state before starting new session
-      setAudioBlob(null);
-      setRecordingTime(0);
       if (intervalId) {
         clearInterval(intervalId);
         setIntervalId(null);
       }
-      
-      // Reset audio recording hook state
       resetRecording();
-      
-      // Clear Redux practice state
       dispatch(clearPractice());
       dispatch(clearRecording());
       dispatch(clearSession());
-      
-      // Clear practice audio state
+      dispatch(setHighlights([]));
       clearPracticeAudioState();
-      
-      // Create new practice session using Redux
       const result = await dispatch(createPracticeSession()).unwrap();
       setSessionId(result.id);
     } catch (err) {
@@ -270,7 +230,6 @@ const PracticeFeedback: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // Update the session in Redux state
       if (session) {
         dispatch(setSession({
           ...session,
@@ -283,47 +242,122 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
-  const handleSubmitForImprovement = async () => {
-    if (!sessionId) return;
-
-    try {
-      dispatch(setSessionError(''));
-      await dispatch(submitForImprovement(sessionId)).unwrap();
-      // Don't set isSubmitting to false here - let the real-time subscription handle it
-      // when the status changes to 'transcript_ready' with improved_transcript
-    } catch (err) {
-      dispatch(setSessionError(`Failed to submit for improvement: ${err instanceof Error ? err.message : 'Unknown error'}`));
-      dispatch(setSubmitting(false));
-    }
-  };
 
   const handleBack = () => {
-    navigate(-1);
+    navigate('/student/dashboard');
   };
 
-  const handleReset = () => {
-    setSessionId(null);
-    setAudioBlob(null);
-    setRecordingTime(0);
-    setShowPracticeModal(false);
-    if (intervalId) {
-      clearInterval(intervalId);
-      setIntervalId(null);
+  const handleReset = async () => {
+    try {
+      setSessionId(null);
+      setShowPracticeModal(false);
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
+      }
+      resetRecording();
+      dispatch(clearPractice());
+      dispatch(clearRecording());
+      dispatch(clearSession());
+      dispatch(setHighlights([]));
+      clearPracticeAudioState();
+      await findOrCreatePracticeAssignmentAndNavigate();
+    } catch (err) {
+      console.error('Failed to reset practice:', err);
+      dispatch(setSessionError(`Failed to start new practice: ${err instanceof Error ? err.message : 'Unknown error'}`));
     }
-    
-    // Reset audio recording hook state
-    resetRecording();
-    
-        // Clear Redux practice state
-    dispatch(clearPractice());
-    dispatch(clearRecording());
-    dispatch(clearSession());
-    
-    // Clear practice audio state
-    clearPracticeAudioState();
-    
-    // Navigate to practice page to start fresh practice session
-    navigate('/student/practice');
+  };
+
+  const findOrCreatePracticeAssignmentAndNavigate = async () => {
+    if (!user) {
+      dispatch(setSessionError('User not authenticated'));
+      return;
+    }
+
+    const practiceQuestions = [
+      {
+        id: 'q1',
+        type: 'normal' as const,
+        question: 'Tell me about yourself and your hometown. What do you like most about living there?',
+        speakAloud: true,
+        timeLimit: '2',
+        prepTime: '1'
+      }
+    ];
+
+    try {
+      const { data: existingAssignments, error: fetchError } = await supabase
+        .from('assignments')
+        .select('id, metadata')
+        .eq('title', 'IELTS Speaking Practice')
+        .eq('created_by', user.id);
+
+      if (fetchError) throw fetchError;
+
+      const practiceAssignment = existingAssignments?.find(assignment => 
+        assignment.metadata && assignment.metadata.isPractice === true
+      );
+
+      if (practiceAssignment) {
+        navigate(`/student/assignment/${practiceAssignment.id}/practice`);
+        return;
+      }
+
+      let practiceClassId: string;
+      const { data: existingClass, error: classError } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('name', 'Practice Class')
+        .eq('teacher_id', user.id)
+        .maybeSingle();
+
+      if (classError && classError.code !== 'PGRST116') throw classError;
+
+      if (existingClass) {
+        practiceClassId = existingClass.id;
+      } else {
+        const { data: newClass, error: createClassError } = await supabase
+          .from('classes')
+          .insert({
+            name: 'Practice Class',
+            class_code: 'PRACTICE-' + Math.random().toString(36).substring(2, 11),
+            teacher_id: user.id
+          })
+          .select('id')
+          .single();
+
+        if (createClassError) throw createClassError;
+        practiceClassId = newClass.id;
+      }
+
+      const { data: newAssignment, error: createError } = await supabase
+        .from('assignments')
+        .insert({
+          class_id: practiceClassId,
+          created_by: user.id,
+          title: 'IELTS Speaking Practice',
+          topic: 'Speaking Practice',
+          due_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          questions: practiceQuestions,
+          metadata: {
+            autoGrade: true,
+            isTest: false,
+            audioOnlyMode: false,
+            isPractice: true
+          },
+          status: 'not_started'
+        })
+        .select('id')
+        .single();
+
+      if (createError) throw createError;
+
+      navigate(`/student/assignment/${newAssignment.id}/practice`);
+
+    } catch (err) {
+      console.error('Error setting up practice assignment:', err);
+      dispatch(setSessionError(`Failed to setup practice assignment: ${err instanceof Error ? err.message : 'Unknown error'}`));
+    }
   };
 
   const handleStartPracticeSession = async () => {
@@ -331,8 +365,6 @@ const PracticeFeedback: React.FC = () => {
     
     try {
       dispatch(setSessionError(''));
-      
-      // Update the practice session with highlights if any are selected
       if (highlights.length > 0) {
         const { error: updateError } = await supabase
           .from('practice_sessions')
@@ -346,7 +378,6 @@ const PracticeFeedback: React.FC = () => {
         }
       }
       
-      // Start the practice session which will trigger the backend to create sentences
       await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/start-practice`, {
         method: 'POST',
         headers: {
@@ -354,7 +385,6 @@ const PracticeFeedback: React.FC = () => {
         },
       });
       
-      // Open the modal
       setShowPracticeModal(true);
     } catch (err) {
       dispatch(setSessionError('Failed to start practice session'));
@@ -363,19 +393,16 @@ const PracticeFeedback: React.FC = () => {
   };
 
   const clearPracticeAudioState = () => {
-    // Clear all practice-related blob URLs using the tracker
     const clearedCount = blobUrlTracker.clearByContext('practice');
     if (clearedCount > 0) {
       console.log(`🧹 Cleared ${clearedCount} practice-related blob URLs`);
     }
     
-    // Clear localStorage recordings
     if (typeof window !== 'undefined') {
       try {
         const recordings = localStorage.getItem('recordings');
         if (recordings) {
           const parsedRecordings = JSON.parse(recordings);
-          // Clear all practice-related recordings
           Object.keys(parsedRecordings).forEach(key => {
             if (key.includes('practice') || key.includes('session')) {
               delete parsedRecordings[key];
@@ -400,16 +427,36 @@ const PracticeFeedback: React.FC = () => {
     const existingHighlight = highlights.find(h => h.word === word && h.position === position);
     if (existingHighlight) {
       dispatch(removeHighlight(position));
-    } else {
-      dispatch(addHighlight({ word, position }));
+      return;
     }
+    
+    const existingWordHighlight = highlights.find(h => h.word.toLowerCase() === word.toLowerCase());
+    if (existingWordHighlight) {
+      dispatch(removeHighlight(existingWordHighlight.position));
+      return;
+    }
+    
+    dispatch(addHighlight({ word, position }));
   };
 
   const renderHighlightableText = (text: string, isClickable: boolean = true) => {
     const words = text.split(/(\s+)/);
+    
+    const highlightedWords = new Set(
+      highlights
+        .filter(h => h?.word && typeof h.word === 'string')
+        .map(h => h.word.toLowerCase())
+    );
+    
+    if (highlights.length > 0 && process.env.NODE_ENV === 'development') {
+      console.log('Raw highlights:', highlights);
+      console.log('Filtered highlighted words set:', Array.from(highlightedWords));
+      console.log('First few words from text:', words.slice(0, 10).map((w, i) => ({ word: w.trim(), index: i })));
+    }
+    
     return words.map((word, index) => {
       const cleanWord = word.trim();
-      const isHighlighted = highlights.some(h => h.word === cleanWord && h.position === index);
+      const isHighlighted = cleanWord && highlightedWords.has(cleanWord.toLowerCase());
       
       if (cleanWord && /\w/.test(cleanWord)) {
         return (
@@ -430,24 +477,251 @@ const PracticeFeedback: React.FC = () => {
     });
   };
 
+  const renderTranscriptReviewUI = () => {
+    if (!session || !session.improved_transcript) {
+      // This can happen if the status is transcript_ready but the improved_transcript is not yet available
+      if (isSubmitting) {
+        return (
+          <div className="space-y-4">
+            <div className="text-center py-8">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <h3 className="text-lg font-medium">Improving Your Transcript</h3>
+              </div>
+              <p className="text-gray-600">
+                We're enhancing your transcript with better vocabulary and structure. This may take a few moments...
+              </p>
+            </div>
+          </div>
+        );
+      }
+      // Fallback for unexpected state
+      return (
+        <div className="text-center">
+          <p className="text-gray-600">Preparing your transcript for review...</p>
+        </div>
+      );
+    }
+
+    const isPracticeInProgress = ['practicing_sentences', 'practicing_words', 'practicing_full_transcript'].includes(session.status);
+
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-medium">Transcript Analysis Complete</h3>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-800">Original Transcript</h4>
+            <div className="p-4 bg-gray-50 rounded-lg border">
+              <p className="text-sm whitespace-pre-wrap">
+                {session.original_transcript || 'No transcript available'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <h4 className="font-medium text-green-700">Improved Transcript</h4>
+            {session.status !== 'completed' && (
+              <p className="text-xs text-gray-600 mb-2">
+                Click on words to highlight them for focused practice
+              </p>
+            )}
+            {session.status === 'completed' && highlights.filter(h => h?.word && typeof h.word === 'string').length > 0 && (
+              <p className="text-xs text-gray-600 mb-2">
+                Highlighted words from your practice session
+              </p>
+            )}
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-sm whitespace-pre-wrap">
+                {renderHighlightableText(session.improved_transcript, session.status !== 'completed')}
+              </div>
+            </div>
+            {highlights.filter(h => h?.word && typeof h.word === 'string').length > 0 && (
+              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                <p className="text-sm font-medium text-yellow-800 mb-2">
+                  Highlighted words ({highlights.filter(h => h?.word && typeof h.word === 'string').length}):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {highlights
+                    .filter(h => h?.word && typeof h.word === 'string')
+                    .map((highlight, index) => (
+                      <span
+                        key={index}
+                        className={`inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm`}
+                      >
+                        {highlight.word}
+                        {session.status !== 'completed' && (
+                          <button
+                            onClick={() => dispatch(removeHighlight(highlight.position))}
+                            className="text-yellow-700 hover:text-yellow-900"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="pt-4 border-t">
+          <p className="text-sm text-gray-600 mb-4">
+            The improved transcript shows enhanced vocabulary, better structure, and more sophisticated language patterns.
+          </p>
+          
+          {session.status === 'completed' ? (
+            <Button size="lg" disabled className="bg-green-100 text-green-800 cursor-not-allowed">
+              ✓ Practice Completed
+            </Button>
+          ) : isPracticeInProgress ? (
+            <Button onClick={() => setShowPracticeModal(true)} size="lg" className="bg-blue-600 hover:bg-blue-700">
+              <Play className="h-5 w-5 mr-2" />
+              Continue Practice
+            </Button>
+          ) : (
+            <Button onClick={handleStartPracticeSession} size="lg" className="bg-green-600 hover:bg-green-700">
+              <Play className="h-5 w-5 mr-2" />
+              Start Practice Session
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    if (!session) {
+      return (
+        <div className="text-center">
+          <p className="text-gray-600 mb-6">
+            Start a practice session to record your speech and get AI-powered feedback.
+          </p>
+          <Button
+            onClick={handleStartPractice}
+            className="bg-blue-600 hover:bg-blue-700"
+            size="lg"
+          >
+            Start Practice Session
+          </Button>
+        </div>
+      );
+    }
+
+    switch (session.status) {
+      case 'transcript_processing':
+        return (
+          <div className="space-y-4">
+            <div className="text-center py-8">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <h3 className="text-lg font-medium">Processing Your Audio</h3>
+              </div>
+              <p className="text-gray-600">
+                We're analyzing your speech and generating a transcript. This may take a few moments...
+              </p>
+            </div>
+          </div>
+        );
+      case 'failed':
+        return (
+          <div className="text-center py-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium">Practice Session Failed</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              {session.error_message || 'Something went wrong with your practice session.'}
+            </p>
+            <Button onClick={handleReset} className="bg-blue-600 hover:bg-blue-700" size="lg">
+              Start New Practice
+            </Button>
+          </div>
+        );
+      case 'abandoned':
+        return (
+          <div className="text-center py-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium">Practice Session Abandoned</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Your practice session was abandoned. You can start a new one.
+            </p>
+            <Button onClick={handleReset} className="bg-blue-600 hover:bg-blue-700" size="lg">
+              Start New Practice
+            </Button>
+          </div>
+        );
+      case 'transcript_ready':
+      case 'practicing_sentences':
+      case 'practicing_words':
+      case 'practicing_full_transcript':
+      case 'completed':
+        return renderTranscriptReviewUI();
+      default:
+        // Initial state before audio upload
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Record Your Speech</h3>
+            <div className="flex items-center gap-4">
+              {!isRecording && !audioBlob && (
+                <Button onClick={() => { dispatch(setRecordingTime(0)); toggleRecording(); }} className="bg-red-600 hover:bg-red-700" size="lg" disabled={isProcessing}>
+                  <Mic className="h-5 w-5 mr-2" />
+                  Start Recording
+                </Button>
+              )}
+              {isRecording && (
+                <>
+                  <Button onClick={toggleRecording} variant="outline" size="lg">
+                    <Square className="h-5 w-5 mr-2" />
+                    Stop Recording
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="font-mono text-lg">{formatTime(recordingTime)}</span>
+                  </div>
+                </>
+              )}
+              {audioBlob && !isRecording && (
+                <>
+                  <Button onClick={handleUploadAudio} className="bg-green-600 hover:bg-green-700" size="lg" disabled={isProcessing}>
+                    <Upload className="h-5 w-5 mr-2" />
+                    Upload Recording
+                  </Button>
+                  <Button onClick={() => { dispatch(setAudioBlob(null)); dispatch(setRecordingTime(0)); }} variant="outline" size="lg">
+                    Record Again
+                  </Button>
+                  <div className="text-sm text-gray-600">
+                    Duration: {formatTime(recordingTime)}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            className="flex items-center gap-2"
-            onClick={handleBack}
-          >
+          <Button variant="ghost" className="flex items-center gap-2" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          
           {session && (
-            <Button
-              variant="outline"
-              onClick={handleReset}
-            >
+            <Button variant="outline" onClick={handleReset}>
               Start New Practice
             </Button>
           )}
@@ -473,7 +747,7 @@ const PracticeFeedback: React.FC = () => {
             </div>
           )}
           
-          {isLoading && (
+          {isLoading && !session && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -482,358 +756,12 @@ const PracticeFeedback: React.FC = () => {
             </div>
           )}
           
-          {!session && !isLoading ? (
-            <div className="text-center">
-              <p className="text-gray-600 mb-6">
-                Start a practice session to record your speech and get AI-powered feedback.
-              </p>
-              <Button
-                onClick={handleStartPractice}
-                className="bg-blue-600 hover:bg-blue-700"
-                size="lg"
-              >
-                Start Practice Session
-              </Button>
-            </div>
-          ) : session ? (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-gray-600">Session Status</p>
-                  <p className="font-medium capitalize">
-                    {session.status.replace('_', ' ')}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Session ID</p>
-                  <p className="font-mono text-sm">{session.id.slice(0, 8)}...</p>
-                </div>
-              </div>
-              
-              {session.status === 'transcript_processing' && !session.original_audio_url && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Record Your Speech</h3>
-                  
-                  <div className="flex items-center gap-4">
-                    {!isRecording && !audioBlob && (
-                      <Button
-                        onClick={() => {
-                          setRecordingTime(0);
-                          toggleRecording();
-                        }}
-                        className="bg-red-600 hover:bg-red-700"
-                        size="lg"
-                        disabled={isProcessing}
-                      >
-                        <Mic className="h-5 w-5 mr-2" />
-                        Start Recording
-                      </Button>
-                    )}
-                    
-                    {isRecording && (
-                      <>
-                        <Button
-                          onClick={toggleRecording}
-                          variant="outline"
-                          size="lg"
-                        >
-                          <Square className="h-5 w-5 mr-2" />
-                          Stop Recording
-                        </Button>
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                          <span className="font-mono text-lg">{formatTime(recordingTime)}</span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {audioBlob && !isRecording && (
-                      <>
-                        <Button
-                          onClick={handleUploadAudio}
-                          className="bg-green-600 hover:bg-green-700"
-                          size="lg"
-                          disabled={isProcessing}
-                        >
-                          <Upload className="h-5 w-5 mr-2" />
-                          Upload Recording
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setAudioBlob(null);
-                            setRecordingTime(0);
-                          }}
-                          variant="outline"
-                          size="lg"
-                        >
-                          Record Again
-                        </Button>
-                        <div className="text-sm text-gray-600">
-                          Duration: {formatTime(recordingTime)}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {session.status === 'transcript_processing' && session.original_audio_url && (
-                <div className="space-y-4">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                      <h3 className="text-lg font-medium">Processing Your Audio</h3>
-                    </div>
-                    <p className="text-gray-600">
-                      We're analyzing your speech and generating a transcript. This may take a few moments...
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript && !isSubmitting && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Audio Uploaded Successfully</h3>
-                  <p className="text-gray-600">
-                    Your audio has been uploaded. Click below to submit it for AI-powered transcript improvement.
-                  </p>
-                  
-                  <Button
-                    onClick={handleSubmitForImprovement}
-                    className="bg-blue-600 hover:bg-blue-700"
-                    size="lg"
-                  >
-                    Submit for Improvement
-                  </Button>
-                </div>
-              )}
-              
-              {session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript && isSubmitting && (
-                <div className="space-y-4">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                      <h3 className="text-lg font-medium">Improving Your Transcript</h3>
-                    </div>
-                    <p className="text-gray-600">
-                      We're enhancing your transcript with better vocabulary and structure. This may take a few moments...
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {(session.status === 'transcript_ready' || session.status === 'completed') && session.improved_transcript && (
-                <div className="space-y-6">
-                  <h3 className="text-lg font-medium">Transcript Analysis Complete</h3>
-                  
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-gray-800">Original Transcript</h4>
-                      <div className="p-4 bg-gray-50 rounded-lg border">
-                        <p className="text-sm whitespace-pre-wrap">
-                          {session.original_transcript || 'No transcript available'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <h4 className="font-medium text-green-700">Improved Transcript</h4>
-                      {session.status !== 'completed' && (
-                        <p className="text-xs text-gray-600 mb-2">
-                          Click on words to highlight them for focused practice
-                        </p>
-                      )}
-                      {session.status === 'completed' && highlights.length > 0 && (
-                        <p className="text-xs text-gray-600 mb-2">
-                          Highlighted words from your practice session
-                        </p>
-                      )}
-                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="text-sm whitespace-pre-wrap">
-                          {session.improved_transcript 
-                            ? renderHighlightableText(session.improved_transcript, session.status !== 'completed')
-                            : 'No improved transcript available'}
-                        </div>
-                      </div>
-                      {highlights.length > 0 && (
-                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                          <p className="text-sm font-medium text-yellow-800 mb-2">
-                            Highlighted words ({highlights.length}):
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {highlights.map((highlight, index) => (
-                              <span
-                                key={index}
-                                className={`inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm ${
-                                  session.status === 'completed' ? '' : ''
-                                }`}
-                              >
-                                {highlight.word}
-                                {session.status !== 'completed' && (
-                                  <button
-                                    onClick={() => dispatch(removeHighlight(highlight.position))}
-                                    className="text-yellow-700 hover:text-yellow-900"
-                                  >
-                                    ×
-                                  </button>
-                                )}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4 border-t">
-                    <p className="text-sm text-gray-600 mb-4">
-                      The improved transcript shows enhanced vocabulary, better structure, and more sophisticated language patterns.
-                    </p>
-                    
-                    {session.status === 'completed' ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-green-800">Practice Session Completed!</h4>
-                            <p className="text-sm text-green-600">Great job! You've successfully completed your practice session.</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex gap-3">
-                          <Button
-                            onClick={handleReset}
-                            className="bg-blue-600 hover:bg-blue-700"
-                            size="lg"
-                          >
-                            Start New Practice
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={handleStartPracticeSession}
-                          className="bg-green-600 hover:bg-green-700"
-                          size="lg"
-                        >
-                          <Play className="h-5 w-5 mr-2" />
-                          Start Practice Session
-                        </Button>
-                        
-                        <Button
-                          onClick={handleReset}
-                          variant="outline"
-                          size="lg"
-                        >
-                          Start New Practice
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {['practicing_sentences', 'practicing_words', 'practicing_full_transcript'].includes(session.status) && (
-                <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Play className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <h3 className="text-lg font-medium">Practice Session in Progress</h3>
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      You have an active practice session. Continue where you left off or start a new one.
-                    </p>
-                    
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        onClick={() => setShowPracticeModal(true)}
-                        className="bg-blue-600 hover:bg-blue-700"
-                        size="lg"
-                      >
-                        <Play className="h-5 w-5 mr-2" />
-                        Continue Practice
-                      </Button>
-                      
-                      <Button
-                        onClick={handleReset}
-                        variant="outline"
-                        size="lg"
-                      >
-                        Start New Practice
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {session.status === 'failed' && (
-                <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium">Practice Session Failed</h3>
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      {session.error_message || 'Something went wrong with your practice session.'}
-                    </p>
-                    
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        onClick={handleReset}
-                        className="bg-blue-600 hover:bg-blue-700"
-                        size="lg"
-                      >
-                        Start New Practice
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {session.status === 'abandoned' && (
-                <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium">Practice Session Abandoned</h3>
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      Your practice session was abandoned. You can start a new one or continue where you left off.
-                    </p>
-                    
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        onClick={handleReset}
-                        className="bg-blue-600 hover:bg-blue-700"
-                        size="lg"
-                      >
-                        Start New Practice
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : null}
+          <div className="space-y-6">
+            {renderContent()}
+          </div>
         </div>
       </div>
       
-      {/* Practice Session Modal */}
       {sessionId && (
         <PracticeSessionModal
           isOpen={showPracticeModal}
@@ -841,12 +769,11 @@ const PracticeFeedback: React.FC = () => {
           sessionId={sessionId}
           onComplete={() => {
             setShowPracticeModal(false);
-            // Could show a success message or navigate somewhere
           }}
         />
       )}
     </div>
   );
-  };
+};
   
-  export default PracticeFeedback; 
+export default PracticeFeedback;
