@@ -154,16 +154,17 @@ const practiceSlice = createSlice({
     clearPronunciationAssessment: (state) => {
       state.pronunciationAssessment = null;
     },
-    setHighlights: (state, action: PayloadAction<string[]>) => {
+    setHighlights: (state, action: PayloadAction<{ word: string; position: number }[]>) => {
       state.highlights = action.payload;
     },
-    addHighlight: (state, action: PayloadAction<string>) => {
-      if (!state.highlights.includes(action.payload)) {
+    addHighlight: (state, action: PayloadAction<{ word: string; position: number }>) => {
+      const exists = state.highlights.find(h => h.position === action.payload.position);
+      if (!exists) {
         state.highlights.push(action.payload);
       }
     },
-    removeHighlight: (state, action: PayloadAction<string>) => {
-      state.highlights = state.highlights.filter(word => word !== action.payload);
+    removeHighlight: (state, action: PayloadAction<number>) => {
+      state.highlights = state.highlights.filter(h => h.position !== action.payload);
     },
   },
   extraReducers: (builder) => {

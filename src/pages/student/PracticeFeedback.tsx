@@ -275,13 +275,16 @@ const PracticeFeedback: React.FC = () => {
     // Reset audio recording hook state
     resetRecording();
     
-        // Clear Redux practice state
+    // Clear Redux practice state
     dispatch(clearPractice());
     dispatch(clearRecording());
     dispatch(clearSession());
     
     // Clear practice audio state
     clearPracticeAudioState();
+    
+    // Navigate to practice page to start fresh practice session
+    navigate('/student/practice');
   };
 
   const handleStartPracticeSession = async () => {
@@ -376,21 +379,27 @@ const PracticeFeedback: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleWordClick = (word: string) => {
-    if (highlights.includes(word)) {
-      dispatch(removeHighlight(word));
+  const handleWordClick = (word: string, position: number) => {
+    const existingHighlight = highlights.find(h => h.position === position);
+    if (existingHighlight) {
+      dispatch(removeHighlight(position));
     } else {
-      dispatch(addHighlight(word));
+      dispatch(addHighlight({ word, position }));
     }
   };
 
   const renderHighlightableText = (text: string) => {
     const words = text.split(/(\s+)/);
+    let wordPosition = 0; // Track position of actual words (not spaces)
+    
     return words.map((word, index) => {
       const cleanWord = word.trim();
-      const isHighlighted = highlights.includes(cleanWord);
       
       if (cleanWord && /\w/.test(cleanWord)) {
+        const currentPosition = wordPosition;
+        const isHighlighted = highlights.some(h => h.position === currentPosition);
+        wordPosition++; // Increment only for actual words
+        
         return (
           <span
             key={index}
@@ -399,13 +408,13 @@ const PracticeFeedback: React.FC = () => {
                 ? 'bg-yellow-200 text-yellow-900 rounded px-1' 
                 : 'hover:bg-gray-100 rounded px-1'
             }`}
-            onClick={() => handleWordClick(cleanWord)}
+            onClick={() => handleWordClick(cleanWord, currentPosition)}
           >
             {word}
           </span>
         );
       }
-      return word;
+      return word; // Return spaces and punctuation as-is
     });
   };
 
@@ -633,14 +642,14 @@ const PracticeFeedback: React.FC = () => {
                             Highlighted words ({highlights.length}):
                           </p>
                           <div className="flex flex-wrap gap-2">
-                            {highlights.map((word, index) => (
+                            {highlights.map((highlight, index) => (
                               <span
                                 key={index}
                                 className="inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm"
                               >
-                                {word}
+                                {highlight.word}
                                 <button
-                                  onClick={() => dispatch(removeHighlight(word))}
+                                  onClick={() => dispatch(removeHighlight(highlight.position))}
                                   className="text-yellow-700 hover:text-yellow-900"
                                 >
                                   ×
