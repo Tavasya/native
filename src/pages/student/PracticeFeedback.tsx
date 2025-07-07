@@ -610,7 +610,7 @@ const PracticeFeedback: React.FC = () => {
                 </div>
               )}
               
-              {session.status === 'transcript_ready' && session.improved_transcript && (
+              {(session.status === 'transcript_ready' || session.status === 'completed') && session.improved_transcript && (
                 <div className="space-y-6">
                   <h3 className="text-lg font-medium">Transcript Analysis Complete</h3>
                   
@@ -669,12 +669,16 @@ const PracticeFeedback: React.FC = () => {
                     
                     <div className="flex gap-3">
                       <Button
-                        onClick={handleStartPracticeSession}
-                        className="bg-green-600 hover:bg-green-700"
+                        onClick={session.status === 'completed' ? undefined : handleStartPracticeSession}
+                        className={session.status === 'completed' 
+                          ? "bg-gray-400 cursor-not-allowed" 
+                          : "bg-green-600 hover:bg-green-700"
+                        }
                         size="lg"
+                        disabled={session.status === 'completed'}
                       >
                         <Play className="h-5 w-5 mr-2" />
-                        Start Practice Session
+                        {session.status === 'completed' ? 'Completed' : 'Start Practice Session'}
                       </Button>
                       
                       <Button
@@ -724,33 +728,6 @@ const PracticeFeedback: React.FC = () => {
                 </div>
               )}
               
-              {session.status === 'completed' && (
-                <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium">Practice Session Completed!</h3>
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      Congratulations! You've successfully completed your practice session.
-                    </p>
-                    
-                    <div className="flex gap-3 justify-center">
-                      <Button
-                        onClick={handleReset}
-                        className="bg-blue-600 hover:bg-blue-700"
-                        size="lg"
-                      >
-                        Start New Practice
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
               
               {session.status === 'failed' && (
                 <div className="space-y-6">
