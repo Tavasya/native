@@ -244,10 +244,33 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     }
   }, [isRecording, startRecording, stopRecording]);
 
+  const resetRecording = useCallback(() => {
+    // Stop any active recording
+    if (isRecording && mediaRecorder.current) {
+      mediaRecorder.current.stop();
+    }
+    
+    // Clear media stream
+    if (mediaStream.current) {
+      mediaStream.current.getTracks().forEach(track => track.stop());
+      mediaStream.current = null;
+    }
+    
+    // Reset state
+    setIsRecording(false);
+    setIsProcessing(false);
+    audioChunks.current = [];
+    recordingStartTime.current = 0;
+    mediaRecorder.current = null;
+    
+    console.log('🧹 Audio recording state reset');
+  }, [isRecording]);
+
   return {
     isRecording,
     isProcessing,
     mediaStream: mediaStream.current,
-    toggleRecording
+    toggleRecording,
+    resetRecording
   };
 };

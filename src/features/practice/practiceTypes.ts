@@ -23,6 +23,12 @@ export interface PracticeState {
   error: string | null;
   recording: RecordingState;
   pronunciationAssessment: PronunciationAssessmentState | null;
+  // Session-based practice state
+  currentSession: PracticeSession | null;
+  sessionLoading: boolean;
+  sessionError: string | null;
+  isSubmitting: boolean;
+  highlights: string[];
 }
 
 export interface PronunciationAssessmentState {
@@ -61,6 +67,7 @@ export interface PracticeSession {
   current_sentence_index: number;
   current_word_index: number;
   problematic_words: { word: string; sentence_context?: string; [key: string]: unknown }[] | null;
+  highlights: string[] | null;
   status: PracticeSessionStatus;
   webhook_session_id: string | null;
   error_message: string | null;

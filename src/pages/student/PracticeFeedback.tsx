@@ -6,17 +6,40 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { PracticeSession } from '@/features/practice/practiceTypes';
 import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { 
+  clearPractice, 
+  clearRecording, 
+  clearSession,
+  setSession,
+  setSessionError,
+  setSubmitting,
+  loadPracticeSession,
+  createPracticeSession,
+  submitForImprovement,
+  addHighlight,
+  removeHighlight
+} from '@/features/practice/practiceSlice';
+import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 
 
 const PracticeFeedback: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const urlSessionId = searchParams.get('session');
+  
+  // Redux state
+  const { 
+    currentSession: session, 
+    sessionLoading: isLoading, 
+    sessionError: error, 
+    isSubmitting,
+    highlights
+  } = useAppSelector(state => state.practice);
+  
   const [sessionId, setSessionId] = useState<string | null>(urlSessionId);
-  const [session, setSession] = useState<PracticeSession | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
@@ -25,13 +48,20 @@ const PracticeFeedback: React.FC = () => {
   const {
     isRecording,
     isProcessing,
-    toggleRecording
+    toggleRecording,
+    resetRecording
   } = useAudioRecording({
-    onRecordingComplete: (blob) => {
+    onRecordingComplete: (blob, audioUrl) => {
       setAudioBlob(blob);
+      // Store the audio URL for cleanup
+      if (typeof window !== 'undefined') {
+        const recordings = JSON.parse(localStorage.getItem('recordings') || '{}');
+        recordings[`practice_${sessionId || 'temp'}`] = { blob, url: audioUrl };
+        localStorage.setItem('recordings', JSON.stringify(recordings));
+      }
     },
     onError: (errorMessage) => {
-      setError(errorMessage);
+      dispatch(setSessionError(errorMessage));
     }
   });
   
@@ -51,37 +81,53 @@ const PracticeFeedback: React.FC = () => {
       }
     }
   }, [isRecording, intervalId]);
+
+  // Cleanup audio state when sessionId changes or component unmounts
+  useEffect(() => {
+    return () => {
+      // Clear local audio state
+      setAudioBlob(null);
+      setRecordingTime(0);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      
+      // Reset audio recording hook state
+      resetRecording();
+      
+      // Clear Redux practice state
+      dispatch(clearPractice());
+      dispatch(clearRecording());
+      
+      // Clear practice audio state
+      clearPracticeAudioState();
+    };
+  }, [sessionId, dispatch, intervalId, resetRecording]);
   
   // Load session data when URL contains session ID
   useEffect(() => {
     if (urlSessionId) {
-      const loadSession = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('practice_sessions')
-            .select('*')
-            .eq('id', urlSessionId)
-            .single();
-
-          if (error) {
-            setError(`Failed to load practice session: ${error.message}`);
-            return;
-          }
-
-          setSession(data as PracticeSession);
+      dispatch(loadPracticeSession(urlSessionId))
+        .unwrap()
+        .then((sessionData) => {
+          setSessionId(sessionData.id);
           
-          // If already processing, show submitting state
-          if (data.status === 'transcript_ready' && data.original_audio_url && !data.improved_transcript) {
-            setIsSubmitting(true);
+          // Set appropriate loading states based on session status
+          if (sessionData.status === 'transcript_ready' && sessionData.original_audio_url && !sessionData.improved_transcript) {
+            dispatch(setSubmitting(true));
+          } else if (sessionData.status === 'transcript_processing') {
+            // Session is being processed, show loading state
+            dispatch(setSubmitting(true));
           }
-        } catch (err) {
-          setError(`Failed to load practice session: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        }
-      };
-
-      loadSession();
+          
+          // Auto-navigate to appropriate practice state
+          handleAutoNavigateToPracticeState(sessionData);
+        })
+        .catch((err) => {
+          dispatch(setSessionError(`Failed to load practice session: ${err instanceof Error ? err.message : 'Unknown error'}`));
+        });
     }
-  }, [urlSessionId]);
+  }, [urlSessionId, dispatch]);
 
   // Real-time subscription
   useEffect(() => {
@@ -94,9 +140,25 @@ const PracticeFeedback: React.FC = () => {
           table: 'practice_sessions',
           filter: `id=eq.${sessionId}`
         }, (payload) => {
-          setSession(payload.new as PracticeSession);
-          if (payload.new.status === 'transcript_ready') {
-            setIsSubmitting(false);
+          const updatedSession = payload.new as PracticeSession;
+          dispatch(setSession(updatedSession));
+          
+          // Update loading states based on status changes
+          if (updatedSession.status === 'transcript_ready') {
+            // Only stop submitting if we have an improved transcript
+            if (updatedSession.improved_transcript) {
+              dispatch(setSubmitting(false));
+            }
+          } else if (updatedSession.status === 'transcript_processing') {
+            dispatch(setSubmitting(true));
+          } else if (updatedSession.status === 'failed') {
+            dispatch(setSubmitting(false));
+            dispatch(setSessionError(updatedSession.error_message || 'Practice session failed'));
+          }
+          
+          // Auto-navigate when status changes to practice states
+          if (['practicing_sentences', 'practicing_words', 'practicing_full_transcript'].includes(updatedSession.status)) {
+            setShowPracticeModal(true);
           }
         })
         .subscribe();
@@ -105,38 +167,37 @@ const PracticeFeedback: React.FC = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [sessionId]);
+  }, [sessionId, dispatch]);
 
   const handleStartPractice = async () => {
     try {
-      setError(null);
+      dispatch(setSessionError(''));
       
-      // Get current user ID
-      const { data: { session: userSession } } = await supabase.auth.getSession();
-      if (!userSession?.user?.id) {
-        throw new Error('User not authenticated');
-      }
-
-      const { data, error } = await supabase
-        .from('practice_sessions')
-        .insert({
-          user_id: userSession.user.id,
-          status: 'transcript_processing'
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Failed to create practice session:', error);
-        throw new Error(`Database error: ${error.message}`);
+      // Clear previous audio state before starting new session
+      setAudioBlob(null);
+      setRecordingTime(0);
+      if (intervalId) {
+        clearInterval(intervalId);
+        setIntervalId(null);
       }
       
-      const createdSession = data as PracticeSession;
-      setSessionId(createdSession.id);
-      setSession(createdSession);
+      // Reset audio recording hook state
+      resetRecording();
+      
+      // Clear Redux practice state
+      dispatch(clearPractice());
+      dispatch(clearRecording());
+      dispatch(clearSession());
+      
+      // Clear practice audio state
+      clearPracticeAudioState();
+      
+      // Create new practice session using Redux
+      const result = await dispatch(createPracticeSession()).unwrap();
+      setSessionId(result.id);
     } catch (err) {
       console.error('Practice session creation error:', err);
-      setError(`Failed to create practice session: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      dispatch(setSessionError(`Failed to create practice session: ${err instanceof Error ? err.message : 'Unknown error'}`));
     }
   };
 
@@ -144,7 +205,7 @@ const PracticeFeedback: React.FC = () => {
     if (!audioBlob || !sessionId) return;
 
     try {
-      setError(null);
+      dispatch(setSessionError(''));
       const fileName = `practice_${sessionId}_${Date.now()}.webm`;
       const filePath = `recordings/${fileName}`;
       
@@ -171,13 +232,16 @@ const PracticeFeedback: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      setSession((prev: PracticeSession | null) => prev ? {
-        ...prev,
-        original_audio_url: data.publicUrl,
-        status: 'transcript_ready' as const
-      } : null);
+      // Update the session in Redux state
+      if (session) {
+        dispatch(setSession({
+          ...session,
+          original_audio_url: data.publicUrl,
+          status: 'transcript_ready' as const
+        }));
+      }
     } catch (err) {
-      setError(`Failed to upload audio: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      dispatch(setSessionError(`Failed to upload audio: ${err instanceof Error ? err.message : 'Unknown error'}`));
     }
   };
 
@@ -185,22 +249,13 @@ const PracticeFeedback: React.FC = () => {
     if (!sessionId) return;
 
     try {
-      setError(null);
-      setIsSubmitting(true);
-      
-      const response = await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend request failed: ${response.status}`);
-      }
+      dispatch(setSessionError(''));
+      await dispatch(submitForImprovement(sessionId)).unwrap();
+      // Don't set isSubmitting to false here - let the real-time subscription handle it
+      // when the status changes to 'transcript_ready' with improved_transcript
     } catch (err) {
-      setError(`Failed to submit for improvement: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      setIsSubmitting(false);
+      dispatch(setSessionError(`Failed to submit for improvement: ${err instanceof Error ? err.message : 'Unknown error'}`));
+      dispatch(setSubmitting(false));
     }
   };
 
@@ -210,9 +265,6 @@ const PracticeFeedback: React.FC = () => {
 
   const handleReset = () => {
     setSessionId(null);
-    setSession(null);
-    setIsSubmitting(false);
-    setError(null);
     setAudioBlob(null);
     setRecordingTime(0);
     setShowPracticeModal(false);
@@ -220,13 +272,39 @@ const PracticeFeedback: React.FC = () => {
       clearInterval(intervalId);
       setIntervalId(null);
     }
+    
+    // Reset audio recording hook state
+    resetRecording();
+    
+        // Clear Redux practice state
+    dispatch(clearPractice());
+    dispatch(clearRecording());
+    dispatch(clearSession());
+    
+    // Clear practice audio state
+    clearPracticeAudioState();
   };
 
   const handleStartPracticeSession = async () => {
     if (!sessionId) return;
     
     try {
-      setError(null);
+      dispatch(setSessionError(''));
+      
+      // Update the practice session with highlights if any are selected
+      if (highlights.length > 0) {
+        const { error: updateError } = await supabase
+          .from('practice_sessions')
+          .update({
+            highlights: highlights
+          })
+          .eq('id', sessionId);
+
+        if (updateError) {
+          console.error('Error updating highlights:', updateError);
+        }
+      }
+      
       // Start the practice session which will trigger the backend to create sentences
       await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/start-practice`, {
         method: 'POST',
@@ -238,8 +316,63 @@ const PracticeFeedback: React.FC = () => {
       // Open the modal
       setShowPracticeModal(true);
     } catch (err) {
-      setError('Failed to start practice session');
+      dispatch(setSessionError('Failed to start practice session'));
       console.error('Error starting practice session:', err);
+    }
+  };
+
+  const handleAutoNavigateToPracticeState = (sessionData: PracticeSession) => {
+    // Auto-navigate to the appropriate practice state based on session status
+    switch (sessionData.status) {
+      case 'practicing_sentences':
+      case 'practicing_words':
+      case 'practicing_full_transcript':
+        // Open the practice modal to continue where they left off
+        setShowPracticeModal(true);
+        break;
+      case 'completed':
+        // Show completion state - could navigate to results page
+        console.log('Practice session completed');
+        break;
+      case 'failed':
+        // Show error state
+        dispatch(setSessionError(sessionData.error_message || 'Practice session failed'));
+        break;
+      case 'abandoned':
+        // Show abandoned state with option to restart
+        console.log('Practice session was abandoned');
+        break;
+      default:
+        // For other states (transcript_processing, transcript_ready), stay on current page
+        break;
+    }
+  };
+
+  const clearPracticeAudioState = () => {
+    // Clear all practice-related blob URLs using the tracker
+    const clearedCount = blobUrlTracker.clearByContext('practice');
+    if (clearedCount > 0) {
+      console.log(`🧹 Cleared ${clearedCount} practice-related blob URLs`);
+    }
+    
+    // Clear localStorage recordings
+    if (typeof window !== 'undefined') {
+      try {
+        const recordings = localStorage.getItem('recordings');
+        if (recordings) {
+          const parsedRecordings = JSON.parse(recordings);
+          // Clear all practice-related recordings
+          Object.keys(parsedRecordings).forEach(key => {
+            if (key.includes('practice') || key.includes('session')) {
+              delete parsedRecordings[key];
+            }
+          });
+          localStorage.setItem('recordings', JSON.stringify(parsedRecordings));
+          console.log('🗑️ Cleared localStorage practice recordings');
+        }
+      } catch (error) {
+        console.error('Error clearing localStorage recordings:', error);
+      }
     }
   };
 
@@ -247,6 +380,39 @@ const PracticeFeedback: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleWordClick = (word: string) => {
+    if (highlights.includes(word)) {
+      dispatch(removeHighlight(word));
+    } else {
+      dispatch(addHighlight(word));
+    }
+  };
+
+  const renderHighlightableText = (text: string) => {
+    const words = text.split(/(\s+)/);
+    return words.map((word, index) => {
+      const cleanWord = word.trim();
+      const isHighlighted = highlights.includes(cleanWord);
+      
+      if (cleanWord && /\w/.test(cleanWord)) {
+        return (
+          <span
+            key={index}
+            className={`cursor-pointer transition-colors duration-200 ${
+              isHighlighted 
+                ? 'bg-yellow-200 text-yellow-900 rounded px-1' 
+                : 'hover:bg-gray-100 rounded px-1'
+            }`}
+            onClick={() => handleWordClick(cleanWord)}
+          >
+            {word}
+          </span>
+        );
+      }
+      return word;
+    });
   };
 
   return (
@@ -292,7 +458,16 @@ const PracticeFeedback: React.FC = () => {
             </div>
           )}
           
-          {!session ? (
+          {isLoading && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <p className="text-blue-700">Loading practice session...</p>
+              </div>
+            </div>
+          )}
+          
+          {!session && !isLoading ? (
             <div className="text-center">
               <p className="text-gray-600 mb-6">
                 Start a practice session to record your speech and get AI-powered feedback.
@@ -305,7 +480,7 @@ const PracticeFeedback: React.FC = () => {
                 Start Practice Session
               </Button>
             </div>
-          ) : (
+          ) : session ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
@@ -320,7 +495,7 @@ const PracticeFeedback: React.FC = () => {
                 </div>
               </div>
               
-              {session.status === 'transcript_processing' && (
+              {session.status === 'transcript_processing' && !session.original_audio_url && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Record Your Speech</h3>
                   
@@ -387,7 +562,21 @@ const PracticeFeedback: React.FC = () => {
                 </div>
               )}
               
-              {session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript && (
+              {session.status === 'transcript_processing' && session.original_audio_url && (
+                <div className="space-y-4">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                      <h3 className="text-lg font-medium">Processing Your Audio</h3>
+                    </div>
+                    <p className="text-gray-600">
+                      We're analyzing your speech and generating a transcript. This may take a few moments...
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript && !isSubmitting && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Audio Uploaded Successfully</h3>
                   <p className="text-gray-600">
@@ -396,23 +585,29 @@ const PracticeFeedback: React.FC = () => {
                   
                   <Button
                     onClick={handleSubmitForImprovement}
-                    disabled={isSubmitting}
                     className="bg-blue-600 hover:bg-blue-700"
                     size="lg"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Submit for Improvement'
-                    )}
+                    Submit for Improvement
                   </Button>
                 </div>
               )}
               
-              {session.status === 'transcript_ready' && (
+              {session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript && isSubmitting && (
+                <div className="space-y-4">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                      <h3 className="text-lg font-medium">Improving Your Transcript</h3>
+                    </div>
+                    <p className="text-gray-600">
+                      We're enhancing your transcript with better vocabulary and structure. This may take a few moments...
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {session.status === 'transcript_ready' && session.improved_transcript && (
                 <div className="space-y-6">
                   <h3 className="text-lg font-medium">Transcript Analysis Complete</h3>
                   
@@ -428,11 +623,39 @@ const PracticeFeedback: React.FC = () => {
                     
                     <div className="space-y-3">
                       <h4 className="font-medium text-green-700">Improved Transcript</h4>
+                      <p className="text-xs text-gray-600 mb-2">
+                        Click on words to highlight them for focused practice
+                      </p>
                       <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                        <p className="text-sm whitespace-pre-wrap">
-                          {session.improved_transcript || 'No improved transcript available'}
-                        </p>
+                        <div className="text-sm whitespace-pre-wrap">
+                          {session.improved_transcript 
+                            ? renderHighlightableText(session.improved_transcript)
+                            : 'No improved transcript available'}
+                        </div>
                       </div>
+                      {highlights.length > 0 && (
+                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <p className="text-sm font-medium text-yellow-800 mb-2">
+                            Highlighted words ({highlights.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {highlights.map((word, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center gap-1 bg-yellow-200 text-yellow-900 px-2 py-1 rounded text-sm"
+                              >
+                                {word}
+                                <button
+                                  onClick={() => dispatch(removeHighlight(word))}
+                                  className="text-yellow-700 hover:text-yellow-900"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -462,8 +685,127 @@ const PracticeFeedback: React.FC = () => {
                   </div>
                 </div>
               )}
+              
+              {['practicing_sentences', 'practicing_words', 'practicing_full_transcript'].includes(session.status) && (
+                <div className="space-y-6">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Play className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <h3 className="text-lg font-medium">Practice Session in Progress</h3>
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      You have an active practice session. Continue where you left off or start a new one.
+                    </p>
+                    
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={() => setShowPracticeModal(true)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        size="lg"
+                      >
+                        <Play className="h-5 w-5 mr-2" />
+                        Continue Practice
+                      </Button>
+                      
+                      <Button
+                        onClick={handleReset}
+                        variant="outline"
+                        size="lg"
+                      >
+                        Start New Practice
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {session.status === 'completed' && (
+                <div className="space-y-6">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium">Practice Session Completed!</h3>
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      Congratulations! You've successfully completed your practice session.
+                    </p>
+                    
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={handleReset}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        size="lg"
+                      >
+                        Start New Practice
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {session.status === 'failed' && (
+                <div className="space-y-6">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium">Practice Session Failed</h3>
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      {session.error_message || 'Something went wrong with your practice session.'}
+                    </p>
+                    
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={handleReset}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        size="lg"
+                      >
+                        Start New Practice
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {session.status === 'abandoned' && (
+                <div className="space-y-6">
+                  <div className="text-center py-8">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium">Practice Session Abandoned</h3>
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      Your practice session was abandoned. You can start a new one or continue where you left off.
+                    </p>
+                    
+                    <div className="flex gap-3 justify-center">
+                      <Button
+                        onClick={handleReset}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        size="lg"
+                      >
+                        Start New Practice
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       
@@ -481,6 +823,6 @@ const PracticeFeedback: React.FC = () => {
       )}
     </div>
   );
-};
-
-export default PracticeFeedback; 
+  };
+  
+  export default PracticeFeedback; 
