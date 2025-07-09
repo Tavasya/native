@@ -14,7 +14,7 @@ class BlobUrlTracker {
   /**
    * Create a blob URL and track it
    */
-  createObjectURL(blob: Blob, context: string = 'unknown'): string {
+  createObjectURL(blob: Blob, _context: string = 'unknown'): string {
     const url = URL.createObjectURL(blob);
     
     // Memory monitoring disabled
@@ -25,7 +25,7 @@ class BlobUrlTracker {
   /**
    * Revoke a blob URL and stop tracking it
    */
-  revokeObjectURL(url: string, context: string = 'cleanup'): void {
+  revokeObjectURL(url: string, _context: string = 'cleanup'): void {
     URL.revokeObjectURL(url);
     // Memory monitoring disabled
   }
@@ -53,26 +53,16 @@ class BlobUrlTracker {
   /**
    * Clean up old blob URLs
    */
-  cleanupOldUrls(ageThresholdMs: number = 300000): number {
+  cleanupOldUrls(_ageThresholdMs: number = 300000): number {
     // Memory monitoring disabled
     return 0;
-  }
-  
-  /**
-   * Get estimated memory usage of all tracked blobs
-   */
-  private getEstimatedMemoryUsage(): number {
-    const totalBytes = Array.from(this.activeBlobUrls.values())
-      .reduce((total, data) => total + (data.size || 0), 0);
-    return Number((totalBytes / 1024 / 1024).toFixed(2)); // MB
   }
   
   /**
    * Log current status
    */
   logStatus(): void {
-    const activeUrls = this.getActiveBlobUrls();
-    const potentialLeaks = this.findPotentialLeaks();
+    // Blob URL tracker status logging removed
     
     // Blob URL tracker status logging removed
   }
@@ -91,7 +81,7 @@ class BlobUrlTracker {
   /**
    * Clear blob URLs by context (useful for specific cleanup scenarios like redo)
    */
-  clearByContext(contextPattern: string): number {
+  clearByContext(_contextPattern: string): number {
     // Memory monitoring disabled
     return 0;
   }

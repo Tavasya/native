@@ -45,11 +45,11 @@ export const useRecordingSession = ({ assignmentId, userId, assignment, toast }:
 
   // Monitor memory when recordings change
   useEffect(() => {
-    const totalBlobSize = Object.values(sessionRecordings).reduce((total, record) => {
-      // Estimate blob size based on typical audio data
-      return total + (record.url.startsWith('blob:') ? 1024 * 1024 : 0); // Rough estimate
-    }, 0);
-    
+    // Monitor recording count for memory awareness
+    const recordingCount = Object.keys(sessionRecordings).length;
+    if (recordingCount > 0) {
+      // Recording monitoring active
+    }
   }, [sessionRecordings]);
 
   const recordingsData = useAppSelector(state => 

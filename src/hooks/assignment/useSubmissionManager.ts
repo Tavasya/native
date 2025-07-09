@@ -50,7 +50,7 @@ export const useSubmissionManager = ({
 
       try {
         // Get the first (and likely only) recording for practice
-        const firstRecording = assignment.questions.map((question, index) => {
+        const firstRecording = assignment.questions.map((_, index) => {
           const recordingData = recordingsData?.[index.toString()];
           const sessionRecording = sessionRecordings[index];
           return recordingData?.uploadedUrl || sessionRecording?.uploadedUrl;
