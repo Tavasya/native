@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Trash2, ChevronDown, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,8 @@ interface QuestionCard {
   speakAloud: boolean;
   timeLimit: string;
   prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
+  hasHint?: boolean;          // Toggle for enabling/disabling hints (Part 1 & 3 only)
+  hintText?: string;          // The actual hint content
 }
 
 const CreateAssignmentPage: React.FC = () => {
@@ -138,7 +141,9 @@ const CreateAssignmentPage: React.FC = () => {
             bulletPoints: q.bulletPoints || [],
             speakAloud: q.speakAloud || false,
             timeLimit: q.timeLimit || '1',
-            prepTime: q.prepTime || '0:15'
+            prepTime: q.prepTime || '0:15',
+            hasHint: q.hasHint || false,
+            hintText: q.hintText || ''
           })));
           
         }
@@ -354,7 +359,8 @@ const CreateAssignmentPage: React.FC = () => {
           questions: questionCards.map(card => ({
             ...card,
             question: card.question.trim(),
-            bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+            hintText: card.hintText?.trim()
           })),
           metadata: { autoGrade, isTest, audioOnlyMode },
         };
@@ -370,7 +376,8 @@ const CreateAssignmentPage: React.FC = () => {
           questions: questionCards.map(card => ({
             ...card,
             question: card.question.trim(),
-            bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+            hintText: card.hintText?.trim()
           })),
           metadata: { autoGrade, isTest, audioOnlyMode },
           status: 'not_started' as const
@@ -479,7 +486,8 @@ const CreateAssignmentPage: React.FC = () => {
         questions: questionCards.map(card => ({
           ...card,
           question: card.question.trim(),
-          bulletPoints: card.bulletPoints?.map(bp => bp.trim())
+          bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+          hintText: card.hintText?.trim()
         })),
         metadata: { autoGrade }
       };
@@ -554,7 +562,9 @@ const CreateAssignmentPage: React.FC = () => {
       bulletPoints: q.bulletPoints || [],
       speakAloud: q.speakAloud || false,
       timeLimit: '1',
-      prepTime: '0:15'
+      prepTime: '0:15',
+      hasHint: false,
+      hintText: ''
     }));
     
     if (insertIndex !== undefined) {
@@ -1074,6 +1084,29 @@ const CreateAssignmentPage: React.FC = () => {
                                       </div>
                                     )}
 
+                                    {/* Hints - Only for Part 1 & Part 3 questions */}
+                                    {card.type === "normal" && card.hasHint && (
+                                      <div
+                                        className={cn(
+                                          "p-4 rounded-lg",
+                                          activeCardId === card.id ? "bg-gray-50" : ""
+                                        )}
+                                      >
+                                        <h4 className="text-sm font-medium mb-3">Hint:</h4>
+                                        <Textarea
+                                          value={card.hintText || ''}
+                                          onChange={(e) => updateQuestionCard(card.id, { hintText: e.target.value })}
+                                          onMouseDown={() => {
+                                            setActiveCardId(card.id);
+                                            setActiveHeaderCard(false);
+                                          }}
+                                          placeholder="Enter a hint to help students with this question..."
+                                          className="min-h-[60px] bg-white focus:outline-none focus:ring-0 focus:ring-transparent focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0 ring-0"
+                                          maxLength={500}
+                                        />
+                                      </div>
+                                    )}
+
                                     {/* Controls */}
                                     <AnimatePresence>
                                       {activeCardId === card.id && (
@@ -1086,32 +1119,54 @@ const CreateAssignmentPage: React.FC = () => {
                                         >
                                           <div className="flex flex-col space-y-4 pt-4">
                                             <div className="flex items-center justify-between gap-4">
-                                              <div className="flex flex-col">
-                                                <label className="text-xs text-gray-500 mb-1">Question Style</label>
-                                                <Select
-                                                  value={card.type}
-                                                  onValueChange={(value: "normal" | "bulletPoints") =>
-                                                    updateQuestionCard(card.id, {
-                                                      type: value,
-                                                      bulletPoints:
-                                                        value === "bulletPoints" ? [""] : undefined,
-                                                    })
-                                                  }
-                                                >
-                                                  <SelectTrigger className="w-40">
-                                                    <SelectValue>
-                                                      {card.type === "normal"
-                                                        ? "Part 1 or Part 3 "
-                                                        : "Part 2 "}
-                                                    </SelectValue>
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                    <SelectItem value="normal">Part 1 or Part 3</SelectItem>
-                                                    <SelectItem value="bulletPoints">
-                                                      Part 2
-                                                    </SelectItem>
-                                                  </SelectContent>
-                                                </Select>
+                                              <div className="flex items-center gap-4">
+                                                <div className="flex flex-col">
+                                                  <label className="text-xs text-gray-500 mb-1">Question Style</label>
+                                                  <Select
+                                                    value={card.type}
+                                                    onValueChange={(value: "normal" | "bulletPoints") =>
+                                                      updateQuestionCard(card.id, {
+                                                        type: value,
+                                                        bulletPoints:
+                                                          value === "bulletPoints" ? [""] : undefined,
+                                                        hasHint: value === "normal" ? card.hasHint : false,
+                                                        hintText: value === "normal" ? card.hintText : undefined,
+                                                      })
+                                                    }
+                                                  >
+                                                    <SelectTrigger className="w-40">
+                                                      <SelectValue>
+                                                        {card.type === "normal"
+                                                          ? "Part 1 or Part 3 "
+                                                          : "Part 2 "}
+                                                      </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      <SelectItem value="normal">Part 1 or Part 3</SelectItem>
+                                                      <SelectItem value="bulletPoints">
+                                                        Part 2
+                                                      </SelectItem>
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+
+                                                {/* Hint Toggle - Only for Part 1 & Part 3 questions */}
+                                                {card.type === "normal" && (
+                                                  <div className="flex flex-col">
+                                                    <label className="text-xs text-gray-500 mb-1">Hint</label>
+                                                    <div className="flex items-center h-9">
+                                                      <Switch
+                                                        checked={card.hasHint || false}
+                                                        onCheckedChange={(checked) => {
+                                                          updateQuestionCard(card.id, { 
+                                                            hasHint: checked,
+                                                            hintText: checked ? (card.hintText || '') : undefined
+                                                          });
+                                                        }}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </div>
                                               
                                               <div className="flex items-center gap-4">
@@ -1174,6 +1229,9 @@ const CreateAssignmentPage: React.FC = () => {
                                                 </div>
                                               </div>
                                             </div>
+                                            
+
+                                            
                                             <div className="flex items-center justify-end">
                                               <Button
                                                 variant="destructive"

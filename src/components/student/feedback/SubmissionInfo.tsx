@@ -25,6 +25,7 @@ interface SubmissionInfoProps {
   isAutoGradeEnabled?: boolean;
   isTest?: boolean;
   grade?: number | null;
+  audioUrl?: string;
 }
 
 const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
@@ -48,6 +49,7 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   isAutoGradeEnabled = true,
   isTest = false,
   grade,
+  audioUrl,
 }) => {
   // Create scores object with grade included
   const scoresWithGrade = {
@@ -64,8 +66,26 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
     <Card className="shadow-sm border-0 bg-white">
       <CardContent className="p-6">
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center justify-between mb-2">
             <h1 className="text-2xl font-bold text-gray-900">{assignmentTitle}</h1>
+            {audioUrl && (
+              <a
+                href={audioUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded transition-colors duration-200"
+              >
+                <svg 
+                  className="w-3 h-3" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View audio file
+              </a>
+            )}
           </div>
           <p className="text-sm text-gray-500">
             Submitted by {studentName} on {new Date(submittedAt || Date.now()).toLocaleDateString('en-US', {

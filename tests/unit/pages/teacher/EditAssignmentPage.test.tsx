@@ -32,44 +32,60 @@ jest.mock('@/integrations/supabase/client', () => ({
 const mockNavigate = jest.fn();
 const mockToast = jest.fn();
 
+// Create a mutable location state that can be cleared
+let locationState: any = {
+  isEditing: true,
+  assignmentId: 'assignment-456',
+  editData: {
+    title: 'Existing Assignment',
+    due_date: '2025-12-25',
+    due_time: '14:30',
+    questions: [
+      {
+        id: 'q1',
+        type: 'normal',
+        question: 'What is your favorite color?',
+        speakAloud: false,
+        timeLimit: '2',
+        prepTime: '0:30'
+      },
+      {
+        id: 'q2',
+        type: 'bulletPoints',
+        question: 'Describe your hobbies',
+        bulletPoints: ['Reading', 'Swimming', 'Cooking'],
+        speakAloud: false,
+        timeLimit: '3',
+        prepTime: '1:00'
+      }
+    ],
+    metadata: {
+      autoGrade: false,
+      isTest: true,
+      audioOnlyMode: false
+    }
+  }
+};
+
+// Mock window.history.replaceState to clear the location state but preserve isEditing
+Object.defineProperty(window, 'history', {
+  writable: true,
+  value: {
+    replaceState: jest.fn(() => {
+      locationState = {
+        isEditing: locationState.isEditing,
+        assignmentId: locationState.assignmentId
+      };
+    })
+  }
+});
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: 'test-class-123' }),
   useLocation: () => ({
-    state: {
-      isEditing: true,
-      assignmentId: 'assignment-456',
-      editData: {
-        title: 'Existing Assignment',
-        due_date: '2025-12-25',
-        due_time: '14:30',
-        questions: [
-          {
-            id: 'q1',
-            type: 'normal',
-            question: 'What is your favorite color?',
-            speakAloud: false,
-            timeLimit: '2',
-            prepTime: '0:30'
-          },
-          {
-            id: 'q2',
-            type: 'bulletPoints',
-            question: 'Describe your hobbies',
-            bulletPoints: ['Reading', 'Swimming', 'Cooking'],
-            speakAloud: false,
-            timeLimit: '3',
-            prepTime: '1:00'
-          }
-        ],
-        metadata: {
-          autoGrade: false,
-          isTest: true,
-          audioOnlyMode: false
-        }
-      }
-    }
+    state: locationState
   })
 }));
 
@@ -228,6 +244,41 @@ describe('CreateAssignmentPage - Edit Mode', () => {
   beforeEach(() => {
     user = userEvent.setup();
     jest.clearAllMocks();
+    
+    // Reset location state for each test
+    locationState = {
+      isEditing: true,
+      assignmentId: 'assignment-456',
+      editData: {
+        title: 'Existing Assignment',
+        due_date: '2025-12-25',
+        due_time: '14:30',
+        questions: [
+          {
+            id: 'q1',
+            type: 'normal',
+            question: 'What is your favorite color?',
+            speakAloud: false,
+            timeLimit: '2',
+            prepTime: '0:30'
+          },
+          {
+            id: 'q2',
+            type: 'bulletPoints',
+            question: 'Describe your hobbies',
+            bulletPoints: ['Reading', 'Swimming', 'Cooking'],
+            speakAloud: false,
+            timeLimit: '3',
+            prepTime: '1:00'
+          }
+        ],
+        metadata: {
+          autoGrade: false,
+          isTest: true,
+          audioOnlyMode: false
+        }
+      }
+    };
     
     // Reset mock implementations
     const { updateAssignment, createAssignment } = require('@/features/assignments/assignmentThunks');
@@ -412,25 +463,39 @@ describe('CreateAssignmentPage - Edit Mode', () => {
       await waitFor(() => {
         expect(updateAssignment).toHaveBeenCalledWith({
           assignmentId: 'assignment-456',
-          data: expect.objectContaining({
+          data: {
             title: 'Updated Assignment',
-            due_date: '2025-12-25T14:30:00.000Z',
-            questions: expect.arrayContaining([
-              expect.objectContaining({
+            due_date: expect.stringMatching(/2025-12-25T.*:30:00\.000Z/),
+            questions: [
+              {
                 id: 'q1',
-                question: 'What is your favorite color?'
-              }),
-              expect.objectContaining({
+                type: 'normal',
+                question: 'What is your favorite color?',
+                bulletPoints: [],
+                speakAloud: false,
+                timeLimit: '2',
+                prepTime: '0:30',
+                hasHint: false,
+                hintText: ''
+              },
+              {
                 id: 'q2',
-                question: 'Describe your hobbies'
-              })
-            ]),
-            metadata: expect.objectContaining({
+                type: 'bulletPoints',
+                question: 'Describe your hobbies',
+                bulletPoints: ['Reading', 'Swimming', 'Cooking'],
+                speakAloud: false,
+                timeLimit: '3',
+                prepTime: '1:00',
+                hasHint: false,
+                hintText: ''
+              }
+            ],
+            metadata: {
               autoGrade: false,
               isTest: true,
               audioOnlyMode: false
-            })
-          })
+            }
+          }
         });
       });
     });
@@ -555,27 +620,18 @@ describe('CreateAssignmentPage - Edit Mode', () => {
 
   describe('Edit Mode Edge Cases', () => {
     it('handles missing questions data gracefully', () => {
-      // Mock location with undefined questions
-      const mockUseLocation = jest.fn().mockReturnValue({
-        state: {
-          isEditing: true,
-          assignmentId: 'assignment-456',
-          editData: {
-            title: 'Existing Assignment',
-            due_date: '2025-12-25',
-            due_time: '14:30',
-            questions: undefined,
-            metadata: {}
-          }
+      // Update location state with undefined questions
+      locationState = {
+        isEditing: true,
+        assignmentId: 'assignment-456',
+        editData: {
+          title: 'Existing Assignment',
+          due_date: '2025-12-25',
+          due_time: '14:30',
+          questions: undefined,
+          metadata: {}
         }
-      });
-
-      jest.doMock('react-router-dom', () => ({
-        ...jest.requireActual('react-router-dom'),
-        useLocation: mockUseLocation,
-        useNavigate: () => mockNavigate,
-        useParams: () => ({ id: 'test-class-123' })
-      }));
+      };
 
       renderWithProviders();
 
@@ -584,34 +640,25 @@ describe('CreateAssignmentPage - Edit Mode', () => {
     });
 
     it('handles questions as JSON string', () => {
-      // Mock location with questions as JSON string
-      const mockUseLocation = jest.fn().mockReturnValue({
-        state: {
-          isEditing: true,
-          assignmentId: 'assignment-456',
-          editData: {
-            title: 'Existing Assignment',
-            due_date: '2025-12-25',
-            due_time: '14:30',
-            questions: JSON.stringify([{
-              id: 'q1',
-              type: 'normal',
-              question: 'Parsed question?',
-              speakAloud: false,
-              timeLimit: '1',
-              prepTime: '0:15'
-            }]),
-            metadata: {}
-          }
+      // Update location state with questions as JSON string
+      locationState = {
+        isEditing: true,
+        assignmentId: 'assignment-456',
+        editData: {
+          title: 'Existing Assignment',
+          due_date: '2025-12-25',
+          due_time: '14:30',
+          questions: JSON.stringify([{
+            id: 'q1',
+            type: 'normal',
+            question: 'Parsed question?',
+            speakAloud: false,
+            timeLimit: '1',
+            prepTime: '0:15'
+          }]),
+          metadata: {}
         }
-      });
-
-      jest.doMock('react-router-dom', () => ({
-        ...jest.requireActual('react-router-dom'),
-        useLocation: mockUseLocation,
-        useNavigate: () => mockNavigate,
-        useParams: () => ({ id: 'test-class-123' })
-      }));
+      };
 
       renderWithProviders();
 

@@ -11,6 +11,8 @@ export interface QuestionCard {
   speakAloud: boolean;
   timeLimit: string;          // in minutes, e.g. "5"
   prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
+  hasHint?: boolean;          // Toggle for enabling/disabling hints (Part 1 & 3 only)
+  hintText?: string;          // The actual hint content
 }
 
 export interface Assignment {
