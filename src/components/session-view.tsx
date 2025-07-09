@@ -4,7 +4,6 @@ import { useEffect, useState, forwardRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type AgentState,
-  type ReceivedChatMessage,
   useRoomContext,
   useVoiceAssistant,
 } from '@livekit/components-react';
@@ -165,7 +164,7 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
 
   // Handle receiving messages from the agent
   useEffect(() => {
-    const handleMessage = (data: Uint8Array, participant: any) => {
+    const handleMessage = (data: Uint8Array) => {
       // Convert data to string and check for our custom turn tracking
       const messageString = new TextDecoder().decode(data);
       if (messageString.includes('{{TURN_')) {
