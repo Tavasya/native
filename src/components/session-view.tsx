@@ -12,6 +12,7 @@ import { toastAlert } from '../components/alert-toast';
 import { AgentControlBar } from '../components/livekit/agent-control-bar/agent-control-bar';
 import { ChatEntry } from '../components/livekit/chat/chat-entry';
 import { ChatMessageView } from '@/components/livekit/chat/chat-message-view';
+import { ChatInput } from '@/components/livekit/chat/chat-input';
 import { MediaTiles } from '@/components/livekit/media-tiles';
 import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
@@ -38,7 +39,6 @@ interface SessionViewProps {
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
-  appConfig,
   disabled,
   sessionStarted,
   selectedScenario,
@@ -165,10 +165,11 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
 
   // Handle receiving messages from the agent
   useEffect(() => {
-    const handleMessage = (message: ReceivedChatMessage) => {
-      // Only process messages that contain our custom turn tracking
-      if (message.message.includes('{{TURN_')) {
-        const turnMatch = message.message.match(/\{\{TURN_(\d+)\}\}/);
+    const handleMessage = (data: Uint8Array, participant: any) => {
+      // Convert data to string and check for our custom turn tracking
+      const messageString = new TextDecoder().decode(data);
+      if (messageString.includes('{{TURN_')) {
+        const turnMatch = messageString.match(/\{\{TURN_(\d+)\}\}/);
         if (turnMatch) {
           const turnNumber = parseInt(turnMatch[1], 10);
           console.log(`📋 Received turn ${turnNumber} from agent`);
@@ -177,9 +178,9 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
       }
     };
 
-    const unsubscribe = room.on('message', handleMessage);
+    room.on('dataReceived', handleMessage);
     return () => {
-      room.off('message', handleMessage);
+      room.off('dataReceived', handleMessage);
     };
   }, [room]);
 
@@ -208,8 +209,8 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
           </div>
           <div className="flex items-center gap-4">
             <ConversationProgress
-              currentTurn={scriptAwareTurns}
-              totalTurns={selectedScenario?.turns || 0}
+              scenario={selectedScenario}
+              scriptAwareTurns={scriptAwareTurns}
             />
             <SettingsDropdown />
           </div>
@@ -220,7 +221,12 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Media Tiles */}
         <div className="flex-1 flex justify-center items-center bg-gray-900 relative">
-          <MediaTiles />
+          <MediaTiles 
+            chatOpen={chatOpen}
+            selectedScenario={selectedScenario}
+            sessionStarted={sessionStarted}
+            onResponseSelect={handleSuggestedResponse}
+          />
         </div>
 
         {/* Chat Sidebar */}
@@ -237,20 +243,20 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
                 <h2 className="text-lg font-semibold">Chat</h2>
               </div>
               <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-3">
+                <ChatMessageView className="space-y-3">
                   {messages.map((message, index) => (
-                    <ChatMessageView
+                    <ChatEntry
                       key={index}
-                      message={message}
-                      isAgent={message.name === 'Agent'}
+                      entry={message}
+                      hideName={false}
+                      hideTimestamp={false}
                     />
                   ))}
-                </div>
+                </ChatMessageView>
               </div>
               <div className="p-4 border-t border-gray-700">
-                <ChatEntry
-                  placeholder="Type your message..."
-                  onSubmit={handleSendMessage}
+                <ChatInput
+                  onSend={handleSendMessage}
                   disabled={agentState !== 'listening'}
                 />
               </div>
@@ -261,11 +267,19 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
         {/* Control Bar */}
         <div className="bg-gray-800 border-t border-gray-700 px-4 py-3">
           <AgentControlBar
-            agentState={agentState}
-            onChatToggle={() => setChatOpen(!chatOpen)}
-            isChatOpen={chatOpen}
-            selectedScenario={selectedScenario}
-            onSuggestedResponse={handleSuggestedResponse}
+            capabilities={{
+              supportsChatInput: true,
+              supportsVideoInput: false,
+              supportsScreenShare: false
+            }}
+            controls={{
+              microphone: true,
+              chat: true,
+              leave: true
+            }}
+            onChatOpenChange={setChatOpen}
+            onSendMessage={handleSendMessage}
+            onDisconnect={() => room.disconnect()}
           />
         </div>
       </div>
