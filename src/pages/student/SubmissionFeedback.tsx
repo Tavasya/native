@@ -344,6 +344,7 @@ const SubmissionFeedback = () => {
           isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
           isTest={currentAssignment?.metadata?.isTest ?? false}
           grade={selectedSubmission?.grade}
+          audioUrl={currentQuestion?.audio_url || ''}
         />
 
         <QuestionContent
