@@ -4,6 +4,7 @@ import { useEffect, useState, forwardRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type AgentState,
+  type ReceivedChatMessage,
   useRoomContext,
   useVoiceAssistant,
 } from '@livekit/components-react';
@@ -11,7 +12,6 @@ import { toastAlert } from '../components/alert-toast';
 import { AgentControlBar } from '../components/livekit/agent-control-bar/agent-control-bar';
 import { ChatEntry } from '../components/livekit/chat/chat-entry';
 import { ChatMessageView } from '@/components/livekit/chat/chat-message-view';
-import { ChatInput } from '@/components/livekit/chat/chat-input';
 import { MediaTiles } from '@/components/livekit/media-tiles';
 import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
@@ -33,16 +33,13 @@ interface SessionViewProps {
   disabled: boolean;
   sessionStarted: boolean;
   selectedScenario?: Scenario;
-  assignmentId?: string;
-  onConversationCompleted?: () => void;
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
+  appConfig,
   disabled,
   sessionStarted,
   selectedScenario,
-  assignmentId,
-  onConversationCompleted,
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
@@ -123,167 +120,165 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
     if (selectedScenario && scriptAwareTurns >= selectedScenario.turns && !completionTracked) {
       console.log(`🎯 Conversation completed! Reached turn ${scriptAwareTurns}/${selectedScenario.turns}, ending call...`);
       
-      // Mark assignment as complete and then disconnect
-      if (user?.id && assignmentId) {
+      // Mark assignment as complete
+      if (user?.id) {
         completionService.markAssignmentComplete({
           userId: user.id,
-          assignmentId: assignmentId,
+          assignmentId: selectedScenario.id,
           assignmentType: 'conversation',
           scenarioName: selectedScenario.name
         }).then(result => {
           if (result.success) {
             console.log(`✅ Conversation completion tracked in database`);
-            console.log(`📞 Calling onConversationCompleted callback`);
-            onConversationCompleted?.();
-            
-            // Add a small delay to let the final message finish playing, then disconnect
-            setTimeout(() => {
-              console.log(`🔌 Room state before disconnect: ${room.state}`);
-              if (room.state === 'connected') {
-                toastAlert({
-                  title: 'Conversation Completed!',
-                  description: `Great job completing ${selectedScenario.name}!`,
-                });
-                console.log(`🔌 Calling room.disconnect()`);
-                room.disconnect();
-              } else {
-                console.log(`🔌 Room not connected, state: ${room.state}`);
-              }
-            }, 2000);
-            
           } else {
             console.error(`❌ Failed to track completion:`, result.error);
           }
         });
         setCompletionTracked(true);
-      } else if (!assignmentId) {
-        console.warn(`⚠️ No assignment ID provided, cannot track completion`);
       }
-    }
-  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id, assignmentId, onConversationCompleted]);
-
-  // Handle receiving messages from the agent
-  useEffect(() => {
-    const handleMessage = (data: Uint8Array) => {
-      // Convert data to string and check for our custom turn tracking
-      const messageString = new TextDecoder().decode(data);
-      if (messageString.includes('{{TURN_')) {
-        const turnMatch = messageString.match(/\{\{TURN_(\d+)\}\}/);
-        if (turnMatch) {
-          const turnNumber = parseInt(turnMatch[1], 10);
-          console.log(`📋 Received turn ${turnNumber} from agent`);
-          setScriptAwareTurns(turnNumber);
+      
+      // Add a small delay to let the final message finish playing
+      const endCallTimeout = setTimeout(() => {
+        // Only disconnect if still connected to avoid multiple disconnection attempts
+        if (room.state === 'connected') {
+          toastAlert({
+            title: 'Conversation Completed!',
+            description: `Great job completing ${selectedScenario.name}!`,
+          });
+          room.disconnect();
         }
-      }
-    };
+      }, 2000); // Reduced to 2 second delay for better responsiveness
+      
+      return () => clearTimeout(endCallTimeout);
+    }
+  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id]);
 
-    room.on('dataReceived', handleMessage);
-    return () => {
-      room.off('dataReceived', handleMessage);
-    };
-  }, [room]);
-
-  if (disabled) {
-    return null;
-  }
+  const { supportsChatInput, supportsVideoInput, supportsScreenShare } = appConfig;
+  const capabilities = {
+    supportsChatInput,
+    supportsVideoInput,
+    supportsScreenShare,
+  };
 
   return (
-    <section
-      ref={ref}
-      className={cn(
-        'flex flex-col h-screen w-full relative bg-gray-900 text-white',
-        'overflow-hidden'
-      )}
-    >
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{selectedScenario?.icon || '🎯'}</span>
-              <h1 className="text-lg font-semibold">
-                {selectedScenario?.name || 'Conversation Practice'}
-              </h1>
-            </div>
+    <>
+      {/* Settings Gear - OUTSIDE main container to avoid z-index issues */}
+      <div className="fixed top-4 right-4 z-[9999]">
+        <SettingsDropdown 
+          onDisconnect={() => room.disconnect()}
+        />
+      </div>
+
+      <main
+        ref={ref}
+        {...(disabled ? { inert: "" as any } : {})}
+        className={
+          // prevent page scrollbar
+          // when !chatOpen due to 'translate-y-20'
+          cn(!chatOpen && 'max-h-svh overflow-hidden')
+        }
+      >
+      <ChatMessageView
+        className={cn(
+          'mx-auto min-h-svh w-full max-w-2xl px-3 pt-32 pb-40 transition-[opacity,translate] duration-300 ease-out md:px-0 md:pt-36 md:pb-48',
+          chatOpen ? 'translate-y-0 opacity-100 delay-200' : 'translate-y-20 opacity-0'
+        )}
+      >
+        <div className="space-y-3 whitespace-pre-wrap">
+          <AnimatePresence>
+            {messages.map((message: ReceivedChatMessage) => (
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 1, height: 'auto', translateY: 0.001 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+              >
+                <ChatEntry hideName key={message.id} entry={message} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </ChatMessageView>
+
+      <div className="bg-background mp-12 fixed top-0 right-0 left-0 h-32 md:h-36">
+        {/* Room name display */}
+        <div className="absolute top-4 left-4 z-10">
+          <div className="bg-black/20 backdrop-blur-sm rounded-lg px-3 py-1 text-xs text-white/80">
+            Room: {room.name || 'Connecting...'}
           </div>
-          <div className="flex items-center gap-4">
-            <ConversationProgress
-              scenario={selectedScenario}
+        </div>
+        
+        {/* Conversation Progress in header */}
+        {selectedScenario && sessionStarted && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+            <ConversationProgress 
+              scenario={selectedScenario} 
               scriptAwareTurns={scriptAwareTurns}
             />
-            <SettingsDropdown />
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Media Tiles */}
-        <div className="flex-1 flex justify-center items-center bg-gray-900 relative">
-          <MediaTiles 
-            chatOpen={chatOpen}
-            selectedScenario={selectedScenario}
-            sessionStarted={sessionStarted}
-            onResponseSelect={handleSuggestedResponse}
-          />
-        </div>
-
-        {/* Chat Sidebar */}
-        <AnimatePresence>
-          {chatOpen && (
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="absolute right-0 top-0 h-full w-80 bg-gray-800 border-l border-gray-700 flex flex-col z-10"
-            >
-              <div className="p-4 border-b border-gray-700">
-                <h2 className="text-lg font-semibold">Chat</h2>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                <ChatMessageView className="space-y-3">
-                  {messages.map((message, index) => (
-                    <ChatEntry
-                      key={index}
-                      entry={message}
-                      hideName={false}
-                      hideTimestamp={false}
-                    />
-                  ))}
-                </ChatMessageView>
-              </div>
-              <div className="p-4 border-t border-gray-700">
-                <ChatInput
-                  onSend={handleSendMessage}
-                  disabled={agentState !== 'listening'}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Control Bar */}
-        <div className="bg-gray-800 border-t border-gray-700 px-4 py-3">
-          <AgentControlBar
-            capabilities={{
-              supportsChatInput: true,
-              supportsVideoInput: false,
-              supportsScreenShare: false
-            }}
-            controls={{
-              microphone: true,
-              chat: true,
-              leave: true
-            }}
-            onChatOpenChange={setChatOpen}
-            onSendMessage={handleSendMessage}
-            onDisconnect={() => room.disconnect()}
-          />
-        </div>
+        )}
+        
+        
+        {/* skrim */}
+        <div className="from-background absolute bottom-0 left-0 h-12 w-full translate-y-full bg-gradient-to-b to-transparent" />
       </div>
-    </section>
+
+      <MediaTiles 
+        chatOpen={chatOpen} 
+        selectedScenario={selectedScenario}
+        sessionStarted={sessionStarted}
+        onResponseSelect={handleSuggestedResponse}
+        onTurnChange={setScriptAwareTurns}
+      />
+
+      {/* Suggested Responses now integrated into AgentTile */}
+
+      <div className="bg-background fixed right-0 bottom-0 left-0 z-50 px-3 pt-2 pb-3 md:px-12 md:pb-12">
+        <motion.div
+          key="control-bar"
+          initial={{ opacity: 0, translateY: '100%' }}
+          animate={{
+            opacity: sessionStarted ? 1 : 0,
+            translateY: sessionStarted ? '0%' : '100%',
+          }}
+          transition={{ duration: 0.3, delay: sessionStarted ? 0.5 : 0, ease: 'easeOut' }}
+        >
+          <div className="relative z-10 mx-auto w-full max-w-2xl">
+            {appConfig.isPreConnectBufferEnabled && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: sessionStarted && messages.length === 0 ? 1 : 0,
+                  transition: {
+                    ease: 'easeIn',
+                    delay: messages.length > 0 ? 0 : 0.8,
+                    duration: messages.length > 0 ? 0.2 : 0.5,
+                  },
+                }}
+                aria-hidden={messages.length > 0}
+                className={cn(
+                  'absolute inset-x-0 -top-12 text-center',
+                  sessionStarted && messages.length === 0 && 'pointer-events-none'
+                )}
+              >
+                <p className="animate-text-shimmer inline-block !bg-clip-text text-sm font-semibold text-transparent">
+                  Agent is listening, ask it a question
+                </p>
+              </motion.div>
+            )}
+
+            <AgentControlBar
+              capabilities={capabilities}
+              onChatOpenChange={setChatOpen}
+              onSendMessage={handleSendMessage}
+            />
+          </div>
+          {/* skrim */}
+          <div className="from-background border-background absolute top-0 left-0 h-12 w-full -translate-y-full bg-gradient-to-t to-transparent" />
+        </motion.div>
+      </div>
+    </main>
+    </>
   );
 });
-
-SessionView.displayName = 'SessionView';

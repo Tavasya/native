@@ -119,7 +119,8 @@ class MyAgent(Agent):
         
         # Keep retrying until we find a participant with special naming pattern
         attempt = 0
-        while True:
+        max_attempts = 30  # Maximum 30 attempts (1 minute total)
+        while attempt < max_attempts:
             await asyncio.sleep(2)  # Wait 2 seconds each time
             attempt += 1
             
@@ -127,7 +128,10 @@ class MyAgent(Agent):
             if await self._check_participants_for_greeting():
                 return  # Found one, exit early
             
-            logger.info(f"🔍 Attempt {attempt}: No special participant found, retrying...")
+            logger.info(f"🔍 Attempt {attempt}/{max_attempts}: No special participant found, retrying...")
+        
+        # If we reach here, no special participant was found after max attempts
+        logger.info("🔍 No special participant found after maximum attempts, continuing without special greeting")
 
     async def _check_participants_for_greeting(self):
         """Check all participants for special naming patterns and trigger greeting if found"""
@@ -153,6 +157,8 @@ class MyAgent(Agent):
         
         for participant in all_participants:
             logger.info(f"🔍 Participant: identity='{participant.identity}', name='{participant.name}'")
+            
+            # Check for special naming pattern first
             if participant.name and participant.name.startswith("user_") and "_say_" in participant.name:
                 # Extract the 4-digit number and custom greeting from the name
                 parts = participant.name.split("_")
@@ -210,6 +216,12 @@ class MyAgent(Agent):
                             logger.info(f"🎭 Staying on turn {self.current_turn} to await user's response to greeting")
                         
                         return True  # Found and triggered greeting
+            
+            # Check for regular voice assistant users (fallback)
+            elif participant.identity and participant.identity.startswith("voice_assistant_user_") and participant.identity != "ptt-agent":
+                logger.info(f"🔥 Regular participant detected: {participant.identity}")
+                logger.info("🔥 No special greeting configured, starting normal conversation")
+                return True  # Found regular participant, exit search
         
         logger.info("🔍 No special naming pattern found, waiting for participants to join")
         return False  # No special participant found
@@ -326,7 +338,6 @@ class MyAgent(Agent):
                     logger.info(f"🎭 Advanced to turn {self.current_turn} for LLM conversation")
                     await self._notify_frontend_turn_change(self.current_turn)
         
-<<<<<<< HEAD
         # Default behavior for non-script mode (INTERMEDIATE/ADVANCED scenarios)
         else:
             # Handle unstructured conversation with turn counting
