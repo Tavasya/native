@@ -40,6 +40,7 @@ create table if not exists public.curriculum_assignments (
 -- Insert conversation assignments (from existing scenarios)
 insert into public.practice_assignments (title, type, level, description, content) values
 -- BEGINNER conversations
+<<<<<<< HEAD
 -- Beginner Conversation Scenarios with Complete Scripts
 
 ('Coffee Corner', 'conversation', 'BEGINNER', 'Practice ordering coffee with guided prompts and suggestions', 
@@ -103,6 +104,7 @@ insert into public.practice_assignments (title, type, level, description, conten
 
 ('Fitness Center', 'conversation', 'BEGINNER', 'Learn to inquire about gym membership and facilities',
  '{"id": "fitness-center", "name": "Fitness Center", "level": "BEGINNER", "description": "Learn to inquire about gym membership and facilities", "greeting": "Hi! Welcome to FitLife Gym. Are you interested in a membership?", "instructions": "You are a gym staff member. Help potential members learn about facilities, classes, and membership options.", "turns": 5, "icon": "💪", "conversationScript": [{"turn": 1, "agent": "Hi! Welcome to FitLife Gym. Are you interested in a membership?", "suggestedResponse": "Yes, I''d like to know about your membership options"}, {"turn": 2, "agent": "Great! We have monthly for $39 or yearly for $299. Both include all equipment and classes.", "suggestedResponse": "What kind of classes do you offer?"}, {"turn": 3, "agent": "We have yoga, spinning, aerobics, and strength training classes throughout the week.", "suggestedResponse": "Do I need to sign up for classes?"}, {"turn": 4, "agent": "Yes, but you can sign up online or at the front desk. Most classes have space available.", "suggestedResponse": "That sounds perfect. I''ll take the monthly membership"}, {"turn": 5, "agent": "Excellent choice! Let me get you signed up and show you around.", "suggestedResponse": "Thank you, I''m excited to get started"}]}');
+
 
 -- INTERMEDIATE conversations
 ('Job Interview', 'conversation', 'INTERMEDIATE', 'Practice professional interview skills and career discussions',

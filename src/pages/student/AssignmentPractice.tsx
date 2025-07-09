@@ -9,9 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { memoryMonitor } from '@/utils/memoryMonitor';
-import { MemoryUsageReporter } from '@/components/debug/MemoryUsageReporter';
-import { blobUrlTracker } from '@/utils/blobUrlTracker';
 
 // Custom Hooks
 import { useAssignmentData } from '@/hooks/assignment/useAssignmentData';
@@ -24,8 +21,8 @@ import { useSubmissionManager } from '@/hooks/assignment/useSubmissionManager';
 import { usePrepTime } from '@/hooks/assignment/usePrepTime';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { startTestGlobally, resetTestState } from '@/features/assignments/assignmentSlice';
-import { useRedoSubmission } from '@/hooks/feedback/useRedoSubmission';
-import RedoPromptDialog from '@/components/student/RedoPromptDialog';
+
+
 import { clearTTSAudio } from '@/features/tts/ttsSlice';
 import { clearAssignmentRecordings, clearRecordings } from '@/features/submissions/submissionsSlice';
 import { clearPrepTime } from '@/features/assignments/prepTimeSlice';
@@ -38,7 +35,12 @@ interface PreviewData {
   id: string;
   class_id?: string;
   created_at?: string;
-  metadata?: any;
+  metadata?: {
+    autoGrade?: boolean;
+    isTest?: boolean;
+    audioOnlyMode?: boolean;
+    [key: string]: unknown;
+  };
   status?: AssignmentStatus;
 }
 
@@ -61,24 +63,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     state.assignments.testMode?.hasGloballyStarted?.[id || ''] || false
   );
   
-  // Memory monitoring setup for main component
-  useEffect(() => {
-    memoryMonitor.takeSnapshot('AssignmentPractice-init', {
-      assignmentId: id,
-      previewMode,
-      hasGloballyStarted
-    });
-    
-    // Start continuous monitoring every 30 seconds
-    const stopMonitoring = memoryMonitor.startMonitoring(30000);
-    
-    return () => {
-      memoryMonitor.takeSnapshot('AssignmentPractice-cleanup', {
-        assignmentId: id
-      });
-      stopMonitoring();
-    };
-  }, [id, previewMode, hasGloballyStarted]);
   
   // Comprehensive cache clearing when leaving the page
   useEffect(() => {
@@ -111,17 +95,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         }
       }
       
-      // Clear blob URLs by context
-      const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-      console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-      
-      // Clear any remaining blob URLs that might be related to recordings
-      const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-      remainingUrls.forEach(({ url, context }) => {
-        if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-          blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-        }
-      });
       
       // Force garbage collection if available
       if (window.gc) {
@@ -137,11 +110,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   const [userId, setUserId] = useState<string | null>(null);
   const [isCompleted] = useState(false);
   
-  // Redo functionality
-  const [showRedoDialog, setShowRedoDialog] = useState(false);
-  const [existingSubmissions, setExistingSubmissions] = useState<any[]>([]);
-  const [hasCheckedSubmissions, setHasCheckedSubmissions] = useState(false);
-  const { isProcessing: isRedoProcessing, handleRedo } = useRedoSubmission();
+
 
   // Load assignment data
   const { assignment, loading, markQuestionCompleted } = useAssignmentData({
@@ -390,47 +359,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     getUserId();
   }, []);
 
-  // Check for existing submissions and show redo dialog
+  // Load existing submission data
   useEffect(() => {
-    const checkExistingSubmissions = async () => {
-      if (!id || !userId || previewMode || hasCheckedSubmissions) return;
-      
-      try {
-        const { data: submissions, error } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('assignment_id', id)
-          .eq('student_id', userId)
-          .order('submitted_at', { ascending: false });
-
-        if (error) {
-          console.error('Error checking existing submissions:', error);
-          return;
-        }
-
-        if (submissions && submissions.length > 0) {
-          setExistingSubmissions(submissions);
-          
-          // Check if there are completed submissions and no in_progress submission
-          const completedSubmissions = submissions.filter(s => s.status !== 'in_progress');
-          const inProgressSubmission = submissions.find(s => s.status === 'in_progress');
-          
-          // Only show dialog if there are completed submissions AND no in_progress submission
-          if (completedSubmissions.length > 0 && !inProgressSubmission) {
-            setShowRedoDialog(true);
-          }
-        }
-        
-        setHasCheckedSubmissions(true);
-      } catch (error) {
-        console.error('Error checking existing submissions:', error);
-        setHasCheckedSubmissions(true);
-      }
-    };
-
-    checkExistingSubmissions();
-    loadExistingSubmission();
-  }, [id, userId, previewMode, hasCheckedSubmissions, loadExistingSubmission]);
+    if (id && userId && !previewMode) {
+      loadExistingSubmission();
+    }
+  }, [id, userId, previewMode, loadExistingSubmission]);
 
   // Cleanup effect for test mode
   useEffect(() => {
@@ -445,12 +379,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   // Update hasRecorded when question changes
   useEffect(() => {
     if (assignment) {
-      memoryMonitor.takeSnapshot('question-change-start', {
-        currentQuestionIndex,
-        isTestMode,
-        assignmentQuestionCount: assignment.questions.length,
-        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
-      });
       
       // In test mode, hasRecorded is managed by the test state, not by existing recordings
       if (!isTestMode) {
@@ -468,16 +396,12 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       // Reset timer when question changes
       setTimerResetTrigger(prev => prev + 1);
       
-      memoryMonitor.takeSnapshot('question-change-complete', {
-        currentQuestionIndex,
-        hasRecorded: hasRecordingForQuestion(currentQuestionIndex)
-      });
     }
   }, [currentQuestionIndex, assignment, hasRecordingForQuestion, isPlaying, pauseAudio, isTestMode]);
 
   // Enhanced toggle recording with timer handling
   const toggleRecording = () => {
-    if (previewMode) {
+    if (previewMode && previewData?.id !== 'practice-assignment') {
       toast({
         title: "Preview Mode",
         description: "Recording is disabled in preview mode",
@@ -510,7 +434,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   // Enhanced play recording
   const playRecording = () => {
-    if (previewMode) {
+    if (previewMode && previewData?.id !== 'practice-assignment') {
       toast({
         title: "Preview Mode", 
         description: "Playback is disabled in preview mode",
@@ -547,54 +471,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
     }
   };
 
-  // Redo dialog handlers
-  const handleRedoDialogRedo = async () => {
-    if (!id || !userId) return;
-    
-    setShowRedoDialog(false);
-    setHasCheckedSubmissions(true); // Prevent dialog from showing again
-    await handleRedo(id, userId);
-  };
 
-  const handleRedoDialogContinue = async () => {
-    setShowRedoDialog(false);
-    setHasCheckedSubmissions(true); // Prevent dialog from showing again
-    
-    // Check if there's an in_progress submission, if not create one
-    const inProgressSubmission = existingSubmissions.find(s => s.status === 'in_progress');
-    if (!inProgressSubmission && id && userId) {
-      try {
-        // Get the highest attempt number
-        const maxAttempt = Math.max(...existingSubmissions.map(s => s.attempt), 0);
-        
-        // Create new in_progress submission
-        const { error } = await supabase
-          .from('submissions')
-          .insert({
-            assignment_id: id,
-            student_id: userId,
-            status: 'in_progress',
-            attempt: maxAttempt + 1,
-            submitted_at: new Date().toISOString()
-          });
-
-        if (error) {
-          console.error('Error creating in_progress submission:', error);
-          toast({
-            title: "Error",
-            description: "Failed to continue with assignment. Please try again.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error('Error creating in_progress submission:', error);
-      }
-    }
-  };
 
   // Retry question handler for network errors
   const retryQuestion = () => {
-    if (previewMode) {
+    if (previewMode && previewData?.id !== 'practice-assignment') {
       toast({
         title: "Preview Mode",
         description: "Retry is disabled in preview mode",
@@ -636,7 +517,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   // Complete question handler
   const completeQuestion = () => {
-    if (previewMode) {
+    if (previewMode && previewData?.id !== 'practice-assignment') {
       toast({
         title: "Preview Mode",
         description: "Question completion is disabled in preview mode",
@@ -705,26 +586,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       }
     }
     
-    // Clear blob URLs by context
-    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-    
-    // Clear any remaining blob URLs that might be related to recordings
-    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-    remainingUrls.forEach(({ url, context }) => {
-      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-      }
-    });
-    
     // Force garbage collection if available
     if (window.gc) {
       window.gc();
       console.log('🗑️ Forced garbage collection');
     }
-    
-    // Log blob URL status
-    blobUrlTracker.logStatus();
     
     console.log('✅ Manual cache clearing completed');
     
@@ -766,17 +632,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
       }
     }
     
-    // Clear blob URLs by context
-    const clearedBlobUrls = blobUrlTracker.clearByContext('assignment-practice');
-    console.log(`🔗 Cleared ${clearedBlobUrls} blob URLs for assignment practice`);
-    
-    // Clear any remaining blob URLs that might be related to recordings
-    const remainingUrls = blobUrlTracker.getActiveBlobUrls();
-    remainingUrls.forEach(({ url, context }) => {
-      if (context.includes('recording') || context.includes('audio') || context.includes('blob')) {
-        blobUrlTracker.revokeObjectURL(url, 'assignment-practice-cleanup');
-      }
-    });
     
     // Force garbage collection if available
     if (window.gc) {
@@ -799,7 +654,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
   if (!assignment) return <div>Assignment not found</div>;
 
   // Fix showRecordButton logic for test mode - now allows recording during prep time
-  const showRecordButton = !previewMode && 
+  const showRecordButton = (!previewMode || previewData?.id === 'practice-assignment') && 
     (isTestMode ? 
       (hasStarted && canStartRecording && (!hasRecorded || isRecording)) : 
       (!hasRecorded || isRecording)
@@ -807,7 +662,6 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
 
   return (
     <div className="container mx-auto px-4 min-h-screen flex flex-col">
-      <MemoryUsageReporter />
       <div className="flex items-center gap-4 py-4">
         <Button
           variant="ghost"
@@ -895,16 +749,7 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
         </div>
       </div>
       
-      {/* Redo Dialog */}
-      <RedoPromptDialog
-        isOpen={showRedoDialog}
-        onClose={() => setShowRedoDialog(false)}
-        onRedo={handleRedoDialogRedo}
-        onContinue={handleRedoDialogContinue}
-        assignmentTitle={assignment?.title || 'Assignment'}
-        attemptCount={existingSubmissions.filter(s => s.status !== 'in_progress').length}
-        isProcessing={isRedoProcessing}
-      />
+
     </div>
   );
 };

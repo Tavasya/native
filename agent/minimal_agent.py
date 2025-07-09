@@ -326,6 +326,7 @@ class MyAgent(Agent):
                     logger.info(f"🎭 Advanced to turn {self.current_turn} for LLM conversation")
                     await self._notify_frontend_turn_change(self.current_turn)
         
+<<<<<<< HEAD
         # Default behavior for non-script mode (INTERMEDIATE/ADVANCED scenarios)
         else:
             # Handle unstructured conversation with turn counting

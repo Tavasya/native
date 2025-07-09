@@ -8,6 +8,8 @@ export interface QuestionCard {
   speakAloud: boolean;
   timeLimit: string;
   prepTime?: string;
+  hasHint?: boolean;
+  hintText?: string;
 }
 
 export interface LibraryItem {

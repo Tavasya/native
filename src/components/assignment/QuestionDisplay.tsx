@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2 } from "lucide-react";
+import { Play, Loader2, Lightbulb } from "lucide-react";
 import { generateTTSAudio } from "@/features/tts/ttsService";
 import { useAppDispatch } from "@/app/hooks";
 import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
@@ -12,12 +12,14 @@ interface QuestionDisplayProps {
   currentQuestion: QuestionCard & { isCompleted?: boolean };
   isTestMode?: boolean;
   isAudioOnlyMode?: boolean; // Enable audio-only for normal mode
+  isRecording?: boolean; // For hiding hints during recording
 }
 
 const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   currentQuestion,
   isTestMode = false,
-  isAudioOnlyMode = false
+  isAudioOnlyMode = false,
+  isRecording = false
 }) => {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
@@ -196,6 +198,24 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
                 </Button>
               </div>
               <p className="text-gray-800">{currentQuestion.question}</p>
+              
+              {/* Hints - Show for Part 1 & Part 3 questions, hide when recording, test mode, or audio-only mode */}
+              {currentQuestion.hasHint && 
+               currentQuestion.hintText && 
+               currentQuestion.type === 'normal' && 
+               !isTestMode && 
+               !isAudioOnlyMode && 
+               !isRecording && (
+                <div className="mt-3 p-3 border-l-2 border-gray-300 bg-gray-50">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="h-4 w-4 text-gray-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Hint</span>
+                      <p className="text-sm text-gray-700 mt-1">{currentQuestion.hintText}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
