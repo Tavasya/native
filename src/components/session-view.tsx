@@ -33,6 +33,8 @@ interface SessionViewProps {
   disabled: boolean;
   sessionStarted: boolean;
   selectedScenario?: Scenario;
+  assignmentId?: string;
+  onConversationCompleted?: () => void;
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
@@ -40,6 +42,8 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   disabled,
   sessionStarted,
   selectedScenario,
+  assignmentId,
+  onConversationCompleted,
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
@@ -120,38 +124,44 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
     if (selectedScenario && scriptAwareTurns >= selectedScenario.turns && !completionTracked) {
       console.log(`🎯 Conversation completed! Reached turn ${scriptAwareTurns}/${selectedScenario.turns}, ending call...`);
       
-      // Mark assignment as complete
-      if (user?.id) {
+      // Mark assignment as complete and then disconnect
+      if (user?.id && assignmentId) {
         completionService.markAssignmentComplete({
           userId: user.id,
-          assignmentId: selectedScenario.id,
+          assignmentId: assignmentId,
           assignmentType: 'conversation',
           scenarioName: selectedScenario.name
         }).then(result => {
           if (result.success) {
             console.log(`✅ Conversation completion tracked in database`);
+            console.log(`📞 Calling onConversationCompleted callback`);
+            onConversationCompleted?.();
+            
+            // Add a small delay to let the final message finish playing, then disconnect
+            setTimeout(() => {
+              console.log(`🔌 Room state before disconnect: ${room.state}`);
+              if (room.state === 'connected') {
+                toastAlert({
+                  title: 'Conversation Completed!',
+                  description: `Great job completing ${selectedScenario.name}!`,
+                });
+                console.log(`🔌 Calling room.disconnect()`);
+                room.disconnect();
+              } else {
+                console.log(`🔌 Room not connected, state: ${room.state}`);
+              }
+            }, 2000);
+            
           } else {
             console.error(`❌ Failed to track completion:`, result.error);
           }
         });
         setCompletionTracked(true);
+      } else if (!assignmentId) {
+        console.warn(`⚠️ No assignment ID provided, cannot track completion`);
       }
-      
-      // Add a small delay to let the final message finish playing
-      const endCallTimeout = setTimeout(() => {
-        // Only disconnect if still connected to avoid multiple disconnection attempts
-        if (room.state === 'connected') {
-          toastAlert({
-            title: 'Conversation Completed!',
-            description: `Great job completing ${selectedScenario.name}!`,
-          });
-          room.disconnect();
-        }
-      }, 2000); // Reduced to 2 second delay for better responsiveness
-      
-      return () => clearTimeout(endCallTimeout);
     }
-  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id]);
+  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id, assignmentId, onConversationCompleted]);
 
   const { supportsChatInput, supportsVideoInput, supportsScreenShare } = appConfig;
   const capabilities = {
