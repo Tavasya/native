@@ -25,6 +25,15 @@ if (typeof window !== 'undefined') {
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = function() {};
   }
+
+  // Add ResizeObserver polyfill for Radix UI components
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
 }
 
 // Add Blob.arrayBuffer polyfill for Node.js testing environment

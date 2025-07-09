@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowRight, BookOpen } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -186,7 +186,7 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
           <h2 className="text-2xl font-semibold text-gray-900">Active Assignments</h2>
           
           <div className="flex items-center gap-2">
-            <Button
+            {/* <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/student/practice')}
@@ -194,7 +194,7 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
             >
               <BookOpen className="h-4 w-4" />
               Practice
-            </Button>
+            </Button> */}
             <div className="relative">
               <div className="flex bg-gray-100 rounded-lg items-center">
                 <Select 
