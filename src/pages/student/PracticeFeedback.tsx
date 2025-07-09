@@ -116,6 +116,23 @@ const PracticeFeedback: React.FC = () => {
   
   useEffect(() => {
     if (urlSessionId) {
+      // Check if we already have the session in Redux state (from GeneralPractice navigation)
+      if (session && session.id === urlSessionId) {
+        console.log('Session already loaded in Redux state, skipping database load');
+        setSessionId(session.id);
+        if (session.highlights && Array.isArray(session.highlights)) {
+          dispatch(setHighlights(session.highlights));
+        }
+        if (session.status === 'transcript_ready' && session.original_audio_url && !session.improved_transcript) {
+          dispatch(setSubmitting(true));
+        } else if (session.status === 'transcript_processing') {
+          dispatch(setSubmitting(true));
+        }
+        handleAutoNavigateToPracticeState(session);
+        return;
+      }
+      
+      // Load session from database if not already in Redux state
       dispatch(loadPracticeSession(urlSessionId))
         .unwrap()
         .then((sessionData) => {
@@ -134,7 +151,7 @@ const PracticeFeedback: React.FC = () => {
           dispatch(setSessionError(`Failed to load practice session: ${err instanceof Error ? err.message : 'Unknown error'}`));
         });
     }
-  }, [urlSessionId, dispatch, handleAutoNavigateToPracticeState]);
+  }, [urlSessionId, dispatch, handleAutoNavigateToPracticeState, session]);
 
   useEffect(() => {
     if (sessionId) {
@@ -378,7 +395,7 @@ const PracticeFeedback: React.FC = () => {
         }
       }
       
-      await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/start-practice`, {
+      await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionId}/start-practice`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

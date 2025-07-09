@@ -96,7 +96,7 @@ export const useSubmissionManager = ({
         }
 
         // Call backend API to improve transcript
-        const response = await fetch(`http://127.0.0.1:8000/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
+        const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 import { PracticeSession } from './practiceTypes';
 
-const PYTHON_BACKEND_URL = 'http://127.0.0.1:8000';
+const PYTHON_BACKEND_URL = 'https://classconnect-staging-107872842385.us-west2.run.app';
 
 export const practiceService = {
   async testApiKey(): Promise<boolean> {
