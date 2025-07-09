@@ -42,35 +42,34 @@ const getFrequencyDays = (timeline: string): number => {
 };
 
 const getAssignmentsPerWeek = (frequencyDays: number): number => {
-  if (frequencyDays <= 15) return 4;  // Intensive
-  if (frequencyDays <= 30) return 2;  // Focused
-  if (frequencyDays <= 60) return 1;  // Steady
-  return 1; // Casual (will space across 2 weeks)
+  if (frequencyDays <= 15) return 10;  // Intensive - daily practice with multiple exercises
+  if (frequencyDays <= 30) return 7;   // Focused - one per day
+  if (frequencyDays <= 60) return 5;   // Steady - weekdays only
+  return 3; // Casual - 3 times per week
 };
 
 const determineProgressionLevels = (currentLevel: string, targetScore: string): string[] => {
   const levels: string[] = [];
   
-  // Always start at current level or below for foundation
   if (currentLevel === 'BEGINNER') {
     levels.push('BEGINNER');
-    // Add intermediate if targeting higher scores
+    // If they want high scores, give them intermediate and advanced practice
     if (['7.0', '7.5', '8.0', '8.5+'].includes(targetScore)) {
       levels.push('INTERMEDIATE');
-    }
-    // Add advanced only for very high targets
-    if (['8.0', '8.5+'].includes(targetScore)) {
-      levels.push('ADVANCED');
+      // For very high targets, add advanced practice
+      if (['8.0', '8.5+'].includes(targetScore)) {
+        levels.push('ADVANCED');
+      }
     }
   } else if (currentLevel === 'INTERMEDIATE') {
     levels.push('INTERMEDIATE');
-    // Add advanced for high targets
+    // For high targets, add advanced practice
     if (['7.5', '8.0', '8.5+'].includes(targetScore)) {
       levels.push('ADVANCED');
     }
   } else if (currentLevel === 'ADVANCED') {
-    // Advanced students start with intermediate for foundation, then advanced
-    levels.push('INTERMEDIATE', 'ADVANCED');
+    // Advanced students only get advanced content
+    levels.push('ADVANCED');
   }
   
   return levels;
@@ -88,26 +87,111 @@ const shuffleArray = <T>(array: T[]): T[] => {
 const distributeAssignments = (
   assignments: Assignment[], 
   totalWeeks: number, 
-  assignmentsPerWeek: number
+  assignmentsPerWeek: number,
+  levels: string[]
 ): Assignment[][] => {
   const weeklyAssignments: Assignment[][] = Array.from({ length: totalWeeks }, () => []);
-  const shuffledAssignments = shuffleArray(assignments);
   
-  let assignmentIndex = 0;
+  // Group assignments by level and type
+  const assignmentsByLevel: { [key: string]: { conversations: Assignment[], pronunciations: Assignment[] } } = {};
+  levels.forEach(level => {
+    assignmentsByLevel[level] = {
+      conversations: assignments.filter(a => a.level === level && a.type === 'conversation'),
+      pronunciations: assignments.filter(a => a.level === level && a.type === 'pronunciation')
+    };
+  });
   
+  // Calculate progressive level distribution across weeks
+  const levelDistribution = calculateLevelDistribution(levels, totalWeeks);
+  
+  // Distribute assignments week by week
   for (let week = 0; week < totalWeeks; week++) {
-    for (let i = 0; i < assignmentsPerWeek && assignmentIndex < shuffledAssignments.length; i++) {
-      weeklyAssignments[week].push(shuffledAssignments[assignmentIndex]);
-      assignmentIndex++;
-    }
+    const weekLevel = levelDistribution[week];
+    const conversationsNeeded = Math.ceil(assignmentsPerWeek * 0.7);
+    const pronunciationsNeeded = assignmentsPerWeek - conversationsNeeded;
     
-    // If we run out of unique assignments, start reusing them
-    if (assignmentIndex >= shuffledAssignments.length) {
-      assignmentIndex = 0;
-    }
+    // Get available assignments for this week's level
+    const availableConversations = assignmentsByLevel[weekLevel]?.conversations || [];
+    const availablePronunciations = assignmentsByLevel[weekLevel]?.pronunciations || [];
+    
+    // Add conversations for this week
+    const weekConversations = selectAssignmentsForWeek(
+      availableConversations, 
+      conversationsNeeded,
+      week
+    );
+    
+    // Add pronunciations for this week
+    const weekPronunciations = selectAssignmentsForWeek(
+      availablePronunciations,
+      pronunciationsNeeded,
+      week
+    );
+    
+    // Mix conversations and pronunciations
+    weeklyAssignments[week] = [...weekConversations, ...weekPronunciations];
+    
+    // Shuffle the week's assignments for variety
+    weeklyAssignments[week] = shuffleArray(weeklyAssignments[week]);
   }
   
   return weeklyAssignments;
+};
+
+// Helper function to calculate progressive level distribution
+const calculateLevelDistribution = (levels: string[], totalWeeks: number): string[] => {
+  const distribution: string[] = [];
+  
+  if (levels.length === 1) {
+    // Single level - use it for all weeks
+    return Array(totalWeeks).fill(levels[0]);
+  }
+  
+  if (levels.length === 2) {
+    // Two levels - start with lower, progress to higher
+    const firstLevelWeeks = Math.ceil(totalWeeks * 0.4);
+    for (let i = 0; i < totalWeeks; i++) {
+      distribution.push(i < firstLevelWeeks ? levels[0] : levels[1]);
+    }
+  } else {
+    // Three levels - progressive distribution
+    const firstThird = Math.ceil(totalWeeks / 3);
+    const secondThird = Math.ceil((totalWeeks - firstThird) / 2);
+    
+    for (let i = 0; i < totalWeeks; i++) {
+      if (i < firstThird) {
+        distribution.push(levels[0]);
+      } else if (i < firstThird + secondThird) {
+        distribution.push(levels[1]);
+      } else {
+        distribution.push(levels[2]);
+      }
+    }
+  }
+  
+  return distribution;
+};
+
+// Helper function to select assignments for a week with cycling
+const selectAssignmentsForWeek = (
+  availableAssignments: Assignment[],
+  needed: number,
+  weekIndex: number
+): Assignment[] => {
+  if (availableAssignments.length === 0) return [];
+  
+  const selected: Assignment[] = [];
+  const shuffled = shuffleArray([...availableAssignments]);
+  
+  // Start from a different position each week to ensure variety
+  const startIndex = (weekIndex * 3) % shuffled.length;
+  
+  for (let i = 0; i < needed; i++) {
+    const index = (startIndex + i) % shuffled.length;
+    selected.push(shuffled[index]);
+  }
+  
+  return selected;
 };
 
 export const curriculumService = {
@@ -129,7 +213,22 @@ export const curriculumService = {
     // Step 1: Calculate frequency and structure
     const frequencyDays = getFrequencyDays(onboardingMetrics.test_timeline);
     const assignmentsPerWeek = getAssignmentsPerWeek(frequencyDays);
-    const totalWeeks = Math.min(8, Math.ceil(60 / assignmentsPerWeek)); // Max 8 weeks
+    
+    // Calculate total weeks based on timeline
+    let totalWeeks: number;
+    switch(onboardingMetrics.test_timeline) {
+      case '1-month': 
+        totalWeeks = 4;
+        break;
+      case '3-months': 
+        totalWeeks = 12;
+        break;
+      case '6-months': 
+        totalWeeks = 24;
+        break;
+      default: 
+        totalWeeks = 8;
+    }
     
     // Step 2: Determine progression levels
     const progressionLevels = determineProgressionLevels(
@@ -137,30 +236,21 @@ export const curriculumService = {
       onboardingMetrics.target_score
     );
     
-    // Step 3: Fetch and filter assignments
+    // Step 3: Fetch all assignments
     const allAssignments = await this.fetchAssignments();
     const relevantAssignments = allAssignments.filter(assignment => 
       progressionLevels.includes(assignment.level)
     );
     
-    // Step 4: Balance conversation vs pronunciation (70/30 split)
-    const conversations = relevantAssignments.filter(a => a.type === 'conversation');
-    const pronunciations = relevantAssignments.filter(a => a.type === 'pronunciation');
+    // Step 4: Distribute across weeks with progressive difficulty
+    const weeklyAssignments = distributeAssignments(
+      relevantAssignments, 
+      totalWeeks, 
+      assignmentsPerWeek,
+      progressionLevels
+    );
     
-    const totalNeeded = totalWeeks * assignmentsPerWeek;
-    const conversationCount = Math.ceil(totalNeeded * 0.7);
-    const pronunciationCount = totalNeeded - conversationCount;
-    
-    // Select assignments with repetition if needed
-    const selectedConversations = this.selectWithRepetition(conversations, conversationCount);
-    const selectedPronunciations = this.selectWithRepetition(pronunciations, pronunciationCount);
-    
-    const allSelectedAssignments = [...selectedConversations, ...selectedPronunciations];
-    
-    // Step 5: Distribute across weeks
-    const weeklyAssignments = distributeAssignments(allSelectedAssignments, totalWeeks, assignmentsPerWeek);
-    
-    // Step 6: Create curriculum plan
+    // Step 5: Create curriculum plan
     const plan: CurriculumPlan = {
       name: `IELTS ${onboardingMetrics.target_score} Preparation - ${onboardingMetrics.assessed_level} Level`,
       description: `Personalized ${onboardingMetrics.assessed_level.toLowerCase()} level curriculum targeting IELTS ${onboardingMetrics.target_score} with ${onboardingMetrics.study_time} minutes daily study`,

@@ -22,7 +22,9 @@ export function App({ appConfig }: AppProps) {
   const room = useMemo(() => new Room(), []);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | undefined>();
+  const [assignmentId, setAssignmentId] = useState<string | undefined>();
   const [cameFromDashboard, setCameFromDashboard] = useState(false);
+  const [conversationCompleted, setConversationCompleted] = useState(false);
   
   // Always use the hook normally
   const { connectionDetails, refreshConnectionDetails } = useConnectionDetails(selectedScenario);
@@ -31,8 +33,10 @@ export function App({ appConfig }: AppProps) {
   useEffect(() => {
     if (location.state?.selectedScenario) {
       console.log('🎯 Setting scenario from dashboard:', location.state.selectedScenario.id);
+      console.log('🆔 Assignment ID:', location.state.assignmentId);
       setCameFromDashboard(true);
       setSelectedScenario(location.state.selectedScenario);
+      setAssignmentId(location.state.assignmentId);
       // Clear the state to prevent issues on refresh
       window.history.replaceState({}, document.title);
     } else {
@@ -61,12 +65,22 @@ export function App({ appConfig }: AppProps) {
 
   useEffect(() => {
     const onDisconnected = () => {
+      console.log(`🔌 Room disconnected, navigating back to dashboard`);
+      console.log(`🎯 Conversation completed: ${conversationCompleted}`);
+      console.log(`🎯 Came from dashboard: ${cameFromDashboard}`);
+      
       setSessionStarted(false);
       refreshConnectionDetails();
       
       // If user came from dashboard, navigate back to dashboard
       if (cameFromDashboard) {
-        navigate('/luna/dashboard');
+        console.log(`🎯 Navigating to dashboard with completion state`);
+        navigate('/luna/dashboard', {
+          state: conversationCompleted ? {
+            justCompleted: true,
+            completedScenario: selectedScenario?.name
+          } : undefined
+        });
       }
     };
     const onMediaDevicesError = (error: Error) => {
@@ -88,7 +102,7 @@ export function App({ appConfig }: AppProps) {
       room.off(RoomEvent.MediaDevicesError, onMediaDevicesError);
       room.off(RoomEvent.ConnectionStateChanged, onConnectionStateChanged);
     };
-  }, [room, refreshConnectionDetails, cameFromDashboard, navigate]);
+  }, [room, refreshConnectionDetails, cameFromDashboard, navigate, conversationCompleted, selectedScenario?.name]);
 
   useEffect(() => {
     if (sessionStarted && room.state === 'disconnected' && connectionDetails) {
@@ -148,41 +162,48 @@ export function App({ appConfig }: AppProps) {
 
   return (
     <>
-      {/* Commented out - no longer needed since users come from dashboard */}
-      {/* {!cameFromDashboard && (
-        <MotionWelcome
-          key="welcome"
-          startButtonText={startButtonText}
-          onStartCall={() => setSessionStarted(true)}
-          onScenarioSelect={handleScenarioSelect}
-          disabled={sessionStarted}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: sessionStarted ? 0 : 1 }}
-          transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
-        />
-      )} */}
+      <div>
+        {/* Commented out - no longer needed since users come from dashboard */}
+        {/* {!cameFromDashboard && (
+          <MotionWelcome
+            key="welcome"
+            startButtonText={startButtonText}
+            onStartCall={() => setSessionStarted(true)}
+            onScenarioSelect={handleScenarioSelect}
+            disabled={sessionStarted}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: sessionStarted ? 0 : 1 }}
+            transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
+          />
+        )} */}
 
-      <RoomContext.Provider value={room}>
-        <RoomAudioRenderer />
-        <StartAudio label="Start Audio" />
-        {/* --- */}
-        <MotionSessionView
-          key="session-view"
-          appConfig={appConfig}
-          disabled={!sessionStarted}
-          sessionStarted={sessionStarted}
-          selectedScenario={selectedScenario}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: sessionStarted ? 1 : 0 }}
-          transition={{
-            duration: 0.5,
-            ease: 'linear',
-            delay: sessionStarted ? 0.5 : 0,
-          }}
-        />
-      </RoomContext.Provider>
+        <RoomContext.Provider value={room}>
+          <RoomAudioRenderer />
+          <StartAudio label="Start Audio" />
+          {/* --- */}
+          <MotionSessionView
+            key="session-view"
+            appConfig={appConfig}
+            disabled={!sessionStarted}
+            sessionStarted={sessionStarted}
+            selectedScenario={selectedScenario}
+            assignmentId={assignmentId}
+            onConversationCompleted={() => {
+              console.log(`📞 onConversationCompleted callback received in app.tsx`);
+              setConversationCompleted(true);
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: sessionStarted ? 1 : 0 }}
+            transition={{
+              duration: 0.5,
+              ease: 'linear',
+              delay: sessionStarted ? 0.5 : 0,
+            }}
+          />
+        </RoomContext.Provider>
 
-      <Toaster />
+        <Toaster />
+      </div>
     </>
   );
 }

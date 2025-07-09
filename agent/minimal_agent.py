@@ -326,7 +326,30 @@ class MyAgent(Agent):
                     logger.info(f"🎭 Advanced to turn {self.current_turn} for LLM conversation")
                     await self._notify_frontend_turn_change(self.current_turn)
         
-        # Default behavior for non-script mode or when script is missing
+<<<<<<< HEAD
+        # Default behavior for non-script mode (INTERMEDIATE/ADVANCED scenarios)
+        else:
+            # Handle unstructured conversation with turn counting
+            logger.info(f"🎯 Unstructured mode: current turn {self.current_turn}/{self.scenario_turns}, user said: '{new_message.text_content}'")
+            
+            # Check if we've reached the final turn
+            if self.current_turn >= self.scenario_turns:
+                # We've completed all turns, provide ending message
+                logger.info(f"🎯 Reached final turn {self.scenario_turns}, ending unstructured conversation")
+                await self.session.say("Thank you for the excellent conversation practice! That was a great session.")
+                
+                # Advance turn for progress tracking (shows completion)
+                self.current_turn += 1
+                await self._notify_frontend_turn_change(self.current_turn)
+                
+                # Stop LLM from generating a response since we provided ending message
+                raise StopResponse()
+            else:
+                # Continue conversation and advance turn for progress tracking
+                self.current_turn += 1
+                logger.info(f"🎯 Advanced to turn {self.current_turn} for unstructured conversation")
+                await self._notify_frontend_turn_change(self.current_turn)
+                # Let LLM generate natural response
 
 
 async def entrypoint(ctx: JobContext):

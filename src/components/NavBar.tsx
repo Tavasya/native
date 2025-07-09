@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Play, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signOut } from '@/features/auth/authThunks';
+import { roadmapService } from '@/features/roadmap';
 import NativeLogo from '@/lib/images/Native Logo.png';
 
 const Navbar: React.FC = () => {
   /* ------------------------------------------------------ hooks ---- */
-  const { user, role } = useAppSelector((s) => s.auth);   // <-- from Redux
+  const { user, role } = useAppSelector((s) => s.auth);   
   const dispatch        = useAppDispatch();
   const navigate        = useNavigate();
 
@@ -36,6 +37,45 @@ const Navbar: React.FC = () => {
     setMenuOpen(false);
   };
 
+  const handlePracticeClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuOpen(false);
+    
+    if (!user?.id) {
+      console.log('🔀 No user ID, redirecting to login...');
+      navigate('/login');
+      return;
+    }
+
+    console.log('🔍 Practice click debug - checking Luna onboarding completion...');
+    
+    try {
+      // Check if user has completed Luna-specific onboarding
+      const onboardingResponse = await roadmapService.getOnboardingMetrics(user.id);
+      const hasCompletedLunaOnboarding = onboardingResponse.success && onboardingResponse.data !== undefined;
+      
+      console.log('🔍 Luna onboarding check:', {
+        user_id: user.id,
+        onboardingResponse: onboardingResponse,
+        hasCompletedLunaOnboarding: hasCompletedLunaOnboarding,
+        shouldRedirectToLunaOnboarding: !hasCompletedLunaOnboarding
+      });
+      
+      if (!hasCompletedLunaOnboarding) {
+        console.log('🔀 Luna onboarding not complete, redirecting to /luna/onboarding...');
+        navigate('/luna/onboarding');
+      } else {
+        console.log('🔀 Luna onboarding complete, navigating to /luna/dashboard...');
+        navigate('/luna/dashboard');
+      }
+    } catch (error) {
+      console.error('🔥 Error checking Luna onboarding status:', error);
+      // On error, default to redirecting to Luna onboarding to be safe
+      console.log('🔀 Error occurred, defaulting to /luna/onboarding...');
+      navigate('/luna/onboarding');
+    }
+  };
+
   /* ----------------------------------------------------- render ---- */
   return (
     <>
@@ -51,7 +91,7 @@ const Navbar: React.FC = () => {
             </h1>
 
             {user && role === 'teacher' && (
-              <nav className="hidden md:flex items-center gap-4 text-sm font-bold text-[#272A69]">
+              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-[#272A69]">
                 <Link 
                   to="/teacher/dashboard" 
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
@@ -59,18 +99,32 @@ const Navbar: React.FC = () => {
                 >
                   Classes
                 </Link>
+                <a 
+                  href="/luna/dashboard" 
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={handlePracticeClick}
+                >
+                  Practice
+                </a>
               </nav>
             )}
 
             {user && role === 'student' && (
-              <nav className="hidden md:flex items-center gap-4 text-sm font-bold text-[#272A69]">
+              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-[#272A69]">
                 <Link 
                   to="/student/dashboard" 
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
-                  Student Dashboard
+                  Dashboard
                 </Link>
+                <a 
+                  href="/luna/dashboard" 
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={handlePracticeClick}
+                >
+                  Practice
+                </a>
               </nav>
             )}
           </div>

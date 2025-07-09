@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, Flame, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { scenarios, type Scenario } from './scenario-dashboard';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 import { supabase } from '@/integrations/supabase/client';
 import { completionService } from '@/features/roadmap';
+import { StreakCalendar } from './StreakCalendar';
+import { wordService } from '@/features/words';
+import Navbar from './NavBar';
 
 interface Assignment {
   id: string;
@@ -32,17 +35,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  const [streakDays] = useState([
-    { day: 1, completed: false, label: 'S' },
-    { day: 2, completed: false, label: 'M' },
-    { day: 3, completed: false, label: 'T' },
-    { day: 4, completed: false, label: 'W' },
-    { day: 5, completed: false, label: 'T' },
-    { day: 6, completed: false, label: 'F' },
-    { day: 7, completed: false, label: 'S' }
-  ]);
-  const [wordsLearned] = useState(0);
-  const [userName] = useState(user?.name || 'Student');
+  const [wordsLearned, setWordsLearned] = useState(0);
   const [loadingCurriculum, setLoadingCurriculum] = useState(true);
 
   const [weeks, setWeeks] = useState<Week[]>([]);
@@ -180,12 +173,23 @@ const Dashboard = () => {
 
   const totalCompleted = weeks.reduce((sum, week) => sum + week.completed, 0);
   const totalAssignments = weeks.reduce((sum, week) => sum + week.total, 0);
-  const currentStreak = streakDays.filter(day => day.completed).length;
 
-  // Load curriculum on component mount
+  // Load curriculum and word count on component mount
   useEffect(() => {
     loadCurriculum();
+    loadWordCount();
   }, [user?.id]);
+
+  const loadWordCount = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const count = await wordService.getUserWordCount(user.id);
+      setWordsLearned(count);
+    } catch (error) {
+      console.error('Error loading word count:', error);
+    }
+  };
 
   // Show completion celebration when returning from a completed conversation
   useEffect(() => {
@@ -210,7 +214,12 @@ const Dashboard = () => {
   const handleAssignmentClick = (assignment: Assignment) => {
     if (assignment.type === 'Conversation' && assignment.scenario) {
       // Navigate to Luna app for conversation practice
-      navigate('/luna/', { state: { selectedScenario: assignment.scenario } });
+      navigate('/luna/', { 
+        state: { 
+          selectedScenario: assignment.scenario,
+          assignmentId: assignment.id  // Pass the actual assignment UUID
+        } 
+      });
     } else if (assignment.type === 'Pronunciation') {
       // TODO: Navigate to pronunciation practice
       console.log('Pronunciation practice not implemented yet:', assignment.title);
@@ -280,66 +289,40 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-6">
+      <Navbar />
+      <div className="max-w-6xl mx-auto p-6 pt-20">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Hi, {userName} 👋
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Customize your IELTS study plan according to your needs. You are recommended to work on the assignments in order.{' '}
-            <span className="text-blue-600 cursor-pointer hover:underline">Find out why.</span>
-          </p>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Flame className="w-4 h-4 text-orange-600" />
-                </div>
-                <span className="text-gray-600 text-sm">STREAK</span>
-              </div>
-              <div className="mb-2">
-                <div className="flex items-center justify-between mb-2">
-                  {streakDays.map((day) => (
-                    <div key={day.day} className="flex flex-col items-center">
-                      <span className="text-xs text-gray-500 font-medium mb-1">
-                        {day.label}
-                      </span>
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                          day.completed
-                            ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white shadow-md'
-                            : 'bg-gray-200 text-gray-400'
-                        }`}
-                      >
-                        {day.completed ? (
-                          <Check className="w-4 h-4" />
-                        ) : (
-                          <span className="text-xs font-medium">{day.day}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="text-sm text-green-600">
-                {currentStreak > 0 ? `${currentStreak} day streak!` : 'Start your streak today!'}
-              </div>
+          {/* Streak Calendar and Vocabulary Stats */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Streak Calendar - takes up 2 columns on large screens */}
+            <div className="lg:col-span-2">
+              <StreakCalendar />
             </div>
 
+            {/* Vocabulary Stats */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                   <BookOpen className="w-4 h-4 text-blue-600" />
                 </div>
                 <span className="text-gray-600 text-sm">VOCABULARY</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{wordsLearned}</div>
-              <div className="text-sm text-gray-600">Words learned</div>
+              <div className="text-2xl font-bold text-gray-900 mb-2">{wordsLearned}</div>
+              <div className="text-sm text-gray-600 mb-4">Words saved</div>
+              
+              {/* Quick action button for vocabulary (placeholder for future implementation) */}
+              <button 
+                className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
+                onClick={() => {
+                  // TODO: Navigate to vocabulary page when implemented
+                  alert('Vocabulary feature coming soon! You\'ll be able to save and review words here.');
+                }}
+              >
+                Review Words
+              </button>
             </div>
-
           </div>
 
 
