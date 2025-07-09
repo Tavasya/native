@@ -5,6 +5,7 @@ import { useAppSelector, useAppDispatch } from '@/app/hooks';
 import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import styled from 'styled-components';
 import { Toaster } from "@/components/ui/toaster";
+import AssignmentPracticeModal from '@/components/assignment/AssignmentPracticeModal';
 
 const LayoutContainer = styled.div`
   min-height: 100vh;
@@ -38,6 +39,7 @@ const Layout: React.FC = () => {
         <Outlet />
       </MainContent>
       <Toaster />
+      <AssignmentPracticeModal />
     </LayoutContainer>
   );
 };

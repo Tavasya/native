@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PracticeState, PracticeSession } from './practiceTypes';
+import { PracticeState, PracticeSession, AssignmentContext, PracticeFeedbackData } from './practiceTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 const initialState: PracticeState = {
@@ -17,7 +17,19 @@ const initialState: PracticeState = {
   sessionLoading: false,
   sessionError: null,
   isSubmitting: false,
+  // Assignment context for practice sessions
+  assignmentContext: null,
   highlights: [],
+  // Assignment practice modal state
+  practiceModal: {
+    isOpen: false,
+    questionText: '',
+    assignmentId: '',
+    questionIndex: 0,
+  },
+  // Practice feedback data
+  feedbackData: null,
+  feedbackError: null,
 };
 
 export const assessPronunciation = createAsyncThunk(
@@ -66,6 +78,36 @@ export const createPracticeSession = createAsyncThunk(
   }
 );
 
+export const createPracticeSessionFromAssignment = createAsyncThunk(
+  'practice/createSessionFromAssignment',
+  async ({ assignmentId, questionIndex, questionData }: { 
+    assignmentId: string; 
+    questionIndex: number; 
+    questionData: AssignmentContext['questionData'];
+  }) => {
+    const { data: { session: userSession } } = await supabase.auth.getSession();
+    if (!userSession?.user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: userSession.user.id,
+        status: 'transcript_processing'
+        // Note: Assignment context stored only in Redux state, not in database
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { 
+      session: data as PracticeSession,
+      assignmentContext: { assignmentId, questionIndex, questionData }
+    };
+  }
+);
+
 export const submitForImprovement = createAsyncThunk(
   'practice/submitForImprovement',
   async (sessionId: string) => {
@@ -81,6 +123,38 @@ export const submitForImprovement = createAsyncThunk(
     }
 
     return { sessionId };
+  }
+);
+
+export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
+  'practice/loadFeedbackFromSubmission',
+  async ({ submissionId, questionIndex }: { submissionId: string; questionIndex: number }) => {
+    // Fetch the submission data to get feedback for the specific question
+    const { data: submission, error } = await supabase
+      .from('submissions')
+      .select('section_feedback')
+      .eq('id', submissionId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to load submission: ${error.message}`);
+    }
+
+    if (!submission?.section_feedback || !Array.isArray(submission.section_feedback)) {
+      throw new Error('No section feedback found');
+    }
+
+    const questionFeedback = submission.section_feedback[questionIndex];
+    if (!questionFeedback) {
+      throw new Error('No feedback found for this question');
+    }
+
+    return {
+      original: questionFeedback.transcript || 'No original transcript available',
+      enhanced: questionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript || 'No enhanced transcript available',
+      audioUrl: questionFeedback.audio_url || '',
+      submissionId
+    } as PracticeFeedbackData;
   }
 );
 
@@ -103,6 +177,7 @@ const practiceSlice = createSlice({
       state.currentSession = null;
       state.sessionError = null;
       state.isSubmitting = false;
+      state.assignmentContext = null;
       state.highlights = [];
     },
     setSession: (state, action: PayloadAction<PracticeSession>) => {
@@ -164,6 +239,49 @@ const practiceSlice = createSlice({
     removeHighlight: (state, action: PayloadAction<number>) => {
       state.highlights = state.highlights.filter(h => h.position !== action.payload);
     },
+    setAssignmentContext: (state, action: PayloadAction<AssignmentContext>) => {
+      state.assignmentContext = action.payload;
+    },
+    clearAssignmentContext: (state) => {
+      state.assignmentContext = null;
+    },
+    openPracticeModal: (state, action: PayloadAction<{ questionText: string; assignmentId: string; questionIndex: number }>) => {
+      state.practiceModal = {
+        isOpen: true,
+        questionText: action.payload.questionText,
+        assignmentId: action.payload.assignmentId,
+        questionIndex: action.payload.questionIndex,
+      };
+    },
+    closePracticeModal: (state) => {
+      state.practiceModal = {
+        isOpen: false,
+        questionText: '',
+        assignmentId: '',
+        questionIndex: 0,
+      };
+      // Also clear any recording state when closing modal
+      state.recording = {
+        isRecording: false,
+        audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
+        recordingError: null,
+        hasRecording: false,
+      };
+    },
+    setPracticeFeedbackData: (state, action: PayloadAction<PracticeFeedbackData>) => {
+      state.feedbackData = action.payload;
+      state.feedbackError = null;
+    },
+    clearPracticeFeedbackData: (state) => {
+      state.feedbackData = null;
+      state.feedbackError = null;
+    },
+    setPracticeFeedbackError: (state, action: PayloadAction<string>) => {
+      state.feedbackError = action.payload;
+      state.feedbackData = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -219,6 +337,20 @@ const practiceSlice = createSlice({
         state.sessionLoading = false;
         state.sessionError = action.error.message || 'Failed to create practice session';
       })
+      .addCase(createPracticeSessionFromAssignment.pending, (state) => {
+        state.sessionLoading = true;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromAssignment.fulfilled, (state, action: PayloadAction<{ session: PracticeSession; assignmentContext: AssignmentContext }>) => {
+        state.sessionLoading = false;
+        state.currentSession = action.payload.session;
+        state.assignmentContext = action.payload.assignmentContext;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromAssignment.rejected, (state, action) => {
+        state.sessionLoading = false;
+        state.sessionError = action.error.message || 'Failed to create practice session from assignment';
+      })
       .addCase(submitForImprovement.pending, (state) => {
         state.isSubmitting = true;
         state.sessionError = null;
@@ -230,6 +362,17 @@ const practiceSlice = createSlice({
       .addCase(submitForImprovement.rejected, (state, action) => {
         state.isSubmitting = false;
         state.sessionError = action.error.message || 'Failed to submit for improvement';
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.pending, (state) => {
+        state.feedbackData = null; // Clear previous feedback
+        state.feedbackError = null;
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.fulfilled, (state, action: PayloadAction<PracticeFeedbackData>) => {
+        state.feedbackData = action.payload;
+        state.feedbackError = null;
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.rejected, (state, action) => {
+        state.feedbackError = action.error.message || 'Failed to load practice feedback from submission';
       });
   },
 });
@@ -249,6 +392,18 @@ export const {
   clearPronunciationAssessment,
   setHighlights,
   addHighlight,
-  removeHighlight
+  removeHighlight,
+  setAssignmentContext,
+  clearAssignmentContext,
+  openPracticeModal,
+  closePracticeModal,
+  setPracticeFeedbackData,
+  clearPracticeFeedbackData,
+  setPracticeFeedbackError
 } = practiceSlice.actions;
+
+// Selectors for practice feedback data
+export const selectPracticeFeedbackData = (state: { practice: PracticeState }) => state.practice.feedbackData;
+export const selectPracticeFeedbackError = (state: { practice: PracticeState }) => state.practice.feedbackError;
+
 export default practiceSlice.reducer; 

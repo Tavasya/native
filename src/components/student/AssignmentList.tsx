@@ -186,15 +186,6 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
           <h2 className="text-2xl font-semibold text-gray-900">Active Assignments</h2>
           
           <div className="flex items-center gap-2">
-            {/* <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/student/practice')}
-              className="flex items-center gap-2 bg-[#272A69] hover:bg-[#272A69]/90 text-white border-[#272A69]"
-            >
-              <BookOpen className="h-4 w-4" />
-              Practice
-            </Button> */}
             <div className="relative">
               <div className="flex bg-gray-100 rounded-lg items-center">
                 <Select 
