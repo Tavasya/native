@@ -2,7 +2,7 @@
  * Blob URL tracking utility to monitor and prevent blob URL memory leaks
  */
 
-import { memoryMonitor } from './memoryMonitor';
+// Memory monitoring disabled
 
 class BlobUrlTracker {
   private activeBlobUrls = new Map<string, { 
@@ -17,20 +17,7 @@ class BlobUrlTracker {
   createObjectURL(blob: Blob, context: string = 'unknown'): string {
     const url = URL.createObjectURL(blob);
     
-    this.activeBlobUrls.set(url, {
-      createdAt: Date.now(),
-      context,
-      size: blob.size
-    });
-    
-    memoryMonitor.takeSnapshot('blob-url-created', {
-      context,
-      blobSize: blob.size,
-      totalActiveBlobUrls: this.activeBlobUrls.size,
-      estimatedMemoryMB: this.getEstimatedMemoryUsage()
-    });
-    
-    console.log(`🔗 Blob URL created [${context}]: ${url.substring(0, 50)}... (${(blob.size / 1024).toFixed(1)}KB)`);
+    // Memory monitoring disabled
     
     return url;
   }
@@ -39,29 +26,8 @@ class BlobUrlTracker {
    * Revoke a blob URL and stop tracking it
    */
   revokeObjectURL(url: string, context: string = 'cleanup'): void {
-    const tracked = this.activeBlobUrls.get(url);
-    
-    if (tracked) {
-      URL.revokeObjectURL(url);
-      this.activeBlobUrls.delete(url);
-      
-      const ageMs = Date.now() - tracked.createdAt;
-      
-      memoryMonitor.takeSnapshot('blob-url-revoked', {
-        context,
-        originalContext: tracked.context,
-        ageMs,
-        blobSize: tracked.size || 0,
-        totalActiveBlobUrls: this.activeBlobUrls.size,
-        estimatedMemoryMB: this.getEstimatedMemoryUsage()
-      });
-      
-      console.log(`🗑️ Blob URL revoked [${context}]: ${url.substring(0, 50)}... (age: ${(ageMs / 1000).toFixed(1)}s)`);
-    } else {
-      // Still revoke it, but warn about untracked URL
-      URL.revokeObjectURL(url);
-      console.warn(`⚠️ Revoking untracked blob URL [${context}]: ${url.substring(0, 50)}...`);
-    }
+    URL.revokeObjectURL(url);
+    // Memory monitoring disabled
   }
   
   /**
@@ -88,21 +54,8 @@ class BlobUrlTracker {
    * Clean up old blob URLs
    */
   cleanupOldUrls(ageThresholdMs: number = 300000): number {
-    const oldUrls = this.findPotentialLeaks(ageThresholdMs);
-    
-    oldUrls.forEach(({ url, context, ageMs }) => {
-      console.warn(`🧹 Auto-cleaning old blob URL [${context}]: ${url.substring(0, 50)}... (age: ${(ageMs / 1000).toFixed(1)}s)`);
-      this.revokeObjectURL(url, 'auto-cleanup');
-    });
-    
-    if (oldUrls.length > 0) {
-      memoryMonitor.takeSnapshot('blob-url-auto-cleanup', {
-        cleanedCount: oldUrls.length,
-        totalActiveBlobUrls: this.activeBlobUrls.size
-      });
-    }
-    
-    return oldUrls.length;
+    // Memory monitoring disabled
+    return 0;
   }
   
   /**
@@ -121,21 +74,7 @@ class BlobUrlTracker {
     const activeUrls = this.getActiveBlobUrls();
     const potentialLeaks = this.findPotentialLeaks();
     
-    console.group('🔗 Blob URL Tracker Status');
-    console.log(`Active blob URLs: ${activeUrls.length}`);
-    console.log(`Estimated memory usage: ${this.getEstimatedMemoryUsage()}MB`);
-    console.log(`Potential leaks (>5min old): ${potentialLeaks.length}`);
-    
-    if (activeUrls.length > 0) {
-      console.table(activeUrls.map(item => ({
-        context: item.context,
-        ageSeconds: (item.ageMs / 1000).toFixed(1),
-        sizeKB: item.size ? (item.size / 1024).toFixed(1) : 'unknown',
-        url: item.url.substring(0, 50) + '...'
-      })));
-    }
-    
-    console.groupEnd();
+    // Blob URL tracker status logging removed
   }
   
   /**
@@ -153,23 +92,8 @@ class BlobUrlTracker {
    * Clear blob URLs by context (useful for specific cleanup scenarios like redo)
    */
   clearByContext(contextPattern: string): number {
-    const urlsToRevoke = Array.from(this.activeBlobUrls.entries())
-      .filter(([_, data]) => data.context.includes(contextPattern));
-    
-    urlsToRevoke.forEach(([url, data]) => {
-      console.log(`🧹 Clearing blob URL by context [${contextPattern}]: ${url.substring(0, 50)}... (${data.context})`);
-      this.revokeObjectURL(url, `context-cleanup-${contextPattern}`);
-    });
-
-    if (urlsToRevoke.length > 0) {
-      memoryMonitor.takeSnapshot('blob-url-context-cleanup', {
-        contextPattern,
-        cleanedCount: urlsToRevoke.length,
-        totalActiveBlobUrls: this.activeBlobUrls.size
-      });
-    }
-
-    return urlsToRevoke.length;
+    // Memory monitoring disabled
+    return 0;
   }
 }
 

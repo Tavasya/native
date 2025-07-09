@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, ChevronDown } from 'lucide-react';
+import { ArrowLeft, RotateCcw, ChevronDown, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu,
@@ -12,6 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Submission {
   id: string;
@@ -34,6 +37,7 @@ interface FeedbackHeaderProps {
   isStudent?: boolean;
   onRedo?: () => void;
   attempt?: number;
+  isPractice?: boolean;
 }
 
 const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
@@ -45,12 +49,16 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
   studentId,
   isStudent = false,
   onRedo,
-  attempt
+  attempt,
+  isPractice = false
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchAllSubmissions = async () => {
@@ -73,6 +81,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
 
     fetchAllSubmissions();
   }, [assignmentId, studentId]);
+  
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -100,6 +109,51 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
     }
   };
 
+  const handleStartPractice = async () => {
+    try {
+      // Get current user ID
+      const { data: { session: userSession } } = await supabase.auth.getSession();
+      if (!userSession?.user?.id) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to start practice",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create practice session
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: userSession.user.id,
+          status: 'transcript_processing'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to create practice session:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create practice session",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPracticeSessionId(data.id);
+      setShowPracticeModal(true);
+    } catch (err) {
+      console.error('Practice session creation error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to start practice session",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -118,6 +172,16 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         )}
       </div>
       <div className="flex items-center gap-2">
+        {isPractice && (
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 bg-[#272A69] text-white hover:bg-[#272A69]/90"
+            onClick={handleStartPractice}
+          >
+            <BookOpen className="h-4 w-4" />
+            Start Practice
+          </Button>
+        )}
         {allSubmissions.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -195,6 +259,23 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
           </Button>
         )}
       </div>
+      
+      {/* Practice Session Modal */}
+      {practiceSessionId && (
+        <PracticeSessionModal
+          isOpen={showPracticeModal}
+          onClose={() => setShowPracticeModal(false)}
+          sessionId={practiceSessionId}
+          onComplete={() => {
+            setShowPracticeModal(false);
+            setPracticeSessionId(null);
+            toast({
+              title: "Practice Complete!",
+              description: "Great job! You've completed the practice session.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

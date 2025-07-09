@@ -1,7 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { validateAudioBlob } from '@/utils/webm-diagnostics';
-import { memoryMonitor } from '@/utils/memoryMonitor';
-import { createObjectURL } from '@/utils/blobUrlTracker';
 
 interface UseAudioRecordingProps {
   onRecordingComplete: (audioBlob: Blob, audioUrl: string) => void;
@@ -16,29 +14,6 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   const audioChunks = useRef<Blob[]>([]);
   const recordingStartTime = useRef<number>(0);
 
-  // Memory monitoring setup
-  useEffect(() => {
-    memoryMonitor.takeSnapshot('useAudioRecording-init');
-    
-    return () => {
-      memoryMonitor.takeSnapshot('useAudioRecording-cleanup', {
-        isRecording,
-        audioChunksCount: audioChunks.current.length,
-        hasMediaStream: !!mediaStream.current,
-        hasMediaRecorder: !!mediaRecorder.current
-      });
-    };
-  }, []);
-
-  // Monitor memory when recording state changes
-  useEffect(() => {
-    memoryMonitor.takeSnapshot(`useAudioRecording-recording-${isRecording ? 'start' : 'stop'}`, {
-      isRecording,
-      audioChunksCount: audioChunks.current.length,
-      mediaStreamActive: mediaStream.current?.active,
-      mediaRecorderState: mediaRecorder.current?.state
-    });
-  }, [isRecording]);
 
   // Get the best supported MIME type based on browser capabilities
   const getSupportedMimeType = (): string => {
@@ -107,7 +82,6 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   };
 
   const startRecording = useCallback(async () => {
-    memoryMonitor.takeSnapshot('startRecording-begin');
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -118,7 +92,6 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
         }
       });
       
-      memoryMonitor.takeSnapshot('startRecording-got-stream');
       
       mediaStream.current = stream;
       const mimeType = getSupportedMimeType();
@@ -132,38 +105,18 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       mediaRecorder.current = new MediaRecorder(stream, options);
       audioChunks.current = [];
       recordingStartTime.current = Date.now();
-      
-      memoryMonitor.takeSnapshot('startRecording-setup-complete', {
-        mimeType,
-        audioBitsPerSecond: options.audioBitsPerSecond
-      });
 
       mediaRecorder.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.current.push(event.data);
-          memoryMonitor.takeSnapshot('recording-data-chunk', {
-            chunkSize: event.data.size,
-            totalChunks: audioChunks.current.length,
-            totalSize: audioChunks.current.reduce((sum, chunk) => sum + chunk.size, 0)
-          });
         }
       };
 
       mediaRecorder.current.onstop = async () => {
-        memoryMonitor.takeSnapshot('recording-stop-begin', {
-          totalChunks: audioChunks.current.length,
-          totalSize: audioChunks.current.reduce((sum, chunk) => sum + chunk.size, 0)
-        });
-        
         setIsProcessing(true);
         
         const audioBlob = new Blob(audioChunks.current, { type: mimeType });
         console.log(`📊 Recording size: ${(audioBlob.size / 1024).toFixed(1)}KB`);
-        
-        memoryMonitor.takeSnapshot('recording-blob-created', {
-          blobSize: audioBlob.size,
-          blobType: audioBlob.type
-        });
         
         // Validate the recording
         const validation = await validateAudioBlob(audioBlob);
@@ -184,20 +137,13 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
           return;
         }
         
-        const audioUrl = createObjectURL(audioBlob, 'audio-recording-complete');
-        
-        memoryMonitor.takeSnapshot('recording-complete', {
-          blobSize: audioBlob.size,
-          audioUrl: audioUrl.substring(0, 50) + '...',
-          recordingDuration
-        });
+        const audioUrl = URL.createObjectURL(audioBlob);
         
         onRecordingComplete(audioBlob, audioUrl);
         setIsProcessing(false);
         
         // Clear audio chunks to free memory
         audioChunks.current = [];
-        memoryMonitor.takeSnapshot('recording-chunks-cleared');
       };
 
       // Record in smaller chunks for better streaming
@@ -211,29 +157,16 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   }, [onRecordingComplete, onError]);
 
   const stopRecording = useCallback(() => {
-    memoryMonitor.takeSnapshot('stopRecording-begin', {
-      isRecording,
-      hasMediaRecorder: !!mediaRecorder.current,
-      hasMediaStream: !!mediaStream.current,
-      audioChunksCount: audioChunks.current.length
-    });
-    
     if (mediaRecorder.current && isRecording) {
       mediaRecorder.current.stop();
       setIsRecording(false);
 
       if (mediaStream.current) {
-        const tracksBefore = mediaStream.current.getTracks().length;
         mediaStream.current.getTracks().forEach(track => track.stop());
         mediaStream.current = null;
-        
-        memoryMonitor.takeSnapshot('stopRecording-stream-cleanup', {
-          tracksCleanedUp: tracksBefore
-        });
       }
     }
     
-    memoryMonitor.takeSnapshot('stopRecording-complete');
   }, [isRecording]);
 
   const toggleRecording = useCallback(() => {
@@ -244,10 +177,33 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     }
   }, [isRecording, startRecording, stopRecording]);
 
+  const resetRecording = useCallback(() => {
+    // Stop any active recording
+    if (isRecording && mediaRecorder.current) {
+      mediaRecorder.current.stop();
+    }
+    
+    // Clear media stream
+    if (mediaStream.current) {
+      mediaStream.current.getTracks().forEach(track => track.stop());
+      mediaStream.current = null;
+    }
+    
+    // Reset state
+    setIsRecording(false);
+    setIsProcessing(false);
+    audioChunks.current = [];
+    recordingStartTime.current = 0;
+    mediaRecorder.current = null;
+    
+    console.log('🧹 Audio recording state reset');
+  }, [isRecording]);
+
   return {
     isRecording,
     isProcessing,
     mediaStream: mediaStream.current,
-    toggleRecording
+    toggleRecording,
+    resetRecording
   };
 };

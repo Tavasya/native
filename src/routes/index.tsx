@@ -16,12 +16,13 @@ import LibraryTemplateView from '@/pages/teacher/LibraryTemplateView'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
-import Practice from "@/pages/student/Practice"
+import GeneralPractice from "@/pages/student/GeneralPractice"
 import NewLogin from '@/pages/auth/NewLogin'
 import SignUpSimple from '@/pages/auth/SignUpSimple'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import JoinClass from '@/pages/student/JoinClass'
 import SubmissionFeedback from '@/pages/student/SubmissionFeedback'
+import PracticeFeedback from '@/pages/student/PracticeFeedback'
 import VerificationSuccess from '@/pages/auth/VerificationSuccess'
 import AuthCallback from '@/pages/auth/AuthCallback'
 import TermsAndConditions from '@/pages/legal/TermsAndConditions'
@@ -120,7 +121,8 @@ export default function AppRoutes() {
           <Route element={<RequireAuth allowedRoles={['student']} />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/join-class" element={<JoinClass />} />
-            <Route path="/student/practice/:submissionId" element={<Practice />} />
+            <Route path="/student/practice" element={<GeneralPractice />} />
+            <Route path="/student/practice-feedback" element={<PracticeFeedback />} />
             {/* <Route path="/student/class/:classId" element={<StudentClassPage />} /> */}
           </Route>
           
