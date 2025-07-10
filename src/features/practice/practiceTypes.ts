@@ -26,6 +26,7 @@ export interface PracticeFeedbackData {
   enhanced: string;
   audioUrl: string;
   submissionId: string;
+  completedSessionId?: string; // Track if this transcript has a completed session
 }
 
 export interface PracticeState {

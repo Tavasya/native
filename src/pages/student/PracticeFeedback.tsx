@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Volume2, Loader2, CheckCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { 
   loadPracticeFeedbackFromSubmission, 
@@ -11,7 +11,8 @@ import {
   selectPracticeFeedbackError,
   createPracticeSessionFromFeedback,
   openPracticeSessionModal,
-  selectPracticeSessionModal
+  selectPracticeSessionModal,
+  selectIsTranscriptCompleted
 } from '@/features/practice/practiceSlice';
 
 const PracticeFeedback: React.FC = () => {
@@ -24,6 +25,14 @@ const PracticeFeedback: React.FC = () => {
   const feedbackError = useAppSelector(selectPracticeFeedbackError);
   const { error: sessionError } = useAppSelector(selectPracticeSessionModal);
   const { sessionLoading: practiceSessionLoading } = useAppSelector(state => state.practice);
+  const isTranscriptCompleted = useAppSelector(selectIsTranscriptCompleted);
+
+  // Debug logging
+  console.log('🔍 PracticeFeedback Debug:', {
+    feedbackData,
+    isTranscriptCompleted,
+    completedSessionId: feedbackData?.completedSessionId
+  });
 
   useEffect(() => {
     // Clear any existing feedback data when component mounts
@@ -172,14 +181,23 @@ const PracticeFeedback: React.FC = () => {
           <div className="flex justify-center">
             <Button
               onClick={handleStartPronunciationPractice}
-              disabled={practiceSessionLoading || !feedbackData?.enhanced}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg font-medium"
+              disabled={practiceSessionLoading || !feedbackData?.enhanced || isTranscriptCompleted}
+              className={`px-6 py-3 text-lg font-medium ${
+                isTranscriptCompleted 
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 text-white'
+              }`}
               size="lg"
             >
               {practiceSessionLoading ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                   Starting Practice...
+                </>
+              ) : isTranscriptCompleted ? (
+                <>
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                  Practice Completed
                 </>
               ) : (
                 <>

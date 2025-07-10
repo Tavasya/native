@@ -7,7 +7,7 @@ import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
 import { PracticeSession } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
-import { startPracticeSession, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError } from '@/features/practice/practiceSlice';
+import { startPracticeSession, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError, markTranscriptCompleted } from '@/features/practice/practiceSlice';
 import { AzureSpeechService } from '@/features/practice/azureSpeechService';
 
 interface PracticeSessionModalProps {
@@ -308,6 +308,10 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         .from('practice_sessions')
         .update({ status: 'completed' })
         .eq('id', sessionId);
+      
+      // Mark this transcript as completed in Redux state
+      console.log('🎉 Marking transcript as completed with sessionId:', sessionId);
+      dispatch(markTranscriptCompleted(sessionId));
       
       if (onComplete) {
         onComplete();

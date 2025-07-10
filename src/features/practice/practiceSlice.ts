@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { PracticeState, PracticeSession, AssignmentContext, PracticeFeedbackData } from './practiceTypes';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -326,6 +326,16 @@ const practiceSlice = createSlice({
       state.feedbackError = action.payload;
       state.feedbackData = null;
     },
+    markTranscriptCompleted: (state, action: PayloadAction<string>) => {
+      console.log('📝 markTranscriptCompleted reducer called with sessionId:', action.payload);
+      console.log('📝 Current feedbackData:', state.feedbackData);
+      if (state.feedbackData) {
+        state.feedbackData.completedSessionId = action.payload;
+        console.log('📝 Updated feedbackData:', state.feedbackData);
+      } else {
+        console.log('📝 No feedbackData to update');
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -460,12 +470,26 @@ export const {
   setPracticeSessionError,
   setPracticeFeedbackData,
   clearPracticeFeedbackData,
-  setPracticeFeedbackError
+  setPracticeFeedbackError,
+  markTranscriptCompleted
 } = practiceSlice.actions;
 
 // Selectors for practice feedback data
 export const selectPracticeFeedbackData = (state: { practice: PracticeState }) => state.practice.feedbackData;
 export const selectPracticeFeedbackError = (state: { practice: PracticeState }) => state.practice.feedbackError;
+
+// Memoized selector to check if current transcript is completed
+export const selectIsTranscriptCompleted = createSelector(
+  [selectPracticeFeedbackData],
+  (feedbackData) => {
+    const isCompleted = Boolean(feedbackData?.completedSessionId);
+    console.log('🔍 selectIsTranscriptCompleted:', { feedbackData, isCompleted });
+    return isCompleted;
+  }
+);
+
+// Selectors for practice session
+export const selectCurrentSession = (state: { practice: PracticeState }) => state.practice.currentSession;
 
 // Selectors for practice session modal
 export const selectPracticeSessionModal = (state: { practice: PracticeState }) => state.practice.practiceSessionModal;
