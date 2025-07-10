@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
+import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,7 +8,7 @@ import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
 import { PracticeSession } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
-import { startPracticeSession, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError, markTranscriptCompleted } from '@/features/practice/practiceSlice';
+import { startPracticeSession, startFullTranscriptPractice as startFullTranscriptPracticeThunk, completePracticeSession as completePracticeSessionThunk, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError, markTranscriptCompleted } from '@/features/practice/practiceSlice';
 import { AzureSpeechService } from '@/features/practice/azureSpeechService';
 
 interface PracticeSessionModalProps {
@@ -30,7 +31,7 @@ interface PronunciationResult {
   weakWords: string[];
 }
 
-type PracticeMode = 'sentence' | 'word-by-word';
+type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
 
 const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   isOpen,
@@ -38,7 +39,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   sessionId,
   onComplete
 }) => {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const { error } = useSelector(selectPracticeSessionModal);
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
@@ -199,7 +200,12 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       setPronunciationResult(result);
       
       // Determine if they got it right
-      const threshold = practiceMode === 'sentence' ? 70 : 80; // Higher threshold for individual words
+      let threshold = 70; // Default for sentence mode
+      if (practiceMode === 'word-by-word') {
+        threshold = 80; // Higher threshold for individual words
+      } else if (practiceMode === 'full-transcript') {
+        threshold = 75; // Medium threshold for full transcript
+      }
       const isCorrect = result.overallScore >= threshold;
       
       // Handle next steps based on result
@@ -223,19 +229,23 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (practiceMode === 'sentence') {
       // Move to next sentence
       handleNextSentence();
-    } else {
+    } else if (practiceMode === 'word-by-word') {
       // Move to next word or back to sentence mode
       handleNextWord();
+    } else if (practiceMode === 'full-transcript') {
+      // Completed full transcript practice successfully
+      completePracticeSession();
     }
   };
 
   const handleIncorrectPronunciation = (result: PronunciationResult) => {
     if (practiceMode === 'sentence') {
-      // Switch to word-by-word mode for problematic words
+      // Switch to word-by-word mode whenever pronunciation fails in sentence mode
+      setPracticeMode('word-by-word');
+      setCurrentWordIndex(0);
+      
+      // Try to find the first weak word if any were detected
       if (result.weakWords.length > 0) {
-        setPracticeMode('word-by-word');
-        setCurrentWordIndex(0);
-        // Find the first weak word in the sentence
         const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
         const words = sentence.split(' ');
         const firstWeakWordIndex = words.findIndex(word => 
@@ -247,11 +257,25 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           setCurrentWordIndex(firstWeakWordIndex);
         }
       }
+      // If no specific weak words were detected, start from the first word
     }
+    // In full-transcript mode, just try again (no mode change needed)
+    
     // Reset for another attempt
     setTimeout(() => {
       resetForNextAttempt();
     }, 3000);
+  };
+
+  const startFullTranscriptPractice = () => {
+    // Switch to full transcript mode
+    setPracticeMode('full-transcript');
+    setCurrentSentenceIndex(0);
+    setCurrentWordIndex(0);
+    
+    // Update session status via Redux
+    dispatch(startFullTranscriptPracticeThunk(sessionId));
+    resetForNextAttempt();
   };
 
   const handleNextSentence = () => {
@@ -263,8 +287,8 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       updateSessionProgress(nextIndex, 0);
       resetForNextAttempt();
     } else {
-      // Complete the practice session
-      completePracticeSession();
+      // All sentences completed, now practice the full transcript
+      startFullTranscriptPractice();
     }
   };
 
@@ -302,24 +326,18 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }
   };
 
-  const completePracticeSession = async () => {
-    try {
-      await supabase
-        .from('practice_sessions')
-        .update({ status: 'completed' })
-        .eq('id', sessionId);
-      
-      // Mark this transcript as completed in Redux state
-      console.log('🎉 Marking transcript as completed with sessionId:', sessionId);
-      dispatch(markTranscriptCompleted(sessionId));
-      
-      if (onComplete) {
-        onComplete();
-      }
-      onClose();
-    } catch (err) {
-      console.error('Error completing practice session:', err);
+  const completePracticeSession = () => {
+    // Mark this transcript as completed in Redux state
+    console.log('🎉 Marking transcript as completed with sessionId:', sessionId);
+    dispatch(markTranscriptCompleted(sessionId));
+    
+    // Update session status via Redux
+    dispatch(completePracticeSessionThunk(sessionId));
+    
+    if (onComplete) {
+      onComplete();
     }
+    onClose();
   };
 
   const resetForNextAttempt = () => {
@@ -328,16 +346,21 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const playCurrentText = () => {
-    if (!session?.sentences?.[currentSentenceIndex]) return;
+    if (!session?.sentences) return;
     
     let textToSpeak = '';
     if (practiceMode === 'sentence') {
-      textToSpeak = session.sentences[currentSentenceIndex].text;
-    } else {
-      const sentence = session.sentences[currentSentenceIndex].text;
+      textToSpeak = session.sentences[currentSentenceIndex]?.text || '';
+    } else if (practiceMode === 'word-by-word') {
+      const sentence = session.sentences[currentSentenceIndex]?.text || '';
       const words = sentence.split(' ');
       textToSpeak = words[currentWordIndex] || '';
+    } else if (practiceMode === 'full-transcript') {
+      // Speak the entire transcript
+      textToSpeak = session.sentences.map(s => s.text).join(' ');
     }
+    
+    if (!textToSpeak) return;
     
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = 0.8;
@@ -356,21 +379,31 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const getCurrentText = () => {
-    if (!session?.sentences?.[currentSentenceIndex]) return '';
+    if (!session?.sentences) return '';
     
     if (practiceMode === 'sentence') {
-      return session.sentences[currentSentenceIndex].text;
-    } else {
-      const sentence = session.sentences[currentSentenceIndex].text;
+      return session.sentences[currentSentenceIndex]?.text || '';
+    } else if (practiceMode === 'word-by-word') {
+      const sentence = session.sentences[currentSentenceIndex]?.text || '';
       const words = sentence.split(' ');
       return words[currentWordIndex] || '';
+    } else if (practiceMode === 'full-transcript') {
+      // Return the entire transcript as one text
+      return session.sentences.map(s => s.text).join(' ');
     }
+    return '';
   };
 
   const renderPronunciationFeedback = () => {
     if (!pronunciationResult) return null;
     
-    const isCorrect = pronunciationResult.overallScore >= (practiceMode === 'sentence' ? 70 : 80);
+    let threshold = 70; // Default for sentence mode
+    if (practiceMode === 'word-by-word') {
+      threshold = 80; // Higher threshold for individual words
+    } else if (practiceMode === 'full-transcript') {
+      threshold = 75; // Medium threshold for full transcript
+    }
+    const isCorrect = pronunciationResult.overallScore >= threshold;
     
     return (
       <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
@@ -476,7 +509,12 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {practiceMode === 'sentence' ? 'Practice Session' : 'Word Practice'}
+            {practiceMode === 'sentence' 
+              ? 'Practice Session' 
+              : practiceMode === 'word-by-word' 
+                ? 'Word Practice' 
+                : 'Full Transcript Practice'
+            }
           </DialogTitle>
         </DialogHeader>
         
@@ -487,19 +525,28 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               <span>
                 {practiceMode === 'sentence' 
                   ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
-                  : `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                  : practiceMode === 'word-by-word'
+                    ? `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                    : 'Final Challenge: Full Transcript'
                 }
               </span>
-              <span>{Math.round(progress)}% Complete</span>
+              <span>
+                {practiceMode === 'full-transcript' ? '100% Complete' : `${Math.round(progress)}% Complete`}
+              </span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={practiceMode === 'full-transcript' ? 100 : progress} className="h-2" />
           </div>
 
           {/* Current Text */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {practiceMode === 'sentence' ? 'Read this sentence aloud:' : 'Practice this word:'}
+                {practiceMode === 'sentence' 
+                  ? 'Read this sentence aloud:' 
+                  : practiceMode === 'word-by-word'
+                    ? 'Practice this word:'
+                    : 'Read the entire transcript aloud:'
+                }
               </h3>
               <div className="flex gap-2">
                 <Button

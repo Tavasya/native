@@ -179,6 +179,32 @@ export const startPracticeSession = createAsyncThunk(
   }
 );
 
+export const startFullTranscriptPractice = createAsyncThunk(
+  'practice/startFullTranscriptPractice',
+  async (sessionId: string) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ status: 'practicing_full_transcript' })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, status: 'practicing_full_transcript' };
+  }
+);
+
+export const completePracticeSession = createAsyncThunk(
+  'practice/completePracticeSession',
+  async (sessionId: string) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ status: 'completed' })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, status: 'completed' };
+  }
+);
+
 const practiceSlice = createSlice({
   name: 'practice',
   initialState,
@@ -440,6 +466,30 @@ const practiceSlice = createSlice({
       .addCase(startPracticeSession.rejected, (state, action) => {
         state.practiceSessionModal.loading = false;
         state.practiceSessionModal.error = action.error.message || 'Failed to start practice session';
+      })
+      .addCase(startFullTranscriptPractice.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startFullTranscriptPractice.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startFullTranscriptPractice.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to start full transcript practice';
+      })
+      .addCase(completePracticeSession.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(completePracticeSession.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(completePracticeSession.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to complete practice session';
       });
   },
 });
