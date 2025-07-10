@@ -81,6 +81,7 @@ export const useSubmissionManager = ({
             .from('practice_sessions')
             .insert({
               user_id: userId,
+              assignment_id: assignmentId,
               original_audio_url: firstRecording,
               status: 'transcript_ready'
             })

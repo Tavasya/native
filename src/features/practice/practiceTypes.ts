@@ -7,6 +7,28 @@ export interface RecordingState {
   hasRecording: boolean;
 }
 
+export interface AssignmentContext {
+  assignmentId: string;
+  questionIndex: number;
+  questionData: {
+    id: string;
+    type: string;
+    question: string;
+    speakAloud: boolean;
+    timeLimit: string;
+    prepTime?: string;
+    bulletPoints?: string[];
+  };
+}
+
+export interface PracticeFeedbackData {
+  original: string;
+  enhanced: string;
+  audioUrl: string;
+  submissionId: string;
+  completedSessionId?: string; // Track if this transcript has a completed session
+}
+
 export interface PracticeState {
   recording: RecordingState;
   pronunciationAssessment: PronunciationAssessmentState | null;
@@ -15,7 +37,26 @@ export interface PracticeState {
   sessionLoading: boolean;
   sessionError: string | null;
   isSubmitting: boolean;
+  // Assignment context for practice sessions
+  assignmentContext: AssignmentContext | null;
   highlights: { word: string; position: number }[];
+  // Assignment practice modal state
+  practiceModal: {
+    isOpen: boolean;
+    questionText: string;
+    assignmentId: string;
+    questionIndex: number;
+  };
+  // Practice session modal state (for pronunciation practice)
+  practiceSessionModal: {
+    isOpen: boolean;
+    sessionId: string | null;
+    loading: boolean;
+    error: string | null;
+  };
+  // Practice feedback data
+  feedbackData: PracticeFeedbackData | null;
+  feedbackError: string | null;
 }
 
 export interface PronunciationAssessmentState {
@@ -47,6 +88,7 @@ export type PracticeSessionStatus =
 export interface PracticeSession {
   id: string;
   user_id: string;
+  assignment_id: string | null;
   original_audio_url: string | null;
   original_transcript: string | null;
   improved_transcript: string | null;
@@ -60,4 +102,5 @@ export interface PracticeSession {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
 } 

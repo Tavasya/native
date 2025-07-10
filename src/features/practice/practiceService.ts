@@ -31,34 +31,6 @@ export const practiceService = {
     }
   },
 
-
-  async improveTranscriptAPI(sessionId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await fetch(`${PYTHON_BACKEND_URL}/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Python Backend API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorText: errorText
-        });
-        throw new Error(`Python Backend API error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error improving transcript:', error);
-      throw new Error('Failed to improve transcript');
-    }
-  },
-
   async startPractice(sessionId: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await fetch(`${PYTHON_BACKEND_URL}/api/v1/practice/sessions/${sessionId}/start-practice`, {

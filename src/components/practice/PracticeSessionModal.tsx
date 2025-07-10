@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -6,7 +8,7 @@ import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
 import { PracticeSession } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
-import { practiceService } from '@/features/practice/practiceService';
+import { startPracticeSession, startFullTranscriptPractice as startFullTranscriptPracticeThunk, completePracticeSession as completePracticeSessionThunk, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError, markTranscriptCompleted } from '@/features/practice/practiceSlice';
 import { AzureSpeechService } from '@/features/practice/azureSpeechService';
 
 interface PracticeSessionModalProps {
@@ -29,7 +31,7 @@ interface PronunciationResult {
   weakWords: string[];
 }
 
-type PracticeMode = 'sentence' | 'word-by-word';
+type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
 
 const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   isOpen,
@@ -37,9 +39,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   sessionId,
   onComplete
 }) => {
+  const dispatch = useAppDispatch();
+  const { error } = useSelector(selectPracticeSessionModal);
   const [session, setSession] = useState<PracticeSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,7 +59,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       await handlePronunciationAssessment(blob);
     },
     onError: (errorMessage) => {
-      setError(errorMessage);
+      dispatch(setPracticeSessionError(errorMessage));
     }
   });
 
@@ -83,6 +85,8 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   // Real-time subscription for session updates
   useEffect(() => {
     if (sessionId) {
+      console.log('🔌 Setting up real-time subscription for session:', sessionId);
+      
       const channel = supabase
         .channel(`practice_session_${sessionId}`)
         .on('postgres_changes', {
@@ -91,23 +95,58 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           table: 'practice_sessions',
           filter: `id=eq.${sessionId}`
         }, (payload) => {
+          console.log('🔄 Real-time update received:', payload);
           const updatedSession = payload.new as PracticeSession;
+          console.log('📊 Updated session status:', updatedSession.status);
+          console.log('📝 Session sentences:', updatedSession.sentences?.length || 0);
           setSession(updatedSession);
           setCurrentSentenceIndex(updatedSession.current_sentence_index || 0);
           setCurrentWordIndex(updatedSession.current_word_index || 0);
-          setLoading(false);
+          dispatch(setPracticeSessionLoading(false));
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Subscription status:', status);
+        });
+
+      // Also add a manual refresh every 5 seconds as a fallback
+      const pollInterval = setInterval(async () => {
+        console.log('🔄 Polling for session updates...');
+        try {
+          const { data, error } = await supabase
+            .from('practice_sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+
+          if (!error && data) {
+            const currentSession = data as PracticeSession;
+            console.log('🔄 Poll result - Status:', currentSession.status, 'Sentences:', currentSession.sentences?.length || 0);
+            
+            // Only update if there's actually a change
+            if (currentSession.status !== session?.status || 
+                (currentSession.sentences?.length || 0) !== (session?.sentences?.length || 0)) {
+              console.log('🔄 Session changed during poll, updating...');
+              setSession(currentSession);
+              setCurrentSentenceIndex(currentSession.current_sentence_index || 0);
+              setCurrentWordIndex(currentSession.current_word_index || 0);
+            }
+          }
+        } catch (err) {
+          console.log('🔄 Poll error:', err);
+        }
+      }, 5000);
 
       return () => {
+        console.log('🔌 Cleaning up subscription for session:', sessionId);
         supabase.removeChannel(channel);
+        clearInterval(pollInterval);
       };
     }
-  }, [sessionId]);
+  }, [sessionId, dispatch, session?.status, session?.sentences?.length]);
 
   const loadSession = async () => {
     try {
-      setLoading(true);
+      console.log('🔍 Loading session:', sessionId);
       const { data, error } = await supabase
         .from('practice_sessions')
         .select('*')
@@ -117,31 +156,28 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (error) throw error;
 
       const sessionData = data as PracticeSession;
+      console.log('📋 Loaded session data:', {
+        id: sessionData.id,
+        status: sessionData.status,
+        sentencesCount: sessionData.sentences?.length || 0,
+        hasTranscript: !!sessionData.improved_transcript
+      });
+      
       setSession(sessionData);
       setCurrentSentenceIndex(sessionData.current_sentence_index || 0);
       setCurrentWordIndex(sessionData.current_word_index || 0);
 
       // If session doesn't have sentences yet, start practice to generate them
-      if (!sessionData.sentences && sessionData.status !== 'practicing_sentences') {
-        await startPracticeSession();
+      if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
+        console.log('🚀 Starting practice session for transcript_ready status');
+        dispatch(startPracticeSession(sessionId));
       }
     } catch (err) {
-      console.error('Error loading session:', err);
-      setError('Failed to load practice session');
-    } finally {
-      setLoading(false);
+      console.error('❌ Error loading session:', err);
+      dispatch(setPracticeSessionError('Failed to load practice session'));
     }
   };
 
-  const startPracticeSession = async () => {
-    try {
-      await practiceService.startPractice(sessionId);
-      // The real-time subscription will handle the update
-    } catch (err) {
-      console.error('Error starting practice:', err);
-      setError('Failed to start practice session');
-    }
-  };
 
   const handlePronunciationAssessment = async (blob: Blob) => {
     if (!session?.sentences) return;
@@ -164,7 +200,12 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       setPronunciationResult(result);
       
       // Determine if they got it right
-      const threshold = practiceMode === 'sentence' ? 70 : 80; // Higher threshold for individual words
+      let threshold = 70; // Default for sentence mode
+      if (practiceMode === 'word-by-word') {
+        threshold = 80; // Higher threshold for individual words
+      } else if (practiceMode === 'full-transcript') {
+        threshold = 50; // Lower threshold for full transcript
+      }
       const isCorrect = result.overallScore >= threshold;
       
       // Handle next steps based on result
@@ -178,7 +219,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       
     } catch (err) {
       console.error('Pronunciation assessment failed:', err);
-      setError('Failed to assess pronunciation');
+      dispatch(setPracticeSessionError('Failed to assess pronunciation'));
     } finally {
       setIsAssessing(false);
     }
@@ -188,19 +229,23 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (practiceMode === 'sentence') {
       // Move to next sentence
       handleNextSentence();
-    } else {
+    } else if (practiceMode === 'word-by-word') {
       // Move to next word or back to sentence mode
       handleNextWord();
+    } else if (practiceMode === 'full-transcript') {
+      // Completed full transcript practice successfully
+      completePracticeSession();
     }
   };
 
   const handleIncorrectPronunciation = (result: PronunciationResult) => {
     if (practiceMode === 'sentence') {
-      // Switch to word-by-word mode for problematic words
+      // Switch to word-by-word mode whenever pronunciation fails in sentence mode
+      setPracticeMode('word-by-word');
+      setCurrentWordIndex(0);
+      
+      // Try to find the first weak word if any were detected
       if (result.weakWords.length > 0) {
-        setPracticeMode('word-by-word');
-        setCurrentWordIndex(0);
-        // Find the first weak word in the sentence
         const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
         const words = sentence.split(' ');
         const firstWeakWordIndex = words.findIndex(word => 
@@ -212,11 +257,25 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           setCurrentWordIndex(firstWeakWordIndex);
         }
       }
+      // If no specific weak words were detected, start from the first word
     }
+    // In full-transcript mode, just try again (no mode change needed)
+    
     // Reset for another attempt
     setTimeout(() => {
       resetForNextAttempt();
     }, 3000);
+  };
+
+  const startFullTranscriptPractice = () => {
+    // Switch to full transcript mode
+    setPracticeMode('full-transcript');
+    setCurrentSentenceIndex(0);
+    setCurrentWordIndex(0);
+    
+    // Update session status via Redux
+    dispatch(startFullTranscriptPracticeThunk(sessionId));
+    resetForNextAttempt();
   };
 
   const handleNextSentence = () => {
@@ -228,8 +287,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       updateSessionProgress(nextIndex, 0);
       resetForNextAttempt();
     } else {
-      // Complete the practice session
-      completePracticeSession();
+      // All sentences completed
+      if (session?.sentences && session.sentences.length === 1) {
+        // Skip full transcript mode for single sentence - go straight to completion
+        completePracticeSession();
+      } else {
+        // Multiple sentences - practice the full transcript
+        startFullTranscriptPractice();
+      }
     }
   };
 
@@ -267,20 +332,18 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }
   };
 
-  const completePracticeSession = async () => {
-    try {
-      await supabase
-        .from('practice_sessions')
-        .update({ status: 'completed' })
-        .eq('id', sessionId);
-      
-      if (onComplete) {
-        onComplete();
-      }
-      onClose();
-    } catch (err) {
-      console.error('Error completing practice session:', err);
+  const completePracticeSession = () => {
+    // Mark this transcript as completed in Redux state
+    console.log('🎉 Marking transcript as completed with sessionId:', sessionId);
+    dispatch(markTranscriptCompleted(sessionId));
+    
+    // Update session status via Redux
+    dispatch(completePracticeSessionThunk(sessionId));
+    
+    if (onComplete) {
+      onComplete();
     }
+    onClose();
   };
 
   const resetForNextAttempt = () => {
@@ -289,16 +352,21 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const playCurrentText = () => {
-    if (!session?.sentences?.[currentSentenceIndex]) return;
+    if (!session?.sentences) return;
     
     let textToSpeak = '';
     if (practiceMode === 'sentence') {
-      textToSpeak = session.sentences[currentSentenceIndex].text;
-    } else {
-      const sentence = session.sentences[currentSentenceIndex].text;
+      textToSpeak = session.sentences[currentSentenceIndex]?.text || '';
+    } else if (practiceMode === 'word-by-word') {
+      const sentence = session.sentences[currentSentenceIndex]?.text || '';
       const words = sentence.split(' ');
       textToSpeak = words[currentWordIndex] || '';
+    } else if (practiceMode === 'full-transcript') {
+      // Speak the entire transcript
+      textToSpeak = session.sentences.map(s => s.text).join(' ');
     }
+    
+    if (!textToSpeak) return;
     
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = 0.8;
@@ -317,21 +385,31 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const getCurrentText = () => {
-    if (!session?.sentences?.[currentSentenceIndex]) return '';
+    if (!session?.sentences) return '';
     
     if (practiceMode === 'sentence') {
-      return session.sentences[currentSentenceIndex].text;
-    } else {
-      const sentence = session.sentences[currentSentenceIndex].text;
+      return session.sentences[currentSentenceIndex]?.text || '';
+    } else if (practiceMode === 'word-by-word') {
+      const sentence = session.sentences[currentSentenceIndex]?.text || '';
       const words = sentence.split(' ');
       return words[currentWordIndex] || '';
+    } else if (practiceMode === 'full-transcript') {
+      // Return the entire transcript as one text
+      return session.sentences.map(s => s.text).join(' ');
     }
+    return '';
   };
 
   const renderPronunciationFeedback = () => {
     if (!pronunciationResult) return null;
     
-    const isCorrect = pronunciationResult.overallScore >= (practiceMode === 'sentence' ? 70 : 80);
+    let threshold = 70; // Default for sentence mode
+    if (practiceMode === 'word-by-word') {
+      threshold = 80; // Higher threshold for individual words
+    } else if (practiceMode === 'full-transcript') {
+      threshold = 50; // Lower threshold for full transcript
+    }
+    const isCorrect = pronunciationResult.overallScore >= threshold;
     
     return (
       <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
@@ -345,9 +423,6 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <h4 className={`font-medium ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
               {isCorrect ? 'Great job!' : 'Let\'s try again'}
             </h4>
-            <p className={`text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-              Score: {pronunciationResult.overallScore}%
-            </p>
           </div>
         </div>
         
@@ -367,23 +442,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   };
 
-  // Loading and error states with proper DialogTitle
-  if (loading) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Loading Practice Session</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Loading practice session...</span>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  // Show error state
   if (error) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -405,21 +464,40 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   }
 
+  // Show single unified loading state until sentences are ready
   if (!session?.sentences || session.sentences.length === 0) {
+    // Only show "no content" if session failed or is in an error state
+    if (session?.status === 'failed' || session?.status === 'abandoned') {
+      return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Practice Session Failed</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-gray-600">Unable to generate practice content. Please try again.</p>
+              <Button 
+                onClick={onClose} 
+                className="mt-4"
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    // For all other cases (including loading, transcript_ready, practicing_sentences, etc.), show loading
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>No Practice Content Available</DialogTitle>
+            <DialogTitle>Preparing Practice Session</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-gray-600">No sentences available for practice. Please try again.</p>
-            <Button 
-              onClick={onClose} 
-              className="mt-4"
-            >
-              Close
-            </Button>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Please wait...</span>
           </div>
         </DialogContent>
       </Dialog>
@@ -434,7 +512,12 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {practiceMode === 'sentence' ? 'Practice Session' : 'Word Practice'}
+            {practiceMode === 'sentence' 
+              ? 'Practice Session' 
+              : practiceMode === 'word-by-word' 
+                ? 'Word Practice' 
+                : 'Full Transcript Practice'
+            }
           </DialogTitle>
         </DialogHeader>
         
@@ -445,19 +528,28 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               <span>
                 {practiceMode === 'sentence' 
                   ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
-                  : `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                  : practiceMode === 'word-by-word'
+                    ? `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                    : 'Final Challenge: Full Transcript'
                 }
               </span>
-              <span>{Math.round(progress)}% Complete</span>
+              <span>
+                {practiceMode === 'full-transcript' ? '100% Complete' : `${Math.round(progress)}% Complete`}
+              </span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={practiceMode === 'full-transcript' ? 100 : progress} className="h-2" />
           </div>
 
           {/* Current Text */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">
-                {practiceMode === 'sentence' ? 'Read this sentence aloud:' : 'Practice this word:'}
+                {practiceMode === 'sentence' 
+                  ? 'Read this sentence aloud:' 
+                  : practiceMode === 'word-by-word'
+                    ? 'Practice this word:'
+                    : 'Read the entire transcript aloud:'
+                }
               </h3>
               <div className="flex gap-2">
                 <Button

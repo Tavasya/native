@@ -1,5 +1,5 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { PracticeState, PracticeSession } from './practiceTypes';
+import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
+import { PracticeState, PracticeSession, AssignmentContext, PracticeFeedbackData } from './practiceTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 const initialState: PracticeState = {
@@ -17,7 +17,26 @@ const initialState: PracticeState = {
   sessionLoading: false,
   sessionError: null,
   isSubmitting: false,
+  // Assignment context for practice sessions
+  assignmentContext: null,
   highlights: [],
+  // Assignment practice modal state
+  practiceModal: {
+    isOpen: false,
+    questionText: '',
+    assignmentId: '',
+    questionIndex: 0,
+  },
+  // Practice session modal state (for pronunciation practice)
+  practiceSessionModal: {
+    isOpen: false,
+    sessionId: null,
+    loading: false,
+    error: null,
+  },
+  // Practice feedback data
+  feedbackData: null,
+  feedbackError: null,
 };
 
 export const assessPronunciation = createAsyncThunk(
@@ -66,21 +85,153 @@ export const createPracticeSession = createAsyncThunk(
   }
 );
 
-export const submitForImprovement = createAsyncThunk(
-  'practice/submitForImprovement',
-  async (sessionId: string) => {
-    const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend request failed: ${response.status}`);
+export const createPracticeSessionFromAssignment = createAsyncThunk(
+  'practice/createSessionFromAssignment',
+  async ({ assignmentId, questionIndex, questionData }: { 
+    assignmentId: string; 
+    questionIndex: number; 
+    questionData: AssignmentContext['questionData'];
+  }) => {
+    const { data: { session: userSession } } = await supabase.auth.getSession();
+    if (!userSession?.user?.id) {
+      throw new Error('User not authenticated');
     }
 
-    return { sessionId };
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: userSession.user.id,
+        status: 'transcript_processing'
+        // Note: Assignment context stored only in Redux state, not in database
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { 
+      session: data as PracticeSession,
+      assignmentContext: { assignmentId, questionIndex, questionData }
+    };
+  }
+);
+
+export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
+  'practice/loadFeedbackFromSubmission',
+  async ({ submissionId, questionIndex }: { submissionId: string; questionIndex: number }) => {
+    // Fetch the submission data to get feedback for the specific question
+    const { data: submission, error } = await supabase
+      .from('submissions')
+      .select('section_feedback')
+      .eq('id', submissionId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to load submission: ${error.message}`);
+    }
+
+    if (!submission?.section_feedback || !Array.isArray(submission.section_feedback)) {
+      throw new Error('No section feedback found');
+    }
+
+    const questionFeedback = submission.section_feedback[questionIndex];
+    if (!questionFeedback) {
+      throw new Error('No feedback found for this question');
+    }
+
+    return {
+      original: questionFeedback.transcript || 'No original transcript available',
+      enhanced: questionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript || 'No enhanced transcript available',
+      audioUrl: questionFeedback.audio_url || '',
+      submissionId
+    } as PracticeFeedbackData;
+  }
+);
+
+export const createPracticeSessionFromFeedback = createAsyncThunk(
+  'practice/createSessionFromFeedback',
+  async ({ enhancedTranscript, highlights, assignmentId, submissionId }: { enhancedTranscript: string; highlights?: { word: string; position: number }[]; assignmentId?: string; submissionId?: string }) => {
+    const { data: { session: userSession } } = await supabase.auth.getSession();
+    if (!userSession?.user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    // If we have a submissionId but no assignmentId, try to get assignment_id from the submission
+    let finalAssignmentId = assignmentId;
+    if (!finalAssignmentId && submissionId) {
+      const { data: submission, error: submissionError } = await supabase
+        .from('submissions')
+        .select('assignment_id')
+        .eq('id', submissionId)
+        .single();
+      
+      if (!submissionError && submission?.assignment_id) {
+        finalAssignmentId = submission.assignment_id;
+      }
+    }
+
+    // Create session with enhanced transcript as improved_transcript (what backend expects)
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: userSession.user.id,
+        assignment_id: finalAssignmentId || null,
+        improved_transcript: enhancedTranscript,
+        highlights: highlights || null,
+        status: 'transcript_ready'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as PracticeSession;
+  }
+);
+
+export const startPracticeSession = createAsyncThunk(
+  'practice/startPracticeSession',
+  async (sessionId: string) => {
+    const { practiceService } = await import('./practiceService');
+    return await practiceService.startPractice(sessionId);
+  }
+);
+
+export const startFullTranscriptPractice = createAsyncThunk(
+  'practice/startFullTranscriptPractice',
+  async (sessionId: string) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ status: 'practicing_full_transcript' })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, status: 'practicing_full_transcript' };
+  }
+);
+
+export const completePracticeSession = createAsyncThunk(
+  'practice/completePracticeSession',
+  async (sessionId: string) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ status: 'completed' })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, status: 'completed' };
+  }
+);
+
+export const loadPracticeSessionHighlights = createAsyncThunk(
+  'practice/loadPracticeSessionHighlights',
+  async (sessionId: string) => {
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .select('highlights, improved_transcript')
+      .eq('id', sessionId)
+      .single();
+
+    if (error) throw error;
+    return { highlights: data.highlights, improvedTranscript: data.improved_transcript };
   }
 );
 
@@ -103,6 +254,7 @@ const practiceSlice = createSlice({
       state.currentSession = null;
       state.sessionError = null;
       state.isSubmitting = false;
+      state.assignmentContext = null;
       state.highlights = [];
     },
     setSession: (state, action: PayloadAction<PracticeSession>) => {
@@ -164,6 +316,82 @@ const practiceSlice = createSlice({
     removeHighlight: (state, action: PayloadAction<number>) => {
       state.highlights = state.highlights.filter(h => h.position !== action.payload);
     },
+    setAssignmentContext: (state, action: PayloadAction<AssignmentContext>) => {
+      state.assignmentContext = action.payload;
+    },
+    clearAssignmentContext: (state) => {
+      state.assignmentContext = null;
+    },
+    openPracticeModal: (state, action: PayloadAction<{ questionText: string; assignmentId: string; questionIndex: number }>) => {
+      state.practiceModal = {
+        isOpen: true,
+        questionText: action.payload.questionText,
+        assignmentId: action.payload.assignmentId,
+        questionIndex: action.payload.questionIndex,
+      };
+    },
+    closePracticeModal: (state) => {
+      state.practiceModal = {
+        isOpen: false,
+        questionText: '',
+        assignmentId: '',
+        questionIndex: 0,
+      };
+      // Also clear any recording state when closing modal
+      state.recording = {
+        isRecording: false,
+        audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
+        recordingError: null,
+        hasRecording: false,
+      };
+    },
+    openPracticeSessionModal: (state, action: PayloadAction<string>) => {
+      state.practiceSessionModal = {
+        isOpen: true,
+        sessionId: action.payload,
+        loading: false,
+        error: null,
+      };
+    },
+    closePracticeSessionModal: (state) => {
+      state.practiceSessionModal = {
+        isOpen: false,
+        sessionId: null,
+        loading: false,
+        error: null,
+      };
+    },
+    setPracticeSessionLoading: (state, action: PayloadAction<boolean>) => {
+      state.practiceSessionModal.loading = action.payload;
+    },
+    setPracticeSessionError: (state, action: PayloadAction<string | null>) => {
+      state.practiceSessionModal.error = action.payload;
+      state.practiceSessionModal.loading = false;
+    },
+    setPracticeFeedbackData: (state, action: PayloadAction<PracticeFeedbackData>) => {
+      state.feedbackData = action.payload;
+      state.feedbackError = null;
+    },
+    clearPracticeFeedbackData: (state) => {
+      state.feedbackData = null;
+      state.feedbackError = null;
+    },
+    setPracticeFeedbackError: (state, action: PayloadAction<string>) => {
+      state.feedbackError = action.payload;
+      state.feedbackData = null;
+    },
+    markTranscriptCompleted: (state, action: PayloadAction<string>) => {
+      console.log('📝 markTranscriptCompleted reducer called with sessionId:', action.payload);
+      console.log('📝 Current feedbackData:', state.feedbackData);
+      if (state.feedbackData) {
+        state.feedbackData.completedSessionId = action.payload;
+        console.log('📝 Updated feedbackData:', state.feedbackData);
+      } else {
+        console.log('📝 No feedbackData to update');
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -219,17 +447,90 @@ const practiceSlice = createSlice({
         state.sessionLoading = false;
         state.sessionError = action.error.message || 'Failed to create practice session';
       })
-      .addCase(submitForImprovement.pending, (state) => {
-        state.isSubmitting = true;
+      .addCase(createPracticeSessionFromAssignment.pending, (state) => {
+        state.sessionLoading = true;
         state.sessionError = null;
       })
-      .addCase(submitForImprovement.fulfilled, (state) => {
-        state.isSubmitting = false;
-        // Don't set sessionError to null here - let real-time updates handle the success
+      .addCase(createPracticeSessionFromAssignment.fulfilled, (state, action: PayloadAction<{ session: PracticeSession; assignmentContext: AssignmentContext }>) => {
+        state.sessionLoading = false;
+        state.currentSession = action.payload.session;
+        state.assignmentContext = action.payload.assignmentContext;
+        state.sessionError = null;
       })
-      .addCase(submitForImprovement.rejected, (state, action) => {
-        state.isSubmitting = false;
-        state.sessionError = action.error.message || 'Failed to submit for improvement';
+      .addCase(createPracticeSessionFromAssignment.rejected, (state, action) => {
+        state.sessionLoading = false;
+        state.sessionError = action.error.message || 'Failed to create practice session from assignment';
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.pending, (state) => {
+        state.feedbackData = null; // Clear previous feedback
+        state.feedbackError = null;
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.fulfilled, (state, action: PayloadAction<PracticeFeedbackData>) => {
+        state.feedbackData = action.payload;
+        state.feedbackError = null;
+      })
+      .addCase(loadPracticeFeedbackFromSubmission.rejected, (state, action) => {
+        state.feedbackError = action.error.message || 'Failed to load practice feedback from submission';
+      })
+      .addCase(createPracticeSessionFromFeedback.pending, (state) => {
+        state.sessionLoading = true;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromFeedback.fulfilled, (state, action: PayloadAction<PracticeSession>) => {
+        state.sessionLoading = false;
+        state.currentSession = action.payload;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromFeedback.rejected, (state, action) => {
+        state.sessionLoading = false;
+        state.sessionError = action.error.message || 'Failed to create practice session from feedback';
+      })
+      .addCase(startPracticeSession.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startPracticeSession.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startPracticeSession.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to start practice session';
+      })
+      .addCase(startFullTranscriptPractice.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startFullTranscriptPractice.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startFullTranscriptPractice.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to start full transcript practice';
+      })
+      .addCase(completePracticeSession.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(completePracticeSession.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(completePracticeSession.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to complete practice session';
+      })
+      .addCase(loadPracticeSessionHighlights.fulfilled, (state, action) => {
+        // Convert highlights from database JSONB format to Redux format
+        if (action.payload.highlights && action.payload.improvedTranscript) {
+          const highlights = action.payload.highlights;
+          
+          // JSONB format: should be an array of objects with word and position
+          if (Array.isArray(highlights) && highlights.length > 0) {
+            state.highlights = highlights as { word: string; position: number }[];
+          }
+        }
       });
   },
 });
@@ -249,6 +550,39 @@ export const {
   clearPronunciationAssessment,
   setHighlights,
   addHighlight,
-  removeHighlight
+  removeHighlight,
+  setAssignmentContext,
+  clearAssignmentContext,
+  openPracticeModal,
+  closePracticeModal,
+  openPracticeSessionModal,
+  closePracticeSessionModal,
+  setPracticeSessionLoading,
+  setPracticeSessionError,
+  setPracticeFeedbackData,
+  clearPracticeFeedbackData,
+  setPracticeFeedbackError,
+  markTranscriptCompleted
 } = practiceSlice.actions;
+
+// Selectors for practice feedback data
+export const selectPracticeFeedbackData = (state: { practice: PracticeState }) => state.practice.feedbackData;
+export const selectPracticeFeedbackError = (state: { practice: PracticeState }) => state.practice.feedbackError;
+
+// Memoized selector to check if current transcript is completed
+export const selectIsTranscriptCompleted = createSelector(
+  [selectPracticeFeedbackData],
+  (feedbackData) => {
+    const isCompleted = Boolean(feedbackData?.completedSessionId);
+    console.log('🔍 selectIsTranscriptCompleted:', { feedbackData, isCompleted });
+    return isCompleted;
+  }
+);
+
+// Selectors for practice session
+export const selectCurrentSession = (state: { practice: PracticeState }) => state.practice.currentSession;
+
+// Selectors for practice session modal
+export const selectPracticeSessionModal = (state: { practice: PracticeState }) => state.practice.practiceSessionModal;
+
 export default practiceSlice.reducer; 
