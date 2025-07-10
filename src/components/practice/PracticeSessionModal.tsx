@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -6,7 +7,7 @@ import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
 import { PracticeSession } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
-import { practiceService } from '@/features/practice/practiceService';
+import { startPracticeSession, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError } from '@/features/practice/practiceSlice';
 import { AzureSpeechService } from '@/features/practice/azureSpeechService';
 
 interface PracticeSessionModalProps {
@@ -37,9 +38,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   sessionId,
   onComplete
 }) => {
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector(selectPracticeSessionModal);
   const [session, setSession] = useState<PracticeSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -57,7 +58,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       await handlePronunciationAssessment(blob);
     },
     onError: (errorMessage) => {
-      setError(errorMessage);
+      dispatch(setPracticeSessionError(errorMessage));
     }
   });
 
@@ -83,6 +84,8 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   // Real-time subscription for session updates
   useEffect(() => {
     if (sessionId) {
+      console.log('🔌 Setting up real-time subscription for session:', sessionId);
+      
       const channel = supabase
         .channel(`practice_session_${sessionId}`)
         .on('postgres_changes', {
@@ -91,23 +94,58 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           table: 'practice_sessions',
           filter: `id=eq.${sessionId}`
         }, (payload) => {
+          console.log('🔄 Real-time update received:', payload);
           const updatedSession = payload.new as PracticeSession;
+          console.log('📊 Updated session status:', updatedSession.status);
+          console.log('📝 Session sentences:', updatedSession.sentences?.length || 0);
           setSession(updatedSession);
           setCurrentSentenceIndex(updatedSession.current_sentence_index || 0);
           setCurrentWordIndex(updatedSession.current_word_index || 0);
-          setLoading(false);
+          dispatch(setPracticeSessionLoading(false));
         })
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Subscription status:', status);
+        });
+
+      // Also add a manual refresh every 5 seconds as a fallback
+      const pollInterval = setInterval(async () => {
+        console.log('🔄 Polling for session updates...');
+        try {
+          const { data, error } = await supabase
+            .from('practice_sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
+
+          if (!error && data) {
+            const currentSession = data as PracticeSession;
+            console.log('🔄 Poll result - Status:', currentSession.status, 'Sentences:', currentSession.sentences?.length || 0);
+            
+            // Only update if there's actually a change
+            if (currentSession.status !== session?.status || 
+                (currentSession.sentences?.length || 0) !== (session?.sentences?.length || 0)) {
+              console.log('🔄 Session changed during poll, updating...');
+              setSession(currentSession);
+              setCurrentSentenceIndex(currentSession.current_sentence_index || 0);
+              setCurrentWordIndex(currentSession.current_word_index || 0);
+            }
+          }
+        } catch (err) {
+          console.log('🔄 Poll error:', err);
+        }
+      }, 5000);
 
       return () => {
+        console.log('🔌 Cleaning up subscription for session:', sessionId);
         supabase.removeChannel(channel);
+        clearInterval(pollInterval);
       };
     }
-  }, [sessionId]);
+  }, [sessionId, dispatch, session?.status, session?.sentences?.length]);
 
   const loadSession = async () => {
     try {
-      setLoading(true);
+      console.log('🔍 Loading session:', sessionId);
       const { data, error } = await supabase
         .from('practice_sessions')
         .select('*')
@@ -117,31 +155,28 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (error) throw error;
 
       const sessionData = data as PracticeSession;
+      console.log('📋 Loaded session data:', {
+        id: sessionData.id,
+        status: sessionData.status,
+        sentencesCount: sessionData.sentences?.length || 0,
+        hasTranscript: !!sessionData.improved_transcript
+      });
+      
       setSession(sessionData);
       setCurrentSentenceIndex(sessionData.current_sentence_index || 0);
       setCurrentWordIndex(sessionData.current_word_index || 0);
 
       // If session doesn't have sentences yet, start practice to generate them
-      if (!sessionData.sentences && sessionData.status !== 'practicing_sentences') {
-        await startPracticeSession();
+      if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
+        console.log('🚀 Starting practice session for transcript_ready status');
+        dispatch(startPracticeSession(sessionId));
       }
     } catch (err) {
-      console.error('Error loading session:', err);
-      setError('Failed to load practice session');
-    } finally {
-      setLoading(false);
+      console.error('❌ Error loading session:', err);
+      dispatch(setPracticeSessionError('Failed to load practice session'));
     }
   };
 
-  const startPracticeSession = async () => {
-    try {
-      await practiceService.startPractice(sessionId);
-      // The real-time subscription will handle the update
-    } catch (err) {
-      console.error('Error starting practice:', err);
-      setError('Failed to start practice session');
-    }
-  };
 
   const handlePronunciationAssessment = async (blob: Blob) => {
     if (!session?.sentences) return;
@@ -178,7 +213,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       
     } catch (err) {
       console.error('Pronunciation assessment failed:', err);
-      setError('Failed to assess pronunciation');
+      dispatch(setPracticeSessionError('Failed to assess pronunciation'));
     } finally {
       setIsAssessing(false);
     }
@@ -406,6 +441,38 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   }
 
   if (!session?.sentences || session.sentences.length === 0) {
+    console.log('🔍 Checking loading state:', {
+      loading,
+      sessionStatus: session?.status,
+      sentencesCount: session?.sentences?.length || 0,
+      hasSession: !!session
+    });
+    
+    // Show loading for statuses where sentences are being generated
+    const isGenerating = loading || [
+      'transcript_processing',
+      'transcript_ready', 
+      'practicing_sentences',
+      'start_practice'
+    ].includes(session?.status || '');
+    
+    if (isGenerating) {
+      console.log('🔄 Showing loading - isGenerating:', isGenerating);
+      return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Generating Practice Content</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Generating practice sentences...</span>
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+    
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[600px]">

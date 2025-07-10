@@ -171,6 +171,14 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
   }
 );
 
+export const startPracticeSession = createAsyncThunk(
+  'practice/startPracticeSession',
+  async (sessionId: string) => {
+    const { practiceService } = await import('./practiceService');
+    return await practiceService.startPractice(sessionId);
+  }
+);
+
 const practiceSlice = createSlice({
   name: 'practice',
   initialState,
@@ -410,6 +418,18 @@ const practiceSlice = createSlice({
       .addCase(createPracticeSessionFromFeedback.rejected, (state, action) => {
         state.sessionLoading = false;
         state.sessionError = action.error.message || 'Failed to create practice session from feedback';
+      })
+      .addCase(startPracticeSession.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startPracticeSession.fulfilled, (state) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(startPracticeSession.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to start practice session';
       });
   },
 });
