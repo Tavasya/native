@@ -39,7 +39,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   onComplete
 }) => {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector(selectPracticeSessionModal);
+  const { error } = useSelector(selectPracticeSessionModal);
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -402,23 +402,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   };
 
-  // Loading and error states with proper DialogTitle
-  if (loading) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Loading Practice Session</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Loading practice session...</span>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+  // Show error state
   if (error) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -440,53 +424,40 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   }
 
+  // Show single unified loading state until sentences are ready
   if (!session?.sentences || session.sentences.length === 0) {
-    console.log('🔍 Checking loading state:', {
-      loading,
-      sessionStatus: session?.status,
-      sentencesCount: session?.sentences?.length || 0,
-      hasSession: !!session
-    });
-    
-    // Show loading for statuses where sentences are being generated
-    const isGenerating = loading || [
-      'transcript_processing',
-      'transcript_ready', 
-      'practicing_sentences',
-      'start_practice'
-    ].includes(session?.status || '');
-    
-    if (isGenerating) {
-      console.log('🔄 Showing loading - isGenerating:', isGenerating);
+    // Only show "no content" if session failed or is in an error state
+    if (session?.status === 'failed' || session?.status === 'abandoned') {
       return (
         <Dialog open={isOpen} onOpenChange={onClose}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Generating Practice Content</DialogTitle>
+              <DialogTitle>Practice Session Failed</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">Generating practice sentences...</span>
+            <div className="py-4">
+              <p className="text-gray-600">Unable to generate practice content. Please try again.</p>
+              <Button 
+                onClick={onClose} 
+                className="mt-4"
+              >
+                Close
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       );
     }
-    
+
+    // For all other cases (including loading, transcript_ready, practicing_sentences, etc.), show loading
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>No Practice Content Available</DialogTitle>
+            <DialogTitle>Preparing Practice Session</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-gray-600">No sentences available for practice. Please try again.</p>
-            <Button 
-              onClick={onClose} 
-              className="mt-4"
-            >
-              Close
-            </Button>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Please wait...</span>
           </div>
         </DialogContent>
       </Dialog>
