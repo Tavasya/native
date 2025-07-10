@@ -37,7 +37,7 @@ export function AgentControlBar({
   // Get the latest agent transcript only
   const latestAgentTranscript = React.useMemo(() => {
     // Look for transcripts that are likely from the agent
-    const agentTranscripts = transcriptions.filter(t => {
+    const agentTranscripts = transcriptions.filter((t: any) => {
       const text = t.text.trim();
       const participantIdentity = t.participantInfo?.identity || '';
       

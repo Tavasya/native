@@ -32,7 +32,7 @@ export function SettingsDropdown({ onAudioDeviceChange, onDeviceError, onDisconn
 
   // Memoize the active device to prevent recalculation on every render
   const activeDevice = useMemo(() => 
-    devices.find(device => device.deviceId === activeDeviceId),
+    devices.find((device: any) => device.deviceId === activeDeviceId),
     [devices, activeDeviceId]
   );
 
@@ -119,7 +119,7 @@ export function SettingsDropdown({ onAudioDeviceChange, onDeviceError, onDisconn
                 {/* Inline Microphone List */}
                 {showMicList && (
                   <div className="mt-1 space-y-1 max-h-32 overflow-y-auto border border-border/50 rounded bg-background/50 p-1">
-                    {devices.map((device) => (
+                    {devices.map((device: any) => (
                       <button
                         key={device.deviceId}
                         onClick={() => handleDeviceSelect(device.deviceId)}

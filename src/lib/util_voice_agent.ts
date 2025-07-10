@@ -23,13 +23,13 @@ export function transcriptionToChatMessage(
     text: textStream.text,
     participantIdentity: textStream.participantInfo.identity,
     localParticipantIdentity: room.localParticipant.identity,
-    remoteParticipants: Array.from(room.remoteParticipants.values()).map(p => ({ identity: p.identity, isAgent: p.isAgent }))
+    remoteParticipants: Array.from(room.remoteParticipants.values()).map((p: any) => ({ identity: p.identity, isAgent: p.isAgent }))
   });
 
   const from = textStream.participantInfo.identity === room.localParticipant.identity
     ? room.localParticipant
     : Array.from(room.remoteParticipants.values()).find(
-        (p) => p.identity === textStream.participantInfo.identity
+        (p: any) => p.identity === textStream.participantInfo.identity
       );
 
   console.log('🔥 Found participant:', from);

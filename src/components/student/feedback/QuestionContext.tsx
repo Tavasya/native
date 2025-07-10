@@ -66,7 +66,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         <div className="mt-6">
           {audioUrl && (
             <AudioPlayer
-              ref={audioRef}
+              ref={audioRef as any}
               audioUrl={audioUrl}
               hasRecorded={true}
               isRecording={false}

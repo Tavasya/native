@@ -33,6 +33,8 @@ interface SessionViewProps {
   disabled: boolean;
   sessionStarted: boolean;
   selectedScenario?: Scenario;
+  assignmentId?: string;
+  onConversationCompleted?: () => void;
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
@@ -40,6 +42,8 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   disabled,
   sessionStarted,
   selectedScenario,
+  assignmentId: _assignmentId,
+  onConversationCompleted: _onConversationCompleted,
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);

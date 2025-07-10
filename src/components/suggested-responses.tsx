@@ -52,7 +52,7 @@ export function SuggestedResponses({
 
   // Get latest user transcription
   const latestUserTranscript = transcriptions
-    .filter(t => {
+    .filter((t: any) => {
       const participantIdentity = t.participantInfo?.identity || '';
       return participantIdentity.includes('user') && t.text.trim();
     })

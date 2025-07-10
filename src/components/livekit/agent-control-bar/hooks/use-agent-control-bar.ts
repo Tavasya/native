@@ -51,15 +51,15 @@ export function useAgentControlBar(props: UseAgentControlBarProps = {}): UseAgen
 
   const microphoneToggle = useTrackToggle({
     source: Track.Source.Microphone,
-    onDeviceError: (error) => props.onDeviceError?.({ source: Track.Source.Microphone, error }),
+    onDeviceError: (error: any) => props.onDeviceError?.({ source: Track.Source.Microphone, error }),
   });
   const cameraToggle = useTrackToggle({
     source: Track.Source.Camera,
-    onDeviceError: (error) => props.onDeviceError?.({ source: Track.Source.Camera, error }),
+    onDeviceError: (error: any) => props.onDeviceError?.({ source: Track.Source.Camera, error }),
   });
   const screenShareToggle = useTrackToggle({
     source: Track.Source.ScreenShare,
-    onDeviceError: (error) => props.onDeviceError?.({ source: Track.Source.ScreenShare, error }),
+    onDeviceError: (error: any) => props.onDeviceError?.({ source: Track.Source.ScreenShare, error }),
   });
 
   const micTrackRef = React.useMemo(() => {

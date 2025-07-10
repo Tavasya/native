@@ -189,11 +189,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       let referenceText = '';
       if (practiceMode === 'sentence') {
         referenceText = session.sentences[currentSentenceIndex]?.text || '';
-      } else {
+      } else if (practiceMode === 'word-by-word') {
         // Word-by-word mode
         const sentence = session.sentences[currentSentenceIndex]?.text || '';
         const words = sentence.split(' ');
         referenceText = words[currentWordIndex] || '';
+      } else if (practiceMode === 'full-transcript') {
+        // Full transcript mode - use entire transcript
+        referenceText = session.sentences.map(s => s.text).join(' ');
       }
       
       const result = await azureService.assessPronunciation(blob, referenceText);
@@ -204,7 +207,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (practiceMode === 'word-by-word') {
         threshold = 80; // Higher threshold for individual words
       } else if (practiceMode === 'full-transcript') {
-        threshold = 50; // Lower threshold for full transcript
+        threshold = 35; // Much lower threshold for full transcript (longer texts are harder to assess accurately)
       }
       const isCorrect = result.overallScore >= threshold;
       
@@ -425,19 +428,6 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             </h4>
           </div>
         </div>
-        
-        {!isCorrect && pronunciationResult.weakWords.length > 0 && (
-          <div className="mt-2">
-            <p className="text-sm text-red-600 mb-1">Words to practice:</p>
-            <div className="flex flex-wrap gap-2">
-              {pronunciationResult.weakWords.map((word, index) => (
-                <span key={index} className="bg-red-200 text-red-800 px-2 py-1 rounded text-sm">
-                  {word}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     );
   };

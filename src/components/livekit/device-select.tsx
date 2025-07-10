@@ -69,7 +69,7 @@ export function DeviceSelect({
         )}
       </SelectTrigger>
       <SelectContent>
-        {devices.map((device) => (
+        {devices.map((device: any) => (
           <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
             {device.label}
           </SelectItem>

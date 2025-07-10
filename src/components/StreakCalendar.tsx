@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Flame } from 'lucide-react';
-import { streakService, type ActivityLog, type StreakCalendarDay } from '@/features/streaks/streakService';
+import { streakService, type StreakCalendarDay } from '@/features/streaks/streakService';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 
@@ -11,7 +11,7 @@ interface StreakCalendarProps {
 export const StreakCalendar = ({ className = '' }: StreakCalendarProps) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
+  const [, setActivityLog] = useState<any[]>([]);
   const [calendarDays, setCalendarDays] = useState<StreakCalendarDay[]>([]);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
