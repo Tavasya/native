@@ -88,6 +88,7 @@ export type PracticeSessionStatus =
 export interface PracticeSession {
   id: string;
   user_id: string;
+  assignment_id: string | null;
   original_audio_url: string | null;
   original_transcript: string | null;
   improved_transcript: string | null;

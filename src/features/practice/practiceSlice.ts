@@ -149,10 +149,24 @@ export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
 
 export const createPracticeSessionFromFeedback = createAsyncThunk(
   'practice/createSessionFromFeedback',
-  async ({ enhancedTranscript, highlights }: { enhancedTranscript: string; highlights?: { word: string; position: number }[] }) => {
+  async ({ enhancedTranscript, highlights, assignmentId, submissionId }: { enhancedTranscript: string; highlights?: { word: string; position: number }[]; assignmentId?: string; submissionId?: string }) => {
     const { data: { session: userSession } } = await supabase.auth.getSession();
     if (!userSession?.user?.id) {
       throw new Error('User not authenticated');
+    }
+
+    // If we have a submissionId but no assignmentId, try to get assignment_id from the submission
+    let finalAssignmentId = assignmentId;
+    if (!finalAssignmentId && submissionId) {
+      const { data: submission, error: submissionError } = await supabase
+        .from('submissions')
+        .select('assignment_id')
+        .eq('id', submissionId)
+        .single();
+      
+      if (!submissionError && submission?.assignment_id) {
+        finalAssignmentId = submission.assignment_id;
+      }
     }
 
     // Create session with enhanced transcript as improved_transcript (what backend expects)
@@ -160,6 +174,7 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
       .from('practice_sessions')
       .insert({
         user_id: userSession.user.id,
+        assignment_id: finalAssignmentId || null,
         improved_transcript: enhancedTranscript,
         highlights: highlights || null,
         status: 'transcript_ready'

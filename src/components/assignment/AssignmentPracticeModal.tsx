@@ -83,6 +83,7 @@ const AssignmentPracticeModal: React.FC = () => {
         .from('practice_sessions')
         .insert({
           user_id: userSession.user.id,
+          assignment_id: practiceModal.assignmentId,
           original_transcript: practiceModal.questionText,
           status: 'transcript_processing'
         })

@@ -168,7 +168,8 @@ const PracticeFeedback: React.FC = () => {
       // Create practice session with enhanced transcript and highlights
       const action = await dispatch(createPracticeSessionFromFeedback({
         enhancedTranscript: feedbackData.enhanced,
-        highlights: highlights // Save full highlight objects with position info
+        highlights: highlights, // Save full highlight objects with position info
+        submissionId: feedbackData.submissionId // Pass submissionId to get assignment_id
       }));
 
       if (createPracticeSessionFromFeedback.fulfilled.match(action)) {
