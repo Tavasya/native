@@ -423,9 +423,6 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <h4 className={`font-medium ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
               {isCorrect ? 'Great job!' : 'Let\'s try again'}
             </h4>
-            <p className={`text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-              Score: {pronunciationResult.overallScore}%
-            </p>
           </div>
         </div>
         

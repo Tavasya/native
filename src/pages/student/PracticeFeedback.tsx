@@ -247,7 +247,7 @@ const PracticeFeedback: React.FC = () => {
               {renderClickableTranscript(feedbackData.enhanced)}
               <div className="mt-3 text-xs text-gray-600">
                 {isTranscriptCompleted 
-                  ? "✅ Practice completed! Yellow words were your focus areas"
+                  ? "✅ Practice completed!"
                   : "Click on words that you want to remember"
                 }
               </div>
