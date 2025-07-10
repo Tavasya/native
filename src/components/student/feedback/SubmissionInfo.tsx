@@ -71,8 +71,7 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
             {audioUrl && (
               <a
                 href={audioUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                download={`${assignmentTitle}_${studentName}_audio.webm`}
                 className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded transition-colors duration-200"
               >
                 <svg 
@@ -81,9 +80,9 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
-                View audio file
+                Download audio file
               </a>
             )}
           </div>
