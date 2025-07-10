@@ -128,6 +128,14 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
               <Button
                 variant="outline"
                 size="sm"
+                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                onClick={handlePracticeQuestion}
+              >
+                Practice
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 onClick={handlePlayQuestion}
                 disabled={isLoading}
@@ -138,14 +146,6 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
                 ) : (
                   <Play className="h-3 w-3" />
                 )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                onClick={handlePracticeQuestion}
-              >
-                Practice
               </Button>
             </div>
           </div>

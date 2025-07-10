@@ -142,8 +142,8 @@ const PracticeFeedback: React.FC = () => {
                   isHighlighted 
                     ? 'bg-yellow-200 border border-yellow-400 rounded px-1' 
                     : isTranscriptCompleted 
-                      ? 'px-1'
-                      : 'cursor-pointer hover:bg-yellow-100 rounded px-1'
+                      ? ''
+                      : 'cursor-pointer hover:bg-yellow-100 hover:rounded hover:px-1'
                 }`}
                 title={isTranscriptCompleted ? "Previously highlighted word" : "Click to highlight for practice focus"}
               >
