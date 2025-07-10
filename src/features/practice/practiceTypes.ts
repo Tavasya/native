@@ -95,7 +95,7 @@ export interface PracticeSession {
   current_sentence_index: number;
   current_word_index: number;
   problematic_words: { word: string; sentence_context?: string; [key: string]: unknown }[] | null;
-  highlights: string[] | null;
+  highlights: { word: string; position: number }[] | null;
   status: PracticeSessionStatus;
   webhook_session_id: string | null;
   error_message: string | null;

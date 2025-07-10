@@ -204,7 +204,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (practiceMode === 'word-by-word') {
         threshold = 80; // Higher threshold for individual words
       } else if (practiceMode === 'full-transcript') {
-        threshold = 75; // Medium threshold for full transcript
+        threshold = 50; // Lower threshold for full transcript
       }
       const isCorrect = result.overallScore >= threshold;
       
@@ -287,8 +287,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       updateSessionProgress(nextIndex, 0);
       resetForNextAttempt();
     } else {
-      // All sentences completed, now practice the full transcript
-      startFullTranscriptPractice();
+      // All sentences completed
+      if (session?.sentences && session.sentences.length === 1) {
+        // Skip full transcript mode for single sentence - go straight to completion
+        completePracticeSession();
+      } else {
+        // Multiple sentences - practice the full transcript
+        startFullTranscriptPractice();
+      }
     }
   };
 
@@ -401,7 +407,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (practiceMode === 'word-by-word') {
       threshold = 80; // Higher threshold for individual words
     } else if (practiceMode === 'full-transcript') {
-      threshold = 75; // Medium threshold for full transcript
+      threshold = 50; // Lower threshold for full transcript
     }
     const isCorrect = pronunciationResult.overallScore >= threshold;
     

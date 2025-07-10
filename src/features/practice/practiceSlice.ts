@@ -149,7 +149,7 @@ export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
 
 export const createPracticeSessionFromFeedback = createAsyncThunk(
   'practice/createSessionFromFeedback',
-  async ({ enhancedTranscript }: { enhancedTranscript: string }) => {
+  async ({ enhancedTranscript, highlights }: { enhancedTranscript: string; highlights?: { word: string; position: number }[] }) => {
     const { data: { session: userSession } } = await supabase.auth.getSession();
     if (!userSession?.user?.id) {
       throw new Error('User not authenticated');
@@ -161,6 +161,7 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
       .insert({
         user_id: userSession.user.id,
         improved_transcript: enhancedTranscript,
+        highlights: highlights || null,
         status: 'transcript_ready'
       })
       .select()
@@ -202,6 +203,20 @@ export const completePracticeSession = createAsyncThunk(
 
     if (error) throw error;
     return { sessionId, status: 'completed' };
+  }
+);
+
+export const loadPracticeSessionHighlights = createAsyncThunk(
+  'practice/loadPracticeSessionHighlights',
+  async (sessionId: string) => {
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .select('highlights, improved_transcript')
+      .eq('id', sessionId)
+      .single();
+
+    if (error) throw error;
+    return { highlights: data.highlights, improvedTranscript: data.improved_transcript };
   }
 );
 
@@ -490,6 +505,17 @@ const practiceSlice = createSlice({
       .addCase(completePracticeSession.rejected, (state, action) => {
         state.practiceSessionModal.loading = false;
         state.practiceSessionModal.error = action.error.message || 'Failed to complete practice session';
+      })
+      .addCase(loadPracticeSessionHighlights.fulfilled, (state, action) => {
+        // Convert highlights from database JSONB format to Redux format
+        if (action.payload.highlights && action.payload.improvedTranscript) {
+          const highlights = action.payload.highlights;
+          
+          // JSONB format: should be an array of objects with word and position
+          if (Array.isArray(highlights) && highlights.length > 0) {
+            state.highlights = highlights as { word: string; position: number }[];
+          }
+        }
       });
   },
 });

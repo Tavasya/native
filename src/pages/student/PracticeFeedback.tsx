@@ -12,7 +12,11 @@ import {
   createPracticeSessionFromFeedback,
   openPracticeSessionModal,
   selectPracticeSessionModal,
-  selectIsTranscriptCompleted
+  selectIsTranscriptCompleted,
+  addHighlight,
+  removeHighlight,
+  setHighlights,
+  loadPracticeSessionHighlights
 } from '@/features/practice/practiceSlice';
 
 const PracticeFeedback: React.FC = () => {
@@ -24,7 +28,7 @@ const PracticeFeedback: React.FC = () => {
   const feedbackData = useAppSelector(selectPracticeFeedbackData);
   const feedbackError = useAppSelector(selectPracticeFeedbackError);
   const { error: sessionError } = useAppSelector(selectPracticeSessionModal);
-  const { sessionLoading: practiceSessionLoading } = useAppSelector(state => state.practice);
+  const { sessionLoading: practiceSessionLoading, highlights } = useAppSelector(state => state.practice);
   const isTranscriptCompleted = useAppSelector(selectIsTranscriptCompleted);
 
   // Debug logging
@@ -65,8 +69,20 @@ const PracticeFeedback: React.FC = () => {
   useEffect(() => {
     return () => {
       dispatch(clearPracticeFeedbackData());
+      dispatch(setHighlights([])); // Clear highlights when leaving page
     };
   }, [dispatch]);
+
+  // Load highlights for completed sessions or clear for new practice
+  useEffect(() => {
+    if (feedbackData && isTranscriptCompleted && feedbackData.completedSessionId) {
+      // Load existing highlights from completed session
+      dispatch(loadPracticeSessionHighlights(feedbackData.completedSessionId));
+    } else if (feedbackData && !isTranscriptCompleted) {
+      // Reset highlights for new practice
+      dispatch(setHighlights([]));
+    }
+  }, [feedbackData, isTranscriptCompleted, dispatch]);
 
   const handleBack = () => {
     if (feedbackData?.submissionId) {
@@ -74,6 +90,70 @@ const PracticeFeedback: React.FC = () => {
     } else {
       navigate('/student/dashboard');
     }
+  };
+
+  const handleWordClick = (word: string, position: number) => {
+    const existingHighlight = highlights.find(h => h.position === position);
+    if (existingHighlight) {
+      dispatch(removeHighlight(position));
+    } else {
+      dispatch(addHighlight({ word, position }));
+    }
+  };
+
+  const renderClickableTranscript = (text: string) => {
+    if (!text) return null;
+    
+    // First, get all words with their exact positions for consistent calculation
+    const allSegments = text.split(/(\s+)/); // Split on whitespace but keep separators
+    const wordSegments = allSegments.map((segment, segmentIndex) => {
+      if (segment.match(/^\s+$/)) {
+        return { type: 'whitespace', segment, segmentIndex };
+      } else {
+        return { type: 'word', segment, segmentIndex };
+      }
+    });
+    
+    // Calculate word positions only for actual words
+    let wordPosition = 0;
+    const wordsWithPositions = wordSegments.map((item) => {
+      if (item.type === 'word') {
+        return { ...item, wordPosition: wordPosition++ };
+      }
+      return item;
+    });
+    
+    return (
+      <p className="text-sm whitespace-pre-wrap">
+        {wordsWithPositions.map((item) => {
+          if (item.type === 'whitespace') {
+            // This is whitespace, return as-is
+            return <span key={item.segmentIndex}>{item.segment}</span>;
+          } else {
+            // This is a word
+            const currentPosition = 'wordPosition' in item ? item.wordPosition : 0;
+            const isHighlighted = highlights.some(h => h.position === currentPosition);
+            
+            return (
+              <span
+                key={item.segmentIndex}
+                onClick={!isTranscriptCompleted ? () => handleWordClick(item.segment.trim(), currentPosition) : undefined}
+                className={`transition-colors ${
+                  isHighlighted 
+                    ? 'bg-yellow-200 border border-yellow-400 rounded px-1' 
+                    : isTranscriptCompleted 
+                      ? 'px-1'
+                      : 'cursor-pointer hover:bg-yellow-100 rounded px-1'
+                }`}
+                title={isTranscriptCompleted ? "Previously highlighted word" : "Click to highlight for practice focus"}
+              >
+                {item.segment}
+              </span>
+            );
+          }
+        })}
+      </p>
+    );
   };
 
   const handleStartPronunciationPractice = async () => {
@@ -85,9 +165,10 @@ const PracticeFeedback: React.FC = () => {
     console.log('Starting pronunciation practice...');
 
     try {
-      // Create practice session with enhanced transcript
+      // Create practice session with enhanced transcript and highlights
       const action = await dispatch(createPracticeSessionFromFeedback({
-        enhancedTranscript: feedbackData.enhanced
+        enhancedTranscript: feedbackData.enhanced,
+        highlights: highlights // Save full highlight objects with position info
       }));
 
       if (createPracticeSessionFromFeedback.fulfilled.match(action)) {
@@ -153,11 +234,22 @@ const PracticeFeedback: React.FC = () => {
           </div>
           
           <div className="space-y-3">
-            <h4 className="font-medium text-green-700">Enhanced Version</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-green-700">Enhanced Version</h4>
+              {highlights.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {highlights.length} word{highlights.length !== 1 ? 's' : ''} highlighted
+                </span>
+              )}
+            </div>
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm whitespace-pre-wrap">
-                {feedbackData.enhanced}
-              </p>
+              {renderClickableTranscript(feedbackData.enhanced)}
+              <div className="mt-3 text-xs text-gray-600">
+                {isTranscriptCompleted 
+                  ? "✅ Practice completed! Yellow words were your focus areas"
+                  : "💡 Click on words to highlight"
+                }
+              </div>
             </div>
           </div>
         </div>
