@@ -247,7 +247,7 @@ const PracticeFeedback: React.FC = () => {
               <div className="mt-3 text-xs text-gray-600">
                 {isTranscriptCompleted 
                   ? "✅ Practice completed! Yellow words were your focus areas"
-                  : "💡 Click on words to highlight"
+                  : "Click on words that you want to remember"
                 }
               </div>
             </div>
