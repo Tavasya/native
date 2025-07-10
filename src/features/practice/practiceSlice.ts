@@ -27,6 +27,13 @@ const initialState: PracticeState = {
     assignmentId: '',
     questionIndex: 0,
   },
+  // Practice session modal state (for pronunciation practice)
+  practiceSessionModal: {
+    isOpen: false,
+    sessionId: null,
+    loading: false,
+    error: null,
+  },
   // Practice feedback data
   feedbackData: null,
   feedbackError: null,
@@ -108,24 +115,6 @@ export const createPracticeSessionFromAssignment = createAsyncThunk(
   }
 );
 
-export const submitForImprovement = createAsyncThunk(
-  'practice/submitForImprovement',
-  async (sessionId: string) => {
-    const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend request failed: ${response.status}`);
-    }
-
-    return { sessionId };
-  }
-);
-
 export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
   'practice/loadFeedbackFromSubmission',
   async ({ submissionId, questionIndex }: { submissionId: string; questionIndex: number }) => {
@@ -155,6 +144,30 @@ export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
       audioUrl: questionFeedback.audio_url || '',
       submissionId
     } as PracticeFeedbackData;
+  }
+);
+
+export const createPracticeSessionFromFeedback = createAsyncThunk(
+  'practice/createSessionFromFeedback',
+  async ({ enhancedTranscript }: { enhancedTranscript: string }) => {
+    const { data: { session: userSession } } = await supabase.auth.getSession();
+    if (!userSession?.user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    // Create session with enhanced transcript as improved_transcript (what backend expects)
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: userSession.user.id,
+        improved_transcript: enhancedTranscript,
+        status: 'transcript_ready'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as PracticeSession;
   }
 );
 
@@ -270,6 +283,29 @@ const practiceSlice = createSlice({
         hasRecording: false,
       };
     },
+    openPracticeSessionModal: (state, action: PayloadAction<string>) => {
+      state.practiceSessionModal = {
+        isOpen: true,
+        sessionId: action.payload,
+        loading: false,
+        error: null,
+      };
+    },
+    closePracticeSessionModal: (state) => {
+      state.practiceSessionModal = {
+        isOpen: false,
+        sessionId: null,
+        loading: false,
+        error: null,
+      };
+    },
+    setPracticeSessionLoading: (state, action: PayloadAction<boolean>) => {
+      state.practiceSessionModal.loading = action.payload;
+    },
+    setPracticeSessionError: (state, action: PayloadAction<string | null>) => {
+      state.practiceSessionModal.error = action.payload;
+      state.practiceSessionModal.loading = false;
+    },
     setPracticeFeedbackData: (state, action: PayloadAction<PracticeFeedbackData>) => {
       state.feedbackData = action.payload;
       state.feedbackError = null;
@@ -351,18 +387,6 @@ const practiceSlice = createSlice({
         state.sessionLoading = false;
         state.sessionError = action.error.message || 'Failed to create practice session from assignment';
       })
-      .addCase(submitForImprovement.pending, (state) => {
-        state.isSubmitting = true;
-        state.sessionError = null;
-      })
-      .addCase(submitForImprovement.fulfilled, (state) => {
-        state.isSubmitting = false;
-        // Don't set sessionError to null here - let real-time updates handle the success
-      })
-      .addCase(submitForImprovement.rejected, (state, action) => {
-        state.isSubmitting = false;
-        state.sessionError = action.error.message || 'Failed to submit for improvement';
-      })
       .addCase(loadPracticeFeedbackFromSubmission.pending, (state) => {
         state.feedbackData = null; // Clear previous feedback
         state.feedbackError = null;
@@ -373,6 +397,19 @@ const practiceSlice = createSlice({
       })
       .addCase(loadPracticeFeedbackFromSubmission.rejected, (state, action) => {
         state.feedbackError = action.error.message || 'Failed to load practice feedback from submission';
+      })
+      .addCase(createPracticeSessionFromFeedback.pending, (state) => {
+        state.sessionLoading = true;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromFeedback.fulfilled, (state, action: PayloadAction<PracticeSession>) => {
+        state.sessionLoading = false;
+        state.currentSession = action.payload;
+        state.sessionError = null;
+      })
+      .addCase(createPracticeSessionFromFeedback.rejected, (state, action) => {
+        state.sessionLoading = false;
+        state.sessionError = action.error.message || 'Failed to create practice session from feedback';
       });
   },
 });
@@ -397,6 +434,10 @@ export const {
   clearAssignmentContext,
   openPracticeModal,
   closePracticeModal,
+  openPracticeSessionModal,
+  closePracticeSessionModal,
+  setPracticeSessionLoading,
+  setPracticeSessionError,
   setPracticeFeedbackData,
   clearPracticeFeedbackData,
   setPracticeFeedbackError
@@ -405,5 +446,8 @@ export const {
 // Selectors for practice feedback data
 export const selectPracticeFeedbackData = (state: { practice: PracticeState }) => state.practice.feedbackData;
 export const selectPracticeFeedbackError = (state: { practice: PracticeState }) => state.practice.feedbackError;
+
+// Selectors for practice session modal
+export const selectPracticeSessionModal = (state: { practice: PracticeState }) => state.practice.practiceSessionModal;
 
 export default practiceSlice.reducer; 

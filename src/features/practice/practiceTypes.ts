@@ -46,6 +46,13 @@ export interface PracticeState {
     assignmentId: string;
     questionIndex: number;
   };
+  // Practice session modal state (for pronunciation practice)
+  practiceSessionModal: {
+    isOpen: boolean;
+    sessionId: string | null;
+    loading: boolean;
+    error: string | null;
+  };
   // Practice feedback data
   feedbackData: PracticeFeedbackData | null;
   feedbackError: string | null;
@@ -87,10 +94,11 @@ export interface PracticeSession {
   current_sentence_index: number;
   current_word_index: number;
   problematic_words: { word: string; sentence_context?: string; [key: string]: unknown }[] | null;
-  highlights: { word: string; position: number }[] | null;
+  highlights: string[] | null;
   status: PracticeSessionStatus;
   webhook_session_id: string | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
 } 

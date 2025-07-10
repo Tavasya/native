@@ -6,6 +6,8 @@ import { fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import styled from 'styled-components';
 import { Toaster } from "@/components/ui/toaster";
 import AssignmentPracticeModal from '@/components/assignment/AssignmentPracticeModal';
+import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import { closePracticeSessionModal, selectPracticeSessionModal } from '@/features/practice/practiceSlice';
 
 const LayoutContainer = styled.div`
   min-height: 100vh;
@@ -18,6 +20,29 @@ const MainContent = styled.main`
   transition: opacity 0.3s ease-in-out;
   padding-top: 64px; /* Account for fixed navbar height (py-4 + content) */
 `;
+
+// Redux-connected wrapper for PracticeSessionModal
+const PracticeSessionModalWrapper: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { isOpen, sessionId } = useAppSelector(selectPracticeSessionModal);
+
+  const handleClose = () => {
+    dispatch(closePracticeSessionModal());
+  };
+
+  // Only render the modal if we have a sessionId
+  if (!sessionId) {
+    return null;
+  }
+
+  return (
+    <PracticeSessionModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      sessionId={sessionId}
+    />
+  );
+};
 
 const Layout: React.FC = () => {
   const location = useLocation();
@@ -40,6 +65,7 @@ const Layout: React.FC = () => {
       </MainContent>
       <Toaster />
       <AssignmentPracticeModal />
+      <PracticeSessionModalWrapper />
     </LayoutContainer>
   );
 };

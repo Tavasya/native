@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Volume2, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { 
   loadPracticeFeedbackFromSubmission, 
   clearPracticeFeedbackData, 
   setPracticeFeedbackData,
   selectPracticeFeedbackData,
-  selectPracticeFeedbackError
+  selectPracticeFeedbackError,
+  createPracticeSessionFromFeedback,
+  openPracticeSessionModal,
+  selectPracticeSessionModal
 } from '@/features/practice/practiceSlice';
 
 const PracticeFeedback: React.FC = () => {
@@ -19,6 +22,8 @@ const PracticeFeedback: React.FC = () => {
   
   const feedbackData = useAppSelector(selectPracticeFeedbackData);
   const feedbackError = useAppSelector(selectPracticeFeedbackError);
+  const { error: sessionError } = useAppSelector(selectPracticeSessionModal);
+  const { sessionLoading: practiceSessionLoading } = useAppSelector(state => state.practice);
 
   useEffect(() => {
     // Clear any existing feedback data when component mounts
@@ -59,6 +64,37 @@ const PracticeFeedback: React.FC = () => {
       navigate(`/student/submission/${feedbackData.submissionId}/feedback`);
     } else {
       navigate('/student/dashboard');
+    }
+  };
+
+  const handleStartPronunciationPractice = async () => {
+    if (!feedbackData?.enhanced) {
+      console.error('No enhanced transcript available for practice');
+      return;
+    }
+
+    console.log('Starting pronunciation practice...');
+
+    try {
+      // Create practice session with enhanced transcript
+      const action = await dispatch(createPracticeSessionFromFeedback({
+        enhancedTranscript: feedbackData.enhanced
+      }));
+
+      if (createPracticeSessionFromFeedback.fulfilled.match(action)) {
+        const session = action.payload;
+        console.log('Session created successfully:', session.id);
+        
+        // Open the modal - PracticeSessionModal will handle starting the backend processing
+        dispatch(openPracticeSessionModal(session.id));
+        
+      } else if (createPracticeSessionFromFeedback.rejected.match(action)) {
+        console.error('Session creation failed:', action.error.message);
+        throw new Error(action.error.message || 'Failed to create practice session');
+      }
+    } catch (error) {
+      console.error('Failed to start pronunciation practice:', error);
+      // The error should be handled by the Redux error state
     }
   };
 
@@ -132,6 +168,34 @@ const PracticeFeedback: React.FC = () => {
           <p className="text-sm text-gray-600 mb-4">
             The enhanced version shows improved vocabulary, better grammar, and more sophisticated language patterns based on your original response.
           </p>
+          
+          <div className="flex justify-center">
+            <Button
+              onClick={handleStartPronunciationPractice}
+              disabled={practiceSessionLoading || !feedbackData?.enhanced}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-lg font-medium"
+              size="lg"
+            >
+              {practiceSessionLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Starting Practice...
+                </>
+              ) : (
+                <>
+                  <Volume2 className="h-5 w-5 mr-2" />
+                  Start Pronunciation Practice
+                </>
+              )}
+            </Button>
+          </div>
+          
+          {sessionError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{sessionError}</p>
+            </div>
+          )}
+          
         </div>
       </div>
     );
