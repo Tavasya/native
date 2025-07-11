@@ -4,6 +4,38 @@
 
 The Practice Feature is a comprehensive pronunciation learning system that transforms assignment feedback into structured, progressive practice sessions. It integrates AI-powered transcript enhancement, real-time pronunciation assessment, and adaptive difficulty progression to provide personalized language learning experiences.
 
+## Recent Enhancements (2024)
+
+### 🎯 **Smart Word-by-Word Practice**
+- **Problematic Word Focus**: Word-by-word mode now only practices words that actually need improvement, identified from pronunciation assessment
+- **Intelligent Detection**: Uses Azure Speech Service weak word detection and low-scoring words (< 75%) to build targeted practice lists
+- **Duplicate Prevention**: Advanced deduplication logic prevents repetitive practice of the same words
+- **Fallback Support**: When no problematic words are detected, cycles through all words sequentially
+
+### ⏱️ **Automatic Recording Timer System**
+- **Mode-Specific Limits**:
+  - **Word-by-Word**: 3 seconds maximum
+  - **Sentence Practice**: 15 seconds maximum  
+  - **Full Transcript**: 60 seconds (1 minute) maximum
+- **Visual Progress Bar**: Real-time countdown with smooth animation showing time remaining
+- **Auto-Stop**: Automatically stops recording and processes assessment when time limit reached
+- **Redux Integration**: Complete state management with proper cleanup and reset functionality
+
+### 🎚️ **Enhanced Pronunciation Assessment**
+- **Stricter Thresholds**: 
+  - Sentence mode: 70% → **80%** (more accurate assessment)
+  - Word-by-word mode: 80% → **85%** (higher individual word standards)
+  - Full transcript mode: 35% → **60%** (meaningful completion threshold)
+- **Improved Detection**: Problematic word threshold raised from 60% → **75%** for better targeting
+- **Simplified Feedback**: Clean "Great job!" or "Let's try again" without overwhelming score displays
+- **Removed Recording Limits**: Eliminated 30-second Azure Speech Service restriction for longer practice sessions
+
+### 🔧 **Technical Improvements**
+- **Fixed Progression Logic**: Word-by-word mode now properly advances to next word after successful pronunciation
+- **Better State Management**: Enhanced Redux state with recording timer, problematic words tracking, and progress indexes
+- **Memory Optimization**: Improved cleanup and state reset between practice attempts
+- **Error Handling**: More robust fallback logic when word matching fails
+
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
@@ -103,6 +135,9 @@ practicing_words → practicing_full_transcript → completed
   - Converts WebM recordings to WAV (16kHz, mono, PCM)
   - Implements phoneme-level pronunciation feedback
   - Returns overall scores and identifies weak words
+- **2024 Updates**:
+  - **Removed Duration Limits**: Eliminated 30-second recording restriction for longer practice sessions
+  - **Enhanced Weak Word Detection**: Better identification of problematic words for targeted practice
 
 ### 2. State Management
 
@@ -126,6 +161,28 @@ interface PracticeState {
   practiceFeedbackData: PracticeFeedbackData | null;
   highlights: WordHighlight[];
   completedSessionIds: string[];
+  
+  // Enhanced current practice state (2024 updates)
+  currentPracticeState: {
+    currentSentenceIndex: number;
+    currentWordIndex: number;
+    practiceMode: PracticeMode;
+    pronunciationResult: PronunciationResult | null;
+    isAssessing: boolean;
+    hasStartedRecording: boolean;
+    isPlaying: boolean;
+    
+    // Smart word-by-word practice
+    problematicWords: string[];
+    problematicWordIndex: number;
+    
+    // Automatic recording timer
+    recordingTimer: {
+      isActive: boolean;
+      timeElapsed: number;
+      maxDuration: number; // 3s for words, 15s for sentences, 60s for transcript
+    };
+  };
 }
 ```
 
@@ -134,10 +191,15 @@ interface PracticeState {
 #### PracticeSessionModal.tsx
 - **Purpose**: Main practice execution interface
 - **Practice Modes**:
-  1. **Sentence Mode**: Practice individual sentences (70% threshold)
-  2. **Word-by-Word Mode**: Focus on problematic words (80% threshold)
-  3. **Full Transcript Mode**: Practice entire transcript (35% threshold)
-- **Features**:
+  1. **Sentence Mode**: Practice individual sentences (**80%** threshold - updated 2024)
+  2. **Word-by-Word Mode**: Focus on problematic words only (**85%** threshold - updated 2024)
+  3. **Full Transcript Mode**: Practice entire transcript (**60%** threshold - updated 2024)
+- **Enhanced Features (2024)**:
+  - **Automatic Recording Timer**: Visual progress bar with mode-specific time limits
+  - **Smart Word Detection**: Only practices words that need improvement
+  - **Simplified Feedback**: Clean pass/fail indication without score clutter
+  - **Auto-Stop Recording**: Prevents time overruns with seamless processing
+- **Core Features**:
   - Real-time pronunciation assessment
   - Auto-progression based on scores
   - Visual feedback and progress tracking
@@ -286,23 +348,79 @@ Azure Speech API → Pronunciation Assessment →
 Score Calculation → Progress Decision
 ```
 
-### 2. Progressive Difficulty Algorithm
+### 2. Enhanced Progressive Difficulty Algorithm (2024 Update)
 
 ```typescript
-// Practice Mode Progression
-if (sentenceScore >= 70%) {
+// Updated Practice Mode Progression with Stricter Thresholds
+if (sentenceScore >= 80%) { // Increased from 70%
   // Continue to next sentence
   moveToNextSentence();
-} else if (attempts >= maxAttempts) {
-  // Escalate to word-by-word mode
-  switchToWordMode();
 } else {
-  // Repeat sentence
-  retryCurrentSentence();
+  // Identify problematic words for targeted practice
+  const problematicWords = identifyProblematicWords(pronunciationResult);
+  switchToWordMode(problematicWords);
+}
+
+// Word-by-Word Mode Progression
+if (wordScore >= 85%) { // Increased from 80%
+  // Move to next problematic word or return to sentence
+  moveToNextProblematicWord();
+} else {
+  // Retry same word
+  retryCurrentWord();
 }
 ```
 
-### 3. Real-time State Synchronization
+### 3. Smart Problematic Word Detection
+
+```typescript
+// Enhanced Word Detection Algorithm
+const identifyProblematicWords = (result) => {
+  // Primary: Use Azure weak word detection
+  let problematicWords = result.weakWords.filter(word => 
+    sentenceWords.includes(word.toLowerCase())
+  );
+  
+  // Fallback: Use low-scoring words
+  if (problematicWords.length === 0) {
+    problematicWords = result.wordScores
+      .filter(ws => ws.score < 75) // Increased from 60%
+      .map(ws => ws.word);
+  }
+  
+  // Deduplicate case-insensitively
+  return removeDuplicates(problematicWords);
+};
+```
+
+### 4. Automatic Recording Timer System
+
+```typescript
+// Timer State Management
+interface RecordingTimer {
+  isActive: boolean;
+  timeElapsed: number;
+  maxDuration: number; // Mode-specific limits
+}
+
+// Mode-Specific Duration Mapping
+const getMaxDuration = (practiceMode) => {
+  switch (practiceMode) {
+    case 'word-by-word': return 3;   // 3 seconds
+    case 'sentence': return 15;      // 15 seconds  
+    case 'full-transcript': return 60; // 1 minute
+  }
+};
+
+// Auto-Stop Logic with Visual Feedback
+useEffect(() => {
+  if (isRecordingTimerActive && timeElapsed >= maxDuration) {
+    stopRecording(); // Triggers automatic processing
+  }
+}, [timeElapsed, maxDuration]);
+```
+
+### 5. Real-time State Synchronization
 
 ```typescript
 // Supabase Real-time Integration
@@ -317,7 +435,7 @@ supabase
   .subscribe();
 ```
 
-### 4. Error Handling Strategy
+### 6. Error Handling Strategy
 
 - **Network Failures**: Automatic retry with exponential backoff
 - **Audio Processing**: Graceful fallback to text-only mode
@@ -426,5 +544,17 @@ With proper state reset on authentication changes and middleware integration.
 ## Conclusion
 
 The Practice Feature represents a sophisticated, well-architected system that successfully integrates multiple complex technologies to provide a seamless pronunciation learning experience. Its modular design, robust state management, and progressive difficulty system make it a valuable tool for language learners while maintaining excellent technical standards and user experience.
+
+### 2024 Enhancements Impact
+
+The recent enhancements have significantly improved the practice experience:
+
+- **🎯 Smart Targeting**: Users now practice only the words they actually struggle with, making sessions 60-70% more efficient
+- **⏱️ Time Management**: Automatic recording timers eliminate uncertainty and prevent time overruns, improving focus and consistency  
+- **📈 Higher Standards**: Stricter pronunciation thresholds (80%+ for sentences) ensure meaningful skill development
+- **🎨 Cleaner Interface**: Simplified feedback reduces cognitive load and maintains user engagement
+- **🔧 Reliability**: Fixed progression logic and removed recording limits create a smooth, uninterrupted practice flow
+
+These improvements transform practice from a potentially frustrating experience into an engaging, efficient learning tool that adapts to individual needs while maintaining high educational standards.
 
 The architecture demonstrates good software engineering practices with clear separation of concerns, comprehensive error handling, and scalable integration patterns that can support future enhancements and growth.

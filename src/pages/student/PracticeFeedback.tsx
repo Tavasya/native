@@ -16,7 +16,8 @@ import {
   addHighlight,
   removeHighlight,
   setHighlights,
-  loadPracticeSessionHighlights
+  loadPracticeSessionHighlights,
+  openPracticePart2Modal
 } from '@/features/practice/practiceSlice';
 
 const PracticeFeedback: React.FC = () => {
@@ -189,6 +190,19 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
+  const handleStartPart2 = () => {
+    if (!feedbackData?.completedSessionId || !feedbackData?.enhanced) {
+      console.error('No completed session or enhanced transcript available for Part 2');
+      return;
+    }
+
+    // Open Part 2 modal with the completed session ID and enhanced transcript
+    dispatch(openPracticePart2Modal({
+      sessionId: feedbackData.completedSessionId,
+      improvedTranscript: feedbackData.enhanced
+    }));
+  };
+
   const renderContent = () => {
     if (feedbackError) {
       return (
@@ -271,7 +285,7 @@ const PracticeFeedback: React.FC = () => {
             The enhanced version shows improved vocabulary, better grammar, and more sophisticated language patterns based on your original response.
           </p>
           
-          <div className="flex justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               onClick={handleStartPronunciationPractice}
               disabled={practiceSessionLoading || !feedbackData?.enhanced || isTranscriptCompleted}
@@ -299,6 +313,16 @@ const PracticeFeedback: React.FC = () => {
                 </>
               )}
             </Button>
+            
+            {isTranscriptCompleted && feedbackData?.completedSessionId && (
+              <Button
+                onClick={handleStartPart2}
+                className="px-6 py-3 text-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                Part 2 of Practice
+              </Button>
+            )}
           </div>
           
           {sessionError && (

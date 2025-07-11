@@ -54,6 +54,9 @@ export interface CurrentPracticeState {
   isPlaying: boolean;
   problematicWords: string[]; // Words that need practice from current sentence
   problematicWordIndex: number; // Index within the problematic words array
+  // Practice flow tracking
+  hasTriedFullTranscript: boolean; // Track if user has attempted full transcript
+  isReturningToFullTranscript: boolean; // Track if we're in the final full transcript attempt
   // Recording timer state
   recordingTimer: {
     isActive: boolean;
@@ -88,6 +91,13 @@ export interface PracticeState {
     sessionId: string | null;
     loading: boolean;
     error: string | null;
+  };
+  // Part 2 Practice modal state (for writing practice)
+  practicePart2Modal: {
+    isOpen: boolean;
+    sessionId: string | null;
+    improvedTranscript: string;
+    userText: string;
   };
   // Practice feedback data
   feedbackData: PracticeFeedbackData | null;

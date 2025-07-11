@@ -21,17 +21,20 @@ const initialState: PracticeState = {
   currentPracticeState: {
     currentSentenceIndex: 0,
     currentWordIndex: 0,
-    practiceMode: 'sentence',
+    practiceMode: 'full-transcript', // Start with full transcript
     pronunciationResult: null,
     isAssessing: false,
     hasStartedRecording: false,
     isPlaying: false,
     problematicWords: [],
     problematicWordIndex: 0,
+    // Practice flow tracking
+    hasTriedFullTranscript: false,
+    isReturningToFullTranscript: false,
     recordingTimer: {
       isActive: false,
       timeElapsed: 0,
-      maxDuration: 15, // Default to sentence mode (15 seconds)
+      maxDuration: 60, // Default to full transcript mode (60 seconds)
     },
   },
   // Assignment context for practice sessions
@@ -50,6 +53,13 @@ const initialState: PracticeState = {
     sessionId: null,
     loading: false,
     error: null,
+  },
+  // Part 2 Practice modal state (for writing practice)
+  practicePart2Modal: {
+    isOpen: false,
+    sessionId: null,
+    improvedTranscript: '',
+    userText: '',
   },
   // Practice feedback data
   feedbackData: null,
@@ -470,6 +480,26 @@ const practiceSlice = createSlice({
         console.log('📝 No feedbackData to update');
       }
     },
+    // Part 2 Practice modal actions
+    openPracticePart2Modal: (state, action: PayloadAction<{ sessionId: string; improvedTranscript: string }>) => {
+      state.practicePart2Modal = {
+        isOpen: true,
+        sessionId: action.payload.sessionId,
+        improvedTranscript: action.payload.improvedTranscript,
+        userText: '',
+      };
+    },
+    closePracticePart2Modal: (state) => {
+      state.practicePart2Modal = {
+        isOpen: false,
+        sessionId: null,
+        improvedTranscript: '',
+        userText: '',
+      };
+    },
+    setPracticePart2UserText: (state, action: PayloadAction<string>) => {
+      state.practicePart2Modal.userText = action.payload;
+    },
     // Current practice state management actions
     setCurrentSentenceIndex: (state, action: PayloadAction<number>) => {
       state.currentPracticeState.currentSentenceIndex = action.payload;
@@ -496,17 +526,20 @@ const practiceSlice = createSlice({
       state.currentPracticeState = {
         currentSentenceIndex: 0,
         currentWordIndex: 0,
-        practiceMode: 'sentence',
+        practiceMode: 'full-transcript', // Start with full transcript
         pronunciationResult: null,
         isAssessing: false,
         hasStartedRecording: false,
         isPlaying: false,
         problematicWords: [],
         problematicWordIndex: 0,
+        // Practice flow tracking
+        hasTriedFullTranscript: false,
+        isReturningToFullTranscript: false,
         recordingTimer: {
           isActive: false,
           timeElapsed: 0,
-          maxDuration: 15, // Default to sentence mode (15 seconds)
+          maxDuration: 60, // Default to full transcript mode (60 seconds)
         },
       };
     },
@@ -524,6 +557,13 @@ const practiceSlice = createSlice({
     clearProblematicWords: (state) => {
       state.currentPracticeState.problematicWords = [];
       state.currentPracticeState.problematicWordIndex = 0;
+    },
+    // Practice flow tracking actions
+    setHasTriedFullTranscript: (state, action: PayloadAction<boolean>) => {
+      state.currentPracticeState.hasTriedFullTranscript = action.payload;
+    },
+    setIsReturningToFullTranscript: (state, action: PayloadAction<boolean>) => {
+      state.currentPracticeState.isReturningToFullTranscript = action.payload;
     },
     // Recording timer actions
     startRecordingTimer: (state, action: PayloadAction<PracticeMode>) => {
@@ -765,6 +805,10 @@ export const {
   clearPracticeFeedbackData,
   setPracticeFeedbackError,
   markTranscriptCompleted,
+  // Part 2 Practice modal actions
+  openPracticePart2Modal,
+  closePracticePart2Modal,
+  setPracticePart2UserText,
   // New current practice state actions
   setCurrentSentenceIndex,
   setCurrentWordIndex,
@@ -779,6 +823,9 @@ export const {
   setProblematicWords,
   setProblematicWordIndex,
   clearProblematicWords,
+  // Practice flow tracking actions
+  setHasTriedFullTranscript,
+  setIsReturningToFullTranscript,
   // Recording timer actions
   startRecordingTimer,
   tickRecordingTimer,
@@ -806,6 +853,9 @@ export const selectCurrentSession = (state: { practice: PracticeState }) => stat
 // Selectors for practice session modal
 export const selectPracticeSessionModal = (state: { practice: PracticeState }) => state.practice.practiceSessionModal;
 
+// Selectors for Part 2 practice modal
+export const selectPracticePart2Modal = (state: { practice: PracticeState }) => state.practice.practicePart2Modal;
+
 // Selectors for current practice state
 export const selectCurrentPracticeState = (state: { practice: PracticeState }) => state.practice.currentPracticeState;
 export const selectCurrentSentenceIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.currentSentenceIndex;
@@ -823,5 +873,9 @@ export const selectRecordingTimer = (state: { practice: PracticeState }) => stat
 export const selectIsRecordingTimerActive = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.isActive;
 export const selectRecordingTimeElapsed = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.timeElapsed;
 export const selectRecordingMaxDuration = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.maxDuration;
+
+// Practice flow tracking selectors
+export const selectHasTriedFullTranscript = (state: { practice: PracticeState }) => state.practice.currentPracticeState.hasTriedFullTranscript;
+export const selectIsReturningToFullTranscript = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isReturningToFullTranscript;
 
 export default practiceSlice.reducer; 
