@@ -19,10 +19,11 @@ export default function useConnectionDetails(selectedScenario?: Scenario) {
 
   const fetchConnectionDetails = useCallback(() => {
     setConnectionDetails(null);
-    const url = new URL(
-      import.meta.env.VITE_CONN_DETAILS_ENDPOINT ?? '/api/connection-details',
-      'http://localhost:3001'
-    );
+    const baseUrl = import.meta.env.PROD 
+      ? window.location.origin 
+      : 'http://localhost:3001';
+    const endpoint = import.meta.env.VITE_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
+    const url = new URL(endpoint, baseUrl);
     url.searchParams.set('greeting', CUSTOM_GREETING);
     if (selectedScenario) {
       console.log('🔍 Fetching connection details with scenario:', selectedScenario.id);

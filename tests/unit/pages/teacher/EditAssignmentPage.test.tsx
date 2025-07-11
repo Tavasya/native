@@ -413,17 +413,12 @@ describe('CreateAssignmentPage - Edit Mode', () => {
       // Click title to expand settings
       await user.click(screen.getByDisplayValue('Existing Assignment'));
 
-      const dueDateInput = screen.getByDisplayValue('2025-12-25');
-      const dueTimeInput = screen.getByDisplayValue('14:30');
+      const dueDateTimeInput = screen.getByDisplayValue('2025-12-25T14:30');
 
-      await user.clear(dueDateInput);
-      await user.type(dueDateInput, '2025-12-31');
+      await user.clear(dueDateTimeInput);
+      await user.type(dueDateTimeInput, '2025-12-31T16:45');
 
-      await user.clear(dueTimeInput);
-      await user.type(dueTimeInput, '16:45');
-
-      expect(dueDateInput).toHaveValue('2025-12-31');
-      expect(dueTimeInput).toHaveValue('16:45');
+      expect(dueDateTimeInput).toHaveValue('2025-12-31T16:45');
     });
 
     it('allows toggling metadata settings', async () => {

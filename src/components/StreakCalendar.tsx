@@ -11,7 +11,6 @@ interface StreakCalendarProps {
 export const StreakCalendar = ({ className = '' }: StreakCalendarProps) => {
   const { user } = useSelector((state: RootState) => state.auth);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [, setActivityLog] = useState<any[]>([]);
   const [calendarDays, setCalendarDays] = useState<StreakCalendarDay[]>([]);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,7 +33,6 @@ export const StreakCalendar = ({ className = '' }: StreakCalendarProps) => {
     try {
       // Load activity log for the month
       const logs = await streakService.getUserActivityLog(user.id, year, month);
-      setActivityLog(logs);
 
       // Generate calendar data
       const calendar = streakService.getStreakCalendarData(logs, year, month);

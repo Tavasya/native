@@ -37,7 +37,7 @@ app.get('/api/connection-details', async (req, res) => {
     if (API_KEY === undefined) {
       throw new Error('LIVEKIT_API_KEY is not defined');
     }
-    if (API_SECRET === undefined) {
+    if (API_SECRET === undefined) { 
       throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 

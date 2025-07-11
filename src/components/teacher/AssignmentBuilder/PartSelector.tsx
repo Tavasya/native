@@ -119,7 +119,7 @@ const PartSelector: React.FC<PartSelectorProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
-          Part Library
+          Topic Library
         </CardTitle>
       </CardHeader>
       
@@ -128,7 +128,7 @@ const PartSelector: React.FC<PartSelectorProps> = ({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search parts..."
+            placeholder="Search topics..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
