@@ -35,39 +35,16 @@ const AssignmentPracticeModal: React.FC = () => {
     };
   }, []);
 
-  // Effect to create practice session and get improved transcript when modal opens
+  // Effect to create practice session when modal opens
   useEffect(() => {
     if (practiceModal.isOpen && practiceModal.assignmentId && !practiceSession && !isLoadingTranscript) {
-      createPracticeSessionAndImproveTranscript();
+      createPracticeSession();
     }
   }, [practiceModal.isOpen, practiceModal.assignmentId, practiceSession, isLoadingTranscript]);
 
-  // Real-time subscription for practice session updates
-  useEffect(() => {
-    if (practiceSession?.id) {
-      const channel = supabase
-        .channel(`practice_session_${practiceSession.id}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'practice_sessions',
-          filter: `id=eq.${practiceSession.id}`
-        }, (payload) => {
-          const updatedSession = payload.new as PracticeSession;
-          setPracticeSession(updatedSession);
-          if (updatedSession.improved_transcript) {
-            setIsLoadingTranscript(false);
-          }
-        })
-        .subscribe();
+  // No longer need real-time subscription since we create the session ready for practice
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [practiceSession?.id]);
-
-  const createPracticeSessionAndImproveTranscript = async () => {
+  const createPracticeSession = async () => {
     try {
       setIsLoadingTranscript(true);
       setUploadError(null);
@@ -78,14 +55,38 @@ const AssignmentPracticeModal: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      // Create practice session with question text as original transcript
+      // Try to find an existing submission for this assignment to get the improved transcript
+      const { data: submissions, error: submissionError } = await supabase
+        .from('submissions')
+        .select('section_feedback')
+        .eq('assignment_id', practiceModal.assignmentId)
+        .eq('student_id', userSession.user.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1);
+
+      let improvedTranscript = practiceModal.questionText; // Fallback to question text
+
+      // Extract improved transcript from submission if available
+      if (!submissionError && submissions && submissions.length > 0) {
+        const submission = submissions[0];
+        if (submission.section_feedback && Array.isArray(submission.section_feedback)) {
+          const questionFeedback = submission.section_feedback[practiceModal.questionIndex];
+          if (questionFeedback?.section_feedback?.paragraph_restructuring?.improved_transcript) {
+            improvedTranscript = questionFeedback.section_feedback.paragraph_restructuring.improved_transcript;
+            console.log('Using improved transcript from submission:', improvedTranscript);
+          }
+        }
+      }
+
+      // Create practice session with improved transcript (or question text as fallback)
       const { data: sessionData, error: sessionError } = await supabase
         .from('practice_sessions')
         .insert({
           user_id: userSession.user.id,
           assignment_id: practiceModal.assignmentId,
           original_transcript: practiceModal.questionText,
-          status: 'transcript_processing'
+          improved_transcript: improvedTranscript,
+          status: 'transcript_ready' // Ready for practice immediately
         })
         .select()
         .single();
@@ -95,20 +96,8 @@ const AssignmentPracticeModal: React.FC = () => {
       }
 
       setPracticeSession(sessionData);
+      setIsLoadingTranscript(false);
 
-      // Call the improve transcript API
-      const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionData.id}/improve-transcript`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to improve transcript: ${response.status}`);
-      }
-
-      // The real-time subscription will handle the updated session with improved_transcript
     } catch (error) {
       console.error('Error creating practice session:', error);
       setUploadError(error instanceof Error ? error.message : 'Failed to create practice session');

@@ -94,28 +94,44 @@ export const useSubmissionManager = ({
           }
           sessionId = sessionData.id;
           console.log('Created new practice session:', sessionId);
-        }
 
-        // Call backend API to improve transcript
-        const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionId}/improve-transcript`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+          // Try to get improved transcript from the most recent submission for this assignment
+          const { data: submissionData, error: fetchError } = await supabase
+            .from('submissions')
+            .select('section_feedback')
+            .eq('assignment_id', assignmentId)
+            .eq('student_id', userId)
+            .order('submitted_at', { ascending: false })
+            .limit(1);
 
-        if (!response.ok) {
-          throw new Error(`Backend request failed: ${response.status}`);
+          // Update practice session with improved transcript if found
+          if (!fetchError && submissionData && submissionData.length > 0) {
+            const submission = submissionData[0];
+            if (submission.section_feedback && Array.isArray(submission.section_feedback)) {
+              // For practice assignments, typically use the first question
+              const questionFeedback = submission.section_feedback[0];
+              if (questionFeedback?.section_feedback?.paragraph_restructuring?.improved_transcript) {
+                const improvedTranscript = questionFeedback.section_feedback.paragraph_restructuring.improved_transcript;
+                
+                await supabase
+                  .from('practice_sessions')
+                  .update({ improved_transcript: improvedTranscript })
+                  .eq('id', sessionId);
+                
+                console.log('Updated practice session with improved transcript from submission');
+              }
+            }
+          }
         }
 
         dismiss();
         toast({
           title: "Practice Session Started!",
-          description: "Your practice session is being processed. You'll see results shortly.",
+          description: "Your practice session is ready. Navigate to see your transcript.",
           duration: 3000,
         });
 
-        // Navigate to practice feedback page to show transcript improvement
+        // Navigate to practice feedback page
         navigate(`/student/practice-feedback?session=${sessionId}`);
 
       } catch (error) {
