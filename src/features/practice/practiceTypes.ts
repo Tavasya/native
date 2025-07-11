@@ -54,6 +54,12 @@ export interface CurrentPracticeState {
   isPlaying: boolean;
   problematicWords: string[]; // Words that need practice from current sentence
   problematicWordIndex: number; // Index within the problematic words array
+  // Recording timer state
+  recordingTimer: {
+    isActive: boolean;
+    timeElapsed: number; // in seconds
+    maxDuration: number; // in seconds based on practice mode
+  };
 }
 
 export interface PracticeState {

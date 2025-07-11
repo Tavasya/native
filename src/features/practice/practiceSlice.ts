@@ -28,6 +28,11 @@ const initialState: PracticeState = {
     isPlaying: false,
     problematicWords: [],
     problematicWordIndex: 0,
+    recordingTimer: {
+      isActive: false,
+      timeElapsed: 0,
+      maxDuration: 15, // Default to sentence mode (15 seconds)
+    },
   },
   // Assignment context for practice sessions
   assignmentContext: null,
@@ -271,11 +276,11 @@ export const assessPronunciationInSession = createAsyncThunk(
     const result = await service.assessPronunciation(audioBlob, referenceText);
     
     // Determine if they got it right based on practice mode
-    let threshold = 70; // Default for sentence mode
+    let threshold = 80; // Default for sentence mode (increased from 70)
     if (practiceMode === 'word-by-word') {
-      threshold = 80; // Higher threshold for individual words
+      threshold = 85; // Higher threshold for individual words (increased from 80)
     } else if (practiceMode === 'full-transcript') {
-      threshold = 35; // Much lower threshold for full transcript
+      threshold = 60; // Moderate threshold for full transcript (increased from 35)
     }
     const isCorrect = result.overallScore >= threshold;
     
@@ -498,6 +503,11 @@ const practiceSlice = createSlice({
         isPlaying: false,
         problematicWords: [],
         problematicWordIndex: 0,
+        recordingTimer: {
+          isActive: false,
+          timeElapsed: 0,
+          maxDuration: 15, // Default to sentence mode (15 seconds)
+        },
       };
     },
     updateProgressIndexes: (state, action: PayloadAction<{ sentenceIndex: number; wordIndex: number }>) => {
@@ -514,6 +524,38 @@ const practiceSlice = createSlice({
     clearProblematicWords: (state) => {
       state.currentPracticeState.problematicWords = [];
       state.currentPracticeState.problematicWordIndex = 0;
+    },
+    // Recording timer actions
+    startRecordingTimer: (state, action: PayloadAction<PracticeMode>) => {
+      const practiceMode = action.payload;
+      let maxDuration = 15; // Default for sentence mode
+      
+      if (practiceMode === 'word-by-word') {
+        maxDuration = 3; // 3 seconds for individual words
+      } else if (practiceMode === 'full-transcript') {
+        maxDuration = 60; // 1 minute for full transcript
+      }
+      
+      state.currentPracticeState.recordingTimer = {
+        isActive: true,
+        timeElapsed: 0,
+        maxDuration,
+      };
+    },
+    tickRecordingTimer: (state) => {
+      if (state.currentPracticeState.recordingTimer.isActive) {
+        state.currentPracticeState.recordingTimer.timeElapsed += 1;
+      }
+    },
+    stopRecordingTimer: (state) => {
+      state.currentPracticeState.recordingTimer.isActive = false;
+    },
+    resetRecordingTimer: (state) => {
+      state.currentPracticeState.recordingTimer = {
+        isActive: false,
+        timeElapsed: 0,
+        maxDuration: state.currentPracticeState.recordingTimer.maxDuration,
+      };
     },
   },
   extraReducers: (builder) => {
@@ -736,7 +778,12 @@ export const {
   // Problematic words actions
   setProblematicWords,
   setProblematicWordIndex,
-  clearProblematicWords
+  clearProblematicWords,
+  // Recording timer actions
+  startRecordingTimer,
+  tickRecordingTimer,
+  stopRecordingTimer,
+  resetRecordingTimer
 } = practiceSlice.actions;
 
 // Selectors for practice feedback data
@@ -770,5 +817,11 @@ export const selectPronunciationResult = (state: { practice: PracticeState }) =>
 export const selectIsAssessing = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isAssessing;
 export const selectHasStartedRecording = (state: { practice: PracticeState }) => state.practice.currentPracticeState.hasStartedRecording;
 export const selectIsPlaying = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isPlaying;
+
+// Recording timer selectors
+export const selectRecordingTimer = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer;
+export const selectIsRecordingTimerActive = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.isActive;
+export const selectRecordingTimeElapsed = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.timeElapsed;
+export const selectRecordingMaxDuration = (state: { practice: PracticeState }) => state.practice.currentPracticeState.recordingTimer.maxDuration;
 
 export default practiceSlice.reducer; 

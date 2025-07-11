@@ -26,6 +26,9 @@ import {
   selectIsPlaying,
   selectProblematicWords,
   selectProblematicWordIndex,
+  selectIsRecordingTimerActive,
+  selectRecordingTimeElapsed,
+  selectRecordingMaxDuration,
   setCurrentSentenceIndex,
   setCurrentWordIndex,
   setPracticeMode,
@@ -35,6 +38,10 @@ import {
   setProblematicWords,
   setProblematicWordIndex,
   clearProblematicWords,
+  startRecordingTimer,
+  tickRecordingTimer,
+  stopRecordingTimer,
+  resetRecordingTimer,
   updateSessionProgress,
   assessPronunciationInSession,
   updateProblematicWords,
@@ -69,6 +76,11 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const isPlaying = useSelector(selectIsPlaying);
   const problematicWords = useSelector(selectProblematicWords);
   const problematicWordIndex = useSelector(selectProblematicWordIndex);
+  
+  // Recording timer state
+  const isRecordingTimerActive = useSelector(selectIsRecordingTimerActive);
+  const recordingTimeElapsed = useSelector(selectRecordingTimeElapsed);
+  const recordingMaxDuration = useSelector(selectRecordingMaxDuration);
 
   // Define loadSession function
   const loadSession = useCallback(async () => {
@@ -111,12 +123,47 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     toggleRecording
   } = useAudioRecording({
     onRecordingComplete: async (blob) => {
+      // Stop timer when recording completes
+      dispatch(stopRecordingTimer());
       await handlePronunciationAssessment(blob);
     },
     onError: (errorMessage) => {
+      // Stop timer on error
+      dispatch(stopRecordingTimer());
       dispatch(setPracticeSessionError(errorMessage));
     }
   });
+
+  // Timer management effect
+  useEffect(() => {
+    let timerInterval: NodeJS.Timeout;
+    
+    if (isRecordingTimerActive && isRecording) {
+      timerInterval = setInterval(() => {
+        dispatch(tickRecordingTimer());
+        
+        // Auto-stop recording when max duration reached
+        if (recordingTimeElapsed >= recordingMaxDuration - 1) {
+          toggleRecording(); // This will trigger onRecordingComplete
+        }
+      }, 1000);
+    }
+    
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [isRecordingTimerActive, isRecording, recordingTimeElapsed, recordingMaxDuration, dispatch, toggleRecording]);
+
+  // Start timer when recording starts
+  useEffect(() => {
+    if (isRecording && !isRecordingTimerActive) {
+      dispatch(startRecordingTimer(practiceMode));
+    } else if (!isRecording && isRecordingTimerActive) {
+      dispatch(stopRecordingTimer());
+    }
+  }, [isRecording, isRecordingTimerActive, practiceMode, dispatch]);
 
   // Auto-start recording when modal opens and sentence is ready
   useEffect(() => {
@@ -275,7 +322,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       // If no weak words detected from assessment, use words with low scores
       if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
         const lowScoringWords = result.wordScores
-          .filter(ws => ws.score < 60) // Words scoring below 60%
+          .filter(ws => ws.score < 75) // Words scoring below 75% (increased from 60%)
           .map(ws => ws.word);
         problematicWordsInSentence.push(...lowScoringWords);
       }
@@ -357,39 +404,58 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const handleNextWord = () => {
-    if (!session?.sentences || problematicWords.length === 0) return;
+    if (!session?.sentences) return;
     
     const sentence = session.sentences[currentSentenceIndex]?.text || '';
     const words = sentence.split(' ');
     
-    if (problematicWordIndex < problematicWords.length - 1) {
-      // Move to next problematic word
-      const nextProblematicWordIndex = problematicWordIndex + 1;
-      dispatch(setProblematicWordIndex(nextProblematicWordIndex));
-      
-      // Find the position of this problematic word in the sentence
-      const nextProblematicWord = problematicWords[nextProblematicWordIndex];
-      const nextWordIndex = words.findIndex(word => 
-        word.toLowerCase().replace(/[^\w]/g, '') === nextProblematicWord.toLowerCase()
-      );
-      
-      let finalWordIndex = nextWordIndex;
-      if (nextWordIndex !== -1) {
-        dispatch(setCurrentWordIndex(nextWordIndex));
+    // If we have problematic words, cycle through them specifically
+    if (problematicWords.length > 0) {
+      if (problematicWordIndex < problematicWords.length - 1) {
+        // Move to next problematic word
+        const nextProblematicWordIndex = problematicWordIndex + 1;
+        dispatch(setProblematicWordIndex(nextProblematicWordIndex));
+        
+        // Find the position of this problematic word in the sentence
+        const nextProblematicWord = problematicWords[nextProblematicWordIndex];
+        const nextWordIndex = words.findIndex(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === nextProblematicWord.toLowerCase()
+        );
+        
+        let finalWordIndex = nextWordIndex;
+        if (nextWordIndex !== -1) {
+          dispatch(setCurrentWordIndex(nextWordIndex));
+        } else {
+          // Fallback to current word index if we can't find the problematic word
+          finalWordIndex = currentWordIndex;
+        }
+        
+        // Update session progress in database via Redux thunk
+        dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: finalWordIndex }));
+        resetForNextAttempt();
       } else {
-        // Fallback to current word index if we can't find the problematic word
-        finalWordIndex = currentWordIndex;
+        // Finished all problematic words, go back to sentence mode
+        dispatch(setPracticeMode('sentence'));
+        dispatch(setCurrentWordIndex(0));
+        dispatch(clearProblematicWords()); // Clear problematic words
+        resetForNextAttempt();
       }
-      
-      // Update session progress in database via Redux thunk
-      dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: finalWordIndex }));
-      resetForNextAttempt();
     } else {
-      // Finished all problematic words, go back to sentence mode
-      dispatch(setPracticeMode('sentence'));
-      dispatch(setCurrentWordIndex(0));
-      dispatch(clearProblematicWords()); // Clear problematic words
-      resetForNextAttempt();
+      // No problematic words identified, go through all words sequentially
+      if (currentWordIndex < words.length - 1) {
+        // Move to next word in sentence
+        const nextWordIndex = currentWordIndex + 1;
+        dispatch(setCurrentWordIndex(nextWordIndex));
+        
+        // Update session progress in database via Redux thunk
+        dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: nextWordIndex }));
+        resetForNextAttempt();
+      } else {
+        // Finished all words in sentence, go back to sentence mode
+        dispatch(setPracticeMode('sentence'));
+        dispatch(setCurrentWordIndex(0));
+        resetForNextAttempt();
+      }
     }
   };
 
@@ -411,6 +477,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const resetForNextAttempt = () => {
     dispatch(setPronunciationResult(null));
     dispatch(setHasStartedRecording(false));
+    dispatch(resetRecordingTimer());
   };
 
   const playCurrentText = () => {
@@ -470,11 +537,11 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const renderPronunciationFeedback = () => {
     if (!pronunciationResult) return null;
     
-    let threshold = 70; // Default for sentence mode
+    let threshold = 80; // Default for sentence mode (increased from 70)
     if (practiceMode === 'word-by-word') {
-      threshold = 80; // Higher threshold for individual words
+      threshold = 85; // Higher threshold for individual words (increased from 80)
     } else if (practiceMode === 'full-transcript') {
-      threshold = 50; // Lower threshold for full transcript
+      threshold = 60; // Moderate threshold for full transcript (increased from 50)
     }
     const isCorrect = pronunciationResult.overallScore >= threshold;
     
@@ -641,11 +708,31 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             {/* Recording Status and Controls */}
             <div className="flex flex-col items-center space-y-4">
               {isRecording && (
-                <div className="space-y-3">
+                <div className="space-y-3 w-full">
                   <div className="flex items-center gap-2 text-red-600">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium">Recording... Speak now!</span>
+                    <span className="text-xs text-gray-500">
+                      ({Math.max(0, recordingMaxDuration - recordingTimeElapsed)}s left)
+                    </span>
                   </div>
+                  
+                  {/* Recording Progress Bar */}
+                  <div className="w-full">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>{recordingTimeElapsed}s</span>
+                      <span>{recordingMaxDuration}s</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-500 h-2 rounded-full transition-all duration-1000 ease-linear"
+                        style={{ 
+                          width: `${Math.min(100, (recordingTimeElapsed / recordingMaxDuration) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  
                   <Button
                     variant="destructive"
                     size="lg"
