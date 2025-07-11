@@ -27,6 +27,7 @@ import AssignmentPractice from '@/pages/student/AssignmentPractice';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import PartLibrary from '@/components/assignment/PartLibrary';
 import type { RootState } from '@/app/store';
 import type { AssignmentTemplate } from '@/features/assignmentTemplates/types';
@@ -57,8 +58,7 @@ const CreateAssignmentPage: React.FC = () => {
   // State
   const [title, setTitle] = useState('');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [dueDate, setDueDate] = useState('');
-  const [dueTime, setDueTime] = useState('23:59'); // Default to end of day
+  const [dueDateTime, setDueDateTime] = useState(''); // Combined date and time as ISO string
   const [questionCards, setQuestionCards] = useState<QuestionCard[]>([
     {
       id: 'card-1',
@@ -112,8 +112,17 @@ const CreateAssignmentPage: React.FC = () => {
     
     if (editData && isEditing) {
       setTitle(editData.title || '');
-      setDueDate(editData.due_date || '');
-      setDueTime(editData.due_time || '23:59');
+      // Convert separate date and time back to ISO string, or use due_date if it's already ISO
+      if (editData.due_date) {
+        if (editData.due_time) {
+          // Legacy format with separate date and time
+          const dateTime = new Date(`${editData.due_date}T${editData.due_time}`);
+          setDueDateTime(dateTime.toISOString());
+        } else {
+          // New format with ISO string
+          setDueDateTime(editData.due_date);
+        }
+      }
       setAutoGrade(editData.metadata?.autoGrade ?? true);
       setIsTest(editData.metadata?.isTest ?? false);
       setAudioOnlyMode(editData.metadata?.audioOnlyMode ?? false);
@@ -328,10 +337,10 @@ const CreateAssignmentPage: React.FC = () => {
       return;
     }
 
-    if (!dueDate) {
+    if (!dueDateTime) {
       toast({
         title: "Missing due date",
-        description: "Please set a due date for the assignment",
+        description: "Please set a due date and time for the assignment",
       });
       return;
     }
@@ -345,8 +354,8 @@ const CreateAssignmentPage: React.FC = () => {
     }
 
     try {
-      // Combine date and time into ISO string
-      const dueDateTime = new Date(`${dueDate}T${dueTime}`);
+      // Use the combined datetime value
+      const dueDateTimeObj = new Date(dueDateTime);
 
       const isEditing = location.state?.isEditing;
       const assignmentId = location.state?.assignmentId;
@@ -355,7 +364,7 @@ const CreateAssignmentPage: React.FC = () => {
         // Update existing assignment
         const updateData = {
           title: title.trim(),
-          due_date: dueDateTime.toISOString(),
+          due_date: dueDateTimeObj.toISOString(),
           questions: questionCards.map(card => ({
             ...card,
             question: card.question.trim(),
@@ -372,7 +381,7 @@ const CreateAssignmentPage: React.FC = () => {
           class_id: classId!,
           created_by: user || '',
           title: title.trim(),
-          due_date: dueDateTime.toISOString(),
+          due_date: dueDateTimeObj.toISOString(),
           questions: questionCards.map(card => ({
             ...card,
             question: card.question.trim(),
@@ -442,10 +451,10 @@ const CreateAssignmentPage: React.FC = () => {
       return;
     }
 
-    if (!dueDate) {
+    if (!dueDateTime) {
       toast({
         title: "Missing due date",
-        description: "Please set a due date for the assignment",
+        description: "Please set a due date and time for the assignment",
       });
       return;
     }
@@ -632,7 +641,7 @@ const CreateAssignmentPage: React.FC = () => {
         previewMode={true}
         previewData={{
           title,
-          due_date: dueDate,
+          due_date: dueDateTime,
           questions: questionCards,
           id: 'preview',
           metadata: {
@@ -772,29 +781,16 @@ const CreateAssignmentPage: React.FC = () => {
                       className="mt-6"
                     >
                       <div className="space-y-5 pt-3">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          {/* Due Date */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Due Date and Time */}
                           <div className="space-y-2">
-                            <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
-                            <Input
-                              id="dueDate"
-                              type="date"
-                              value={dueDate}
-                              onChange={(e) => setDueDate(e.target.value)}
-                              min={new Date().toISOString().split("T")[0]}
-                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-full text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
-                            />
-                          </div>
-
-                          {/* Due Time */}
-                          <div className="space-y-2">
-                            <Label htmlFor="dueTime" className="text-sm font-medium">Due Time</Label>
-                            <Input
-                              id="dueTime"
-                              type="time"
-                              value={dueTime}
-                              onChange={(e) => setDueTime(e.target.value)}
-                              className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-full text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
+                            <Label className="text-sm font-medium">Due Date & Time</Label>
+                            <DateTimePicker
+                              value={dueDateTime}
+                              onChange={setDueDateTime}
+                              minDate={new Date().toISOString()}
+                              placeholder="Select due date and time"
+                              className="bg-white"
                             />
                           </div>
                           

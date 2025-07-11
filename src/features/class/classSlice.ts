@@ -5,7 +5,8 @@ import {
   fetchClasses, 
   fetchClassStatsByTeacher, 
   deleteClass, 
-  joinClass 
+  joinClass,
+  removeStudentFromClass
 } from "./classThunks";
 
 const initialState: ClassState = {
@@ -129,6 +130,25 @@ const classSlice = createSlice({
       state.classes.push(action.payload);
     })
     .addCase(joinClass.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    })
+
+    // Remove Student From Class
+    .addCase(removeStudentFromClass.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(removeStudentFromClass.fulfilled, (state, action) => {
+      state.loading = false;
+      // Update the student count in class stats
+      const { classId } = action.payload;
+      const classStatIndex = state.classStats.findIndex(stat => stat.id === classId);
+      if (classStatIndex !== -1) {
+        state.classStats[classStatIndex].student_count = Math.max(0, state.classStats[classStatIndex].student_count - 1);
+      }
+    })
+    .addCase(removeStudentFromClass.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
     });

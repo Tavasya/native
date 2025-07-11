@@ -1,4 +1,4 @@
-import { SaveOnboardingRequest, SaveOnboardingResponse, OnboardingAnswers } from './roadmapTypes';
+import { SaveOnboardingRequest, SaveOnboardingResponse } from './roadmapTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 // Function to assess user level (matches SQL function)

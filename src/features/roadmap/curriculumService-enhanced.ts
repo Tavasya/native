@@ -126,8 +126,8 @@ export const sampleFocusedWeek = {
 // Function to generate a curriculum with better distribution
 export const generateEnhancedCurriculum = (
   timeline: string,
-  currentLevel: string,
-  targetScore: string
+  _currentLevel: string,
+  _targetScore: string
 ) => {
   const config = enhancedCurriculumConfig.assignmentsPerWeek[timeline as keyof typeof enhancedCurriculumConfig.assignmentsPerWeek];
   const maxWeeks = enhancedCurriculumConfig.maxWeeks[timeline as keyof typeof enhancedCurriculumConfig.maxWeeks];

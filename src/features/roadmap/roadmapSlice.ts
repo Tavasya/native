@@ -77,7 +77,7 @@ const roadmapSlice = createSlice({
       })
       .addCase(saveOnboarding.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.onboardingMetrics = action.payload;
+        state.onboardingMetrics = action.payload || null;
       })
       .addCase(saveOnboarding.rejected, (state, action) => {
         state.isLoading = false;
@@ -90,7 +90,7 @@ const roadmapSlice = createSlice({
       })
       .addCase(fetchOnboardingMetrics.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.onboardingMetrics = action.payload;
+        state.onboardingMetrics = action.payload || null;
       })
       .addCase(fetchOnboardingMetrics.rejected, (state, action) => {
         state.isLoading = false;

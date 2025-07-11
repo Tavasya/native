@@ -197,7 +197,11 @@ export const wordService = {
       await supabase
         .from('saved_words')
         .update({ 
-          review_count: supabase.sql`review_count + 1`,
+          review_count: (await supabase
+            .from('saved_words')
+            .select('review_count')
+            .eq('id', wordId)
+            .single()).data?.review_count + 1 || 1,
           last_reviewed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })

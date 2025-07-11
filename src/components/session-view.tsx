@@ -33,6 +33,8 @@ interface SessionViewProps {
   disabled: boolean;
   sessionStarted: boolean;
   selectedScenario?: Scenario;
+  assignmentId?: string;
+  onConversationCompleted?: () => void;
 }
 
 export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
