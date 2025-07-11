@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction, createSelector } from '@reduxjs/toolkit';
-import { PracticeState, PracticeSession, AssignmentContext, PracticeFeedbackData } from './practiceTypes';
+import { PracticeState, PracticeSession, AssignmentContext, PracticeFeedbackData, PracticeMode, PronunciationResult } from './practiceTypes';
 import { supabase } from '@/integrations/supabase/client';
 
 const initialState: PracticeState = {
@@ -17,6 +17,16 @@ const initialState: PracticeState = {
   sessionLoading: false,
   sessionError: null,
   isSubmitting: false,
+  // Current practice session state (moved from component local state)
+  currentPracticeState: {
+    currentSentenceIndex: 0,
+    currentWordIndex: 0,
+    practiceMode: 'sentence',
+    pronunciationResult: null,
+    isAssessing: false,
+    hasStartedRecording: false,
+    isPlaying: false,
+  },
   // Assignment context for practice sessions
   assignmentContext: null,
   highlights: [],
@@ -235,6 +245,42 @@ export const loadPracticeSessionHighlights = createAsyncThunk(
   }
 );
 
+export const updateSessionProgress = createAsyncThunk(
+  'practice/updateSessionProgress',
+  async ({ sessionId, sentenceIndex, wordIndex = 0 }: { sessionId: string; sentenceIndex: number; wordIndex?: number }) => {
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ 
+        current_sentence_index: sentenceIndex,
+        current_word_index: wordIndex
+      })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, sentenceIndex, wordIndex };
+  }
+);
+
+export const assessPronunciationInSession = createAsyncThunk(
+  'practice/assessPronunciationInSession',
+  async ({ audioBlob, referenceText, practiceMode }: { audioBlob: Blob; referenceText: string; practiceMode: PracticeMode }) => {
+    const { AzureSpeechService } = await import('./azureSpeechService');
+    const service = new AzureSpeechService();
+    const result = await service.assessPronunciation(audioBlob, referenceText);
+    
+    // Determine if they got it right based on practice mode
+    let threshold = 70; // Default for sentence mode
+    if (practiceMode === 'word-by-word') {
+      threshold = 80; // Higher threshold for individual words
+    } else if (practiceMode === 'full-transcript') {
+      threshold = 35; // Much lower threshold for full transcript
+    }
+    const isCorrect = result.overallScore >= threshold;
+    
+    return { ...result, isCorrect, practiceMode };
+  }
+);
+
 const practiceSlice = createSlice({
   name: 'practice',
   initialState,
@@ -392,6 +438,43 @@ const practiceSlice = createSlice({
         console.log('📝 No feedbackData to update');
       }
     },
+    // Current practice state management actions
+    setCurrentSentenceIndex: (state, action: PayloadAction<number>) => {
+      state.currentPracticeState.currentSentenceIndex = action.payload;
+    },
+    setCurrentWordIndex: (state, action: PayloadAction<number>) => {
+      state.currentPracticeState.currentWordIndex = action.payload;
+    },
+    setPracticeMode: (state, action: PayloadAction<PracticeMode>) => {
+      state.currentPracticeState.practiceMode = action.payload;
+    },
+    setPronunciationResult: (state, action: PayloadAction<PronunciationResult | null>) => {
+      state.currentPracticeState.pronunciationResult = action.payload;
+    },
+    setIsAssessing: (state, action: PayloadAction<boolean>) => {
+      state.currentPracticeState.isAssessing = action.payload;
+    },
+    setHasStartedRecording: (state, action: PayloadAction<boolean>) => {
+      state.currentPracticeState.hasStartedRecording = action.payload;
+    },
+    setIsPlaying: (state, action: PayloadAction<boolean>) => {
+      state.currentPracticeState.isPlaying = action.payload;
+    },
+    resetCurrentPracticeState: (state) => {
+      state.currentPracticeState = {
+        currentSentenceIndex: 0,
+        currentWordIndex: 0,
+        practiceMode: 'sentence',
+        pronunciationResult: null,
+        isAssessing: false,
+        hasStartedRecording: false,
+        isPlaying: false,
+      };
+    },
+    updateProgressIndexes: (state, action: PayloadAction<{ sentenceIndex: number; wordIndex: number }>) => {
+      state.currentPracticeState.currentSentenceIndex = action.payload.sentenceIndex;
+      state.currentPracticeState.currentWordIndex = action.payload.wordIndex;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -531,6 +614,43 @@ const practiceSlice = createSlice({
             state.highlights = highlights as { word: string; position: number }[];
           }
         }
+      })
+      // New async thunk reducers
+      .addCase(updateSessionProgress.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(updateSessionProgress.fulfilled, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+        // Update the current session if it matches
+        if (state.currentSession && state.currentSession.id === action.payload.sessionId) {
+          state.currentSession.current_sentence_index = action.payload.sentenceIndex;
+          state.currentSession.current_word_index = action.payload.wordIndex;
+        }
+        // Also update the current practice state
+        state.currentPracticeState.currentSentenceIndex = action.payload.sentenceIndex;
+        state.currentPracticeState.currentWordIndex = action.payload.wordIndex;
+      })
+      .addCase(updateSessionProgress.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to update session progress';
+      })
+      .addCase(assessPronunciationInSession.pending, (state) => {
+        state.currentPracticeState.isAssessing = true;
+        state.currentPracticeState.pronunciationResult = null;
+      })
+      .addCase(assessPronunciationInSession.fulfilled, (state, action) => {
+        state.currentPracticeState.isAssessing = false;
+        state.currentPracticeState.pronunciationResult = {
+          overallScore: action.payload.overallScore,
+          wordScores: action.payload.wordScores,
+          weakWords: action.payload.weakWords,
+        };
+      })
+      .addCase(assessPronunciationInSession.rejected, (state, action) => {
+        state.currentPracticeState.isAssessing = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to assess pronunciation';
       });
   },
 });
@@ -562,7 +682,17 @@ export const {
   setPracticeFeedbackData,
   clearPracticeFeedbackData,
   setPracticeFeedbackError,
-  markTranscriptCompleted
+  markTranscriptCompleted,
+  // New current practice state actions
+  setCurrentSentenceIndex,
+  setCurrentWordIndex,
+  setPracticeMode,
+  setPronunciationResult,
+  setIsAssessing,
+  setHasStartedRecording,
+  setIsPlaying,
+  resetCurrentPracticeState,
+  updateProgressIndexes
 } = practiceSlice.actions;
 
 // Selectors for practice feedback data
@@ -584,5 +714,15 @@ export const selectCurrentSession = (state: { practice: PracticeState }) => stat
 
 // Selectors for practice session modal
 export const selectPracticeSessionModal = (state: { practice: PracticeState }) => state.practice.practiceSessionModal;
+
+// Selectors for current practice state
+export const selectCurrentPracticeState = (state: { practice: PracticeState }) => state.practice.currentPracticeState;
+export const selectCurrentSentenceIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.currentSentenceIndex;
+export const selectCurrentWordIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.currentWordIndex;
+export const selectPracticeMode = (state: { practice: PracticeState }) => state.practice.currentPracticeState.practiceMode;
+export const selectPronunciationResult = (state: { practice: PracticeState }) => state.practice.currentPracticeState.pronunciationResult;
+export const selectIsAssessing = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isAssessing;
+export const selectHasStartedRecording = (state: { practice: PracticeState }) => state.practice.currentPracticeState.hasStartedRecording;
+export const selectIsPlaying = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isPlaying;
 
 export default practiceSlice.reducer; 

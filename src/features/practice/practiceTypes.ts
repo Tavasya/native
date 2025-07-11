@@ -29,6 +29,31 @@ export interface PracticeFeedbackData {
   completedSessionId?: string; // Track if this transcript has a completed session
 }
 
+export type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
+
+export interface PronunciationResult {
+  overallScore: number;
+  wordScores: Array<{
+    word: string;
+    score: number;
+    phonemes: Array<{
+      phoneme: string;
+      score: number;
+    }>;
+  }>;
+  weakWords: string[];
+}
+
+export interface CurrentPracticeState {
+  currentSentenceIndex: number;
+  currentWordIndex: number;
+  practiceMode: PracticeMode;
+  pronunciationResult: PronunciationResult | null;
+  isAssessing: boolean;
+  hasStartedRecording: boolean;
+  isPlaying: boolean;
+}
+
 export interface PracticeState {
   recording: RecordingState;
   pronunciationAssessment: PronunciationAssessmentState | null;
@@ -37,6 +62,8 @@ export interface PracticeState {
   sessionLoading: boolean;
   sessionError: string | null;
   isSubmitting: boolean;
+  // Current practice session state (moved from component local state)
+  currentPracticeState: CurrentPracticeState;
   // Assignment context for practice sessions
   assignmentContext: AssignmentContext | null;
   highlights: { word: string; position: number }[];
