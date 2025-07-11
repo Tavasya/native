@@ -24,14 +24,20 @@ import {
   selectIsAssessing,
   selectHasStartedRecording,
   selectIsPlaying,
+  selectProblematicWords,
+  selectProblematicWordIndex,
   setCurrentSentenceIndex,
   setCurrentWordIndex,
   setPracticeMode,
   setPronunciationResult,
   setHasStartedRecording,
   setIsPlaying,
+  setProblematicWords,
+  setProblematicWordIndex,
+  clearProblematicWords,
   updateSessionProgress,
   assessPronunciationInSession,
+  updateProblematicWords,
   setSession
 } from '@/features/practice/practiceSlice';
 
@@ -61,6 +67,8 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const isAssessing = useSelector(selectIsAssessing);
   const hasStartedRecording = useSelector(selectHasStartedRecording);
   const isPlaying = useSelector(selectIsPlaying);
+  const problematicWords = useSelector(selectProblematicWords);
+  const problematicWordIndex = useSelector(selectProblematicWordIndex);
 
   // Define loadSession function
   const loadSession = useCallback(async () => {
@@ -199,10 +207,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (practiceMode === 'sentence') {
         referenceText = session.sentences[currentSentenceIndex]?.text || '';
       } else if (practiceMode === 'word-by-word') {
-        // Word-by-word mode
-        const sentence = session.sentences[currentSentenceIndex]?.text || '';
-        const words = sentence.split(' ');
-        referenceText = words[currentWordIndex] || '';
+        // Word-by-word mode - use problematic word if available
+        if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
+          referenceText = problematicWords[problematicWordIndex];
+        } else {
+          const sentence = session.sentences[currentSentenceIndex]?.text || '';
+          const words = sentence.split(' ');
+          referenceText = words[currentWordIndex] || '';
+        }
       } else if (practiceMode === 'full-transcript') {
         // Full transcript mode - use entire transcript
         referenceText = session.sentences.map(s => s.text).join(' ');
@@ -249,24 +261,58 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
   const handleIncorrectPronunciation = (result: PronunciationResult) => {
     if (practiceMode === 'sentence') {
-      // Switch to word-by-word mode whenever pronunciation fails in sentence mode
-      dispatch(setPracticeMode('word-by-word'));
-      dispatch(setCurrentWordIndex(0));
+      // Identify problematic words from pronunciation assessment
+      const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
+      const words = sentence.split(' ');
       
-      // Try to find the first weak word if any were detected
-      if (result.weakWords.length > 0) {
-        const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
-        const words = sentence.split(' ');
-        const firstWeakWordIndex = words.findIndex(word => 
-          result.weakWords.some(weakWord => 
-            word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
-          )
+      // Get weak words that actually exist in the sentence
+      const problematicWordsInSentence = result.weakWords.filter(weakWord => 
+        words.some(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
+        )
+      );
+      
+      // If no weak words detected from assessment, use words with low scores
+      if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+        const lowScoringWords = result.wordScores
+          .filter(ws => ws.score < 60) // Words scoring below 60%
+          .map(ws => ws.word);
+        problematicWordsInSentence.push(...lowScoringWords);
+      }
+      
+      // Remove duplicates from current assessment (case-insensitive)
+      const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
+        array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
+      );
+      
+      // Store problematic words in Redux state (replace existing, don't accumulate)
+      dispatch(setProblematicWords(uniqueProblematicWords));
+      
+      // Update database with problematic words
+      if (uniqueProblematicWords.length > 0 && sessionId) {
+        dispatch(updateProblematicWords({
+          sessionId,
+          problematicWords: uniqueProblematicWords,
+          sentenceContext: sentence
+        }));
+      }
+      
+      // Switch to word-by-word mode
+      dispatch(setPracticeMode('word-by-word'));
+      dispatch(setProblematicWordIndex(0)); // Start with first problematic word
+      
+      // Set currentWordIndex to the position of the first problematic word in the sentence
+      if (uniqueProblematicWords.length > 0) {
+        const firstProblematicWordIndex = words.findIndex(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
         );
-        if (firstWeakWordIndex !== -1) {
-          dispatch(setCurrentWordIndex(firstWeakWordIndex));
+        if (firstProblematicWordIndex !== -1) {
+          dispatch(setCurrentWordIndex(firstProblematicWordIndex));
+        } else {
+          // Fallback to first word if we can't find the problematic word
+          dispatch(setCurrentWordIndex(0));
         }
       }
-      // If no specific weak words were detected, start from the first word
     }
     // In full-transcript mode, just try again (no mode change needed)
     
@@ -293,6 +339,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       dispatch(setCurrentSentenceIndex(nextIndex));
       dispatch(setPracticeMode('sentence'));
       dispatch(setCurrentWordIndex(0));
+      dispatch(clearProblematicWords()); // Clear problematic words for new sentence
       
       // Update session progress in database via Redux thunk
       dispatch(updateSessionProgress({ sessionId, sentenceIndex: nextIndex, wordIndex: 0 }));
@@ -310,23 +357,38 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const handleNextWord = () => {
-    if (!session?.sentences) return;
+    if (!session?.sentences || problematicWords.length === 0) return;
     
     const sentence = session.sentences[currentSentenceIndex]?.text || '';
     const words = sentence.split(' ');
     
-    if (currentWordIndex < words.length - 1) {
-      // Move to next word
-      const nextWordIndex = currentWordIndex + 1;
-      dispatch(setCurrentWordIndex(nextWordIndex));
+    if (problematicWordIndex < problematicWords.length - 1) {
+      // Move to next problematic word
+      const nextProblematicWordIndex = problematicWordIndex + 1;
+      dispatch(setProblematicWordIndex(nextProblematicWordIndex));
+      
+      // Find the position of this problematic word in the sentence
+      const nextProblematicWord = problematicWords[nextProblematicWordIndex];
+      const nextWordIndex = words.findIndex(word => 
+        word.toLowerCase().replace(/[^\w]/g, '') === nextProblematicWord.toLowerCase()
+      );
+      
+      let finalWordIndex = nextWordIndex;
+      if (nextWordIndex !== -1) {
+        dispatch(setCurrentWordIndex(nextWordIndex));
+      } else {
+        // Fallback to current word index if we can't find the problematic word
+        finalWordIndex = currentWordIndex;
+      }
       
       // Update session progress in database via Redux thunk
-      dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: nextWordIndex }));
+      dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: finalWordIndex }));
       resetForNextAttempt();
     } else {
-      // Finished all words, go back to sentence mode
+      // Finished all problematic words, go back to sentence mode
       dispatch(setPracticeMode('sentence'));
       dispatch(setCurrentWordIndex(0));
+      dispatch(clearProblematicWords()); // Clear problematic words
       resetForNextAttempt();
     }
   };
@@ -390,9 +452,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (practiceMode === 'sentence') {
       return session.sentences[currentSentenceIndex]?.text || '';
     } else if (practiceMode === 'word-by-word') {
-      const sentence = session.sentences[currentSentenceIndex]?.text || '';
-      const words = sentence.split(' ');
-      return words[currentWordIndex] || '';
+      // Use problematic words if available, otherwise fall back to current word in sentence
+      if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
+        return problematicWords[problematicWordIndex];
+      } else {
+        const sentence = session.sentences[currentSentenceIndex]?.text || '';
+        const words = sentence.split(' ');
+        return words[currentWordIndex] || '';
+      }
     } else if (practiceMode === 'full-transcript') {
       // Return the entire transcript as one text
       return session.sentences.map(s => s.text).join(' ');
@@ -516,7 +583,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                 {practiceMode === 'sentence' 
                   ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
                   : practiceMode === 'word-by-word'
-                    ? `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                    ? problematicWords.length > 0 
+                      ? `Problematic Word ${problematicWordIndex + 1} of ${problematicWords.length} in sentence ${currentSentenceIndex + 1}`
+                      : `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
                     : 'Final Challenge: Full Transcript'
                 }
               </span>
@@ -534,7 +603,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                 {practiceMode === 'sentence' 
                   ? 'Read this sentence aloud:' 
                   : practiceMode === 'word-by-word'
-                    ? 'Practice this word:'
+                    ? problematicWords.length > 0 
+                      ? 'Practice this problematic word:'
+                      : 'Practice this word:'
                     : 'Read the entire transcript aloud:'
                 }
               </h3>
@@ -554,6 +625,18 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <div className={`text-gray-800 leading-relaxed mb-6 ${practiceMode === 'word-by-word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
               {currentText}
             </div>
+
+            {/* Show problematic words list when in word-by-word mode */}
+            {practiceMode === 'word-by-word' && problematicWords.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <div className="text-sm text-yellow-800">
+                  <strong>Words to practice:</strong> {problematicWords.join(', ')}
+                </div>
+                <div className="text-xs text-yellow-600 mt-1">
+                  These words need improvement based on your pronunciation
+                </div>
+              </div>
+            )}
 
             {/* Recording Status and Controls */}
             <div className="flex flex-col items-center space-y-4">
@@ -609,6 +692,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                 onClick={() => {
                   dispatch(setPracticeMode('sentence'));
                   dispatch(setCurrentWordIndex(0));
+                  dispatch(clearProblematicWords()); // Clear problematic words when going back
                   resetForNextAttempt();
                 }}
               >

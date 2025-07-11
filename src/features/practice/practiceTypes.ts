@@ -52,6 +52,8 @@ export interface CurrentPracticeState {
   isAssessing: boolean;
   hasStartedRecording: boolean;
   isPlaying: boolean;
+  problematicWords: string[]; // Words that need practice from current sentence
+  problematicWordIndex: number; // Index within the problematic words array
 }
 
 export interface PracticeState {

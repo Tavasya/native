@@ -26,6 +26,8 @@ const initialState: PracticeState = {
     isAssessing: false,
     hasStartedRecording: false,
     isPlaying: false,
+    problematicWords: [],
+    problematicWordIndex: 0,
   },
   // Assignment context for practice sessions
   assignmentContext: null,
@@ -281,6 +283,31 @@ export const assessPronunciationInSession = createAsyncThunk(
   }
 );
 
+export const updateProblematicWords = createAsyncThunk(
+  'practice/updateProblematicWords',
+  async ({ sessionId, problematicWords, sentenceContext }: { 
+    sessionId: string; 
+    problematicWords: string[];
+    sentenceContext?: string;
+  }) => {
+    // Format problematic words for database storage
+    const formattedWords = problematicWords.map(word => ({
+      word,
+      sentence_context: sentenceContext
+    }));
+
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ 
+        problematic_words: formattedWords
+      })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { sessionId, problematicWords };
+  }
+);
+
 const practiceSlice = createSlice({
   name: 'practice',
   initialState,
@@ -469,11 +496,24 @@ const practiceSlice = createSlice({
         isAssessing: false,
         hasStartedRecording: false,
         isPlaying: false,
+        problematicWords: [],
+        problematicWordIndex: 0,
       };
     },
     updateProgressIndexes: (state, action: PayloadAction<{ sentenceIndex: number; wordIndex: number }>) => {
       state.currentPracticeState.currentSentenceIndex = action.payload.sentenceIndex;
       state.currentPracticeState.currentWordIndex = action.payload.wordIndex;
+    },
+    setProblematicWords: (state, action: PayloadAction<string[]>) => {
+      state.currentPracticeState.problematicWords = action.payload;
+      state.currentPracticeState.problematicWordIndex = 0; // Reset to first problematic word
+    },
+    setProblematicWordIndex: (state, action: PayloadAction<number>) => {
+      state.currentPracticeState.problematicWordIndex = action.payload;
+    },
+    clearProblematicWords: (state) => {
+      state.currentPracticeState.problematicWords = [];
+      state.currentPracticeState.problematicWordIndex = 0;
     },
   },
   extraReducers: (builder) => {
@@ -692,7 +732,11 @@ export const {
   setHasStartedRecording,
   setIsPlaying,
   resetCurrentPracticeState,
-  updateProgressIndexes
+  updateProgressIndexes,
+  // Problematic words actions
+  setProblematicWords,
+  setProblematicWordIndex,
+  clearProblematicWords
 } = practiceSlice.actions;
 
 // Selectors for practice feedback data
@@ -719,6 +763,8 @@ export const selectPracticeSessionModal = (state: { practice: PracticeState }) =
 export const selectCurrentPracticeState = (state: { practice: PracticeState }) => state.practice.currentPracticeState;
 export const selectCurrentSentenceIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.currentSentenceIndex;
 export const selectCurrentWordIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.currentWordIndex;
+export const selectProblematicWords = (state: { practice: PracticeState }) => state.practice.currentPracticeState.problematicWords;
+export const selectProblematicWordIndex = (state: { practice: PracticeState }) => state.practice.currentPracticeState.problematicWordIndex;
 export const selectPracticeMode = (state: { practice: PracticeState }) => state.practice.currentPracticeState.practiceMode;
 export const selectPronunciationResult = (state: { practice: PracticeState }) => state.practice.currentPracticeState.pronunciationResult;
 export const selectIsAssessing = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isAssessing;
