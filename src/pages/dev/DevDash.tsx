@@ -339,7 +339,7 @@ export default function DashboardPage() {
         setDevMessage(`Successfully triggered reprocessing for submission ${submissionId.trim()}. Status changed to in_progress → pending - Supabase trigger will handle processing.`);
       }
 
-      setSubmissionId('');
+      // setSubmissionId(''); // Keep ID for potential "View Report" use
     } catch (error: any) {
       setDevError(`Error: ${error.message || 'Unknown error occurred'}`);
     } finally {
