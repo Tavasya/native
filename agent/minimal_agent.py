@@ -3,6 +3,9 @@ import time
 import json
 import base64
 import binascii
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from dotenv import load_dotenv
 
@@ -430,5 +433,32 @@ async def handle_request(request: JobRequest) -> None:
     )
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status": "healthy"}')
+    
+    def log_message(self, format, *args):
+        pass  # Suppress HTTP logs
+
+
+def start_health_server():
+    port = int(os.environ.get('PORT', 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    logger.info(f"Health check server running on port {port}")
+    server.serve_forever()
+
+
 if __name__ == "__main__":
+    import sys
+    
+    # Start health check server for Cloud Run (only when no args or when 'start' is used)
+    if os.environ.get('PORT') and (len(sys.argv) == 1 or 'start' in sys.argv):
+        health_thread = threading.Thread(target=start_health_server, daemon=True)
+        health_thread.start()
+        logger.info("Started health check server for Cloud Run")
+    
+    # Run the LiveKit agent with CLI support
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, request_fnc=handle_request, prewarm_fnc=prewarm))
