@@ -145,6 +145,8 @@ export interface PracticeSession {
   id: string;
   user_id: string;
   assignment_id: string | null;
+  submission_id: string | null;
+  question_index: number | null;
   original_audio_url: string | null;
   original_transcript: string | null;
   improved_transcript: string | null;

@@ -182,7 +182,7 @@ export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
 
 export const createPracticeSessionFromFeedback = createAsyncThunk(
   'practice/createSessionFromFeedback',
-  async ({ enhancedTranscript, assignmentId, submissionId }: { enhancedTranscript: string; assignmentId?: string; submissionId?: string }) => {
+  async ({ enhancedTranscript, assignmentId, submissionId, questionIndex }: { enhancedTranscript: string; assignmentId?: string; submissionId?: string; questionIndex?: number }) => {
     const { data: { session: userSession } } = await supabase.auth.getSession();
     if (!userSession?.user?.id) {
       throw new Error('User not authenticated');
@@ -204,7 +204,7 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
 
     const userId = userSession.user.id;
     
-    // 🔧 FIX: Check if a session already exists for this user/assignment/submission
+    // 🔧 FIX: Check if a session already exists for this user/assignment/submission/question
     let query = supabase
       .from('practice_sessions')
       .select('*')
@@ -213,8 +213,16 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
     // Prioritize by submission_id, then assignment_id
     if (submissionId) {
       query = query.eq('submission_id', submissionId);
+      // Add question_index to the query if provided
+      if (questionIndex !== undefined) {
+        query = query.eq('question_index', questionIndex);
+      }
     } else if (finalAssignmentId) {
       query = query.eq('assignment_id', finalAssignmentId);
+      // Add question_index to the query if provided
+      if (questionIndex !== undefined) {
+        query = query.eq('question_index', questionIndex);
+      }
     }
 
     const { data: existingSessions, error: searchError } = await query
@@ -251,6 +259,7 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
         user_id: userId,
         assignment_id: finalAssignmentId || null,
         submission_id: submissionId,
+        question_index: questionIndex || null,
         improved_transcript: enhancedTranscript,
         highlights: null, // Don't save highlights until Part 2 is completed
         status: 'transcript_ready',

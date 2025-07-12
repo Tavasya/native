@@ -79,7 +79,8 @@ const PracticeFeedback: React.FC = () => {
       if (stateData.enhanced && stateData.submissionId) {
         dispatch(createPracticeSessionFromFeedback({
           enhancedTranscript: stateData.enhanced,
-          submissionId: stateData.submissionId
+          submissionId: stateData.submissionId,
+          questionIndex: stateData.questionIndex
         }));
       }
     } else {
@@ -99,7 +100,8 @@ const PracticeFeedback: React.FC = () => {
           // Also check for existing practice sessions to get completion status
           dispatch(createPracticeSessionFromFeedback({
             enhancedTranscript: feedbackResult.enhanced,
-            submissionId: feedbackResult.submissionId
+            submissionId: feedbackResult.submissionId,
+            questionIndex: parsedQuestionIndex
           }));
         }).catch((error) => {
           console.error('Error loading practice feedback:', error);
@@ -261,7 +263,8 @@ const PracticeFeedback: React.FC = () => {
       // Create practice session with enhanced transcript and highlights
       const action = await dispatch(createPracticeSessionFromFeedback({
         enhancedTranscript: feedbackData.enhanced,
-        submissionId: feedbackData.submissionId // Pass submissionId to get assignment_id
+        submissionId: feedbackData.submissionId, // Pass submissionId to get assignment_id
+        questionIndex: questionIndex // Pass questionIndex to distinguish between questions
       }));
 
       if (createPracticeSessionFromFeedback.fulfilled.match(action)) {

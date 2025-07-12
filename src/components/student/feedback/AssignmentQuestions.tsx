@@ -3,8 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { Assignment, QuestionCard } from '@/features/assignments/types';
-// import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { useAppDispatch } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 
 import { generateTTSAudio } from '@/features/tts/ttsService';
 import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
@@ -21,10 +20,10 @@ interface AssignmentQuestionsProps {
 const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, selectedQuestionIndex }) => {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   
   // Get the current submission data to pass transcript info
-  // const selectedSubmission = useAppSelector(state => state.submissions.selectedSubmission);
+  const selectedSubmission = useAppSelector(state => state.submissions.selectedSubmission);
 
   // Parse questions if they're stored as a string
   const questions: QuestionCard[] = (() => {
@@ -93,10 +92,10 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     const currentQuestionFeedback = selectedSubmission?.section_feedback?.[selectedQuestionIndex];
 
     
-  //   if (!currentQuestionFeedback) {
-  //     console.error('No feedback data available for practice');
-  //     return;
-  //   }
+    if (!currentQuestionFeedback) {
+      console.error('No feedback data available for practice');
+      return;
+    }
 
 
     // 🔧 CREATE DATABASE RECORD WHEN PRACTICE BUTTON IS CLICKED
@@ -116,12 +115,13 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
         return;
       }
 
-      // Check if a practice session already exists for this submission
+      // Check if a practice session already exists for this submission and question
       const { data: existingSessions, error: searchError } = await supabase
         .from('practice_sessions')
         .select('*')
         .eq('user_id', userSession.user.id)
         .eq('submission_id', submissionId)
+        .eq('question_index', selectedQuestionIndex)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -147,6 +147,7 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
             user_id: userSession.user.id,
             assignment_id: selectedSubmission?.assignment_id,
             submission_id: submissionId,
+            question_index: selectedQuestionIndex,
             improved_transcript: enhancedTranscript,
             status: 'transcript_ready',
             practice_phase: 'ready',
