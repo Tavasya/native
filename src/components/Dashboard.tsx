@@ -313,7 +313,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="max-w-6xl mx-auto p-4 md:p-6 pt-20">
+      <div className="max-w-6xl mx-auto p-4 md:p-6" style={{ paddingTop: 'calc(1rem + 4rem)' }}>
         {/* Header */}
         <div className="mb-8">
 

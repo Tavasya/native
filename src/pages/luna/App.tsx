@@ -31,10 +31,6 @@ function App() {
   return (
     <div className="min-h-screen font-sans">
       <ApplyThemeScript />
-      <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-       
-    
-      </header>
       
       <Routes>
         <Route path="/" element={<MainApp appConfig={appConfig} />} />
