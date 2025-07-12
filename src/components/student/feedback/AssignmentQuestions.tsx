@@ -8,7 +8,10 @@ import { useAppDispatch } from '@/app/hooks';
 
 import { generateTTSAudio } from '@/features/tts/ttsService';
 import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
-// import { useNavigate } from 'react-router-dom';
+
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+
 
 interface AssignmentQuestionsProps {
   assignment: Assignment;
@@ -84,28 +87,120 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     }
   };
 
-  // const handlePracticeQuestion = () => {
-  //   // Get the current question's feedback data
-  //   const currentQuestionFeedback = selectedSubmission?.section_feedback?.[selectedQuestionIndex];
+
+  const handlePracticeQuestion = async () => {
+    // Get the current question's feedback data
+    const currentQuestionFeedback = selectedSubmission?.section_feedback?.[selectedQuestionIndex];
+
     
   //   if (!currentQuestionFeedback) {
   //     console.error('No feedback data available for practice');
   //     return;
   //   }
 
-  //   // Pass the transcript data through navigation state for instant loading (backward compatibility)
-  //   // Also add URL parameters for the new Redux-based approach
-  //   navigate('/student/practice-feedback', {
-  //     state: {
-  //       transcriptData: {
-  //         original: currentQuestionFeedback.transcript || 'No original transcript available',
-  //         enhanced: currentQuestionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript || 'No enhanced transcript available', 
-  //         audioUrl: currentQuestionFeedback.audio_url || '',
-  //         submissionId: selectedSubmission?.id || ''
-  //       }
-  //     }
-  //   });
-  // };
+
+    // 🔧 CREATE DATABASE RECORD WHEN PRACTICE BUTTON IS CLICKED
+    try {
+      // Get current user ID
+      const { data: { session: userSession } } = await supabase.auth.getSession();
+      if (!userSession?.user?.id) {
+        console.error('User not authenticated');
+        return;
+      }
+
+      const submissionId = selectedSubmission?.id;
+      const enhancedTranscript = currentQuestionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript;
+      
+      if (!enhancedTranscript) {
+        console.error('No enhanced transcript available for practice');
+        return;
+      }
+
+      // Check if a practice session already exists for this submission
+      const { data: existingSessions, error: searchError } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .eq('user_id', userSession.user.id)
+        .eq('submission_id', submissionId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let practiceSessionId = null;
+      let isAlreadyCompleted = false;
+
+      if (!searchError && existingSessions && existingSessions.length > 0) {
+        // Found existing session
+        const existingSession = existingSessions[0];
+        practiceSessionId = existingSession.id;
+        isAlreadyCompleted = existingSession.status === 'completed';
+        console.log('🔄 Found existing practice session:', {
+          sessionId: practiceSessionId,
+          status: existingSession.status,
+          isCompleted: isAlreadyCompleted
+        });
+      } else {
+        // No existing session found, create a new one
+        console.log('🆕 Creating new practice session...');
+        const { data: newSession, error: createError } = await supabase
+          .from('practice_sessions')
+          .insert({
+            user_id: userSession.user.id,
+            assignment_id: selectedSubmission?.assignment_id,
+            submission_id: submissionId,
+            improved_transcript: enhancedTranscript,
+            status: 'transcript_ready',
+            practice_phase: 'ready',
+            practice_mode: 'full-transcript',
+            has_tried_full_transcript: false,
+            is_returning_to_full_transcript: false,
+            current_sentence_index: 0,
+            current_word_index: 0,
+            problematic_word_index: 0,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating practice session:', createError);
+          // Continue with navigation even if session creation fails
+        } else {
+          practiceSessionId = newSession.id;
+          console.log('✅ Created new practice session:', practiceSessionId);
+        }
+      }
+
+      // Navigate to practice feedback page with session info
+      navigate('/student/practice-feedback', {
+        state: {
+          transcriptData: {
+            original: currentQuestionFeedback.transcript || 'No original transcript available',
+            enhanced: enhancedTranscript,
+            audioUrl: currentQuestionFeedback.audio_url || '',
+            submissionId: submissionId || '',
+            questionIndex: selectedQuestionIndex,
+            practiceSessionId: practiceSessionId,
+            isAlreadyCompleted: isAlreadyCompleted
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in practice session handling:', error);
+      // Continue with navigation even if session creation fails
+      navigate('/student/practice-feedback', {
+        state: {
+          transcriptData: {
+            original: currentQuestionFeedback.transcript || 'No original transcript available',
+            enhanced: currentQuestionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript || 'No enhanced transcript available', 
+            audioUrl: currentQuestionFeedback.audio_url || '',
+            submissionId: selectedSubmission?.id || '',
+            questionIndex: selectedQuestionIndex
+          }
+        }
+      });
+    }
+  };
+
   
   console.log('Displaying question:', { 
     selectedQuestionIndex, 
@@ -127,14 +222,14 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {/* <Button
+              { <Button
                 variant="outline"
                 size="sm"
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 onClick={handlePracticeQuestion}
               >
                 Practice
-              </Button> */}
+              </Button> }
               <Button
                 variant="outline"
                 size="sm"

@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { Toaster } from "@/components/ui/toaster";
 import AssignmentPracticeModal from '@/components/assignment/AssignmentPracticeModal';
 import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import PracticePart2Modal from '@/components/practice/PracticePart2Modal';
 import { closePracticeSessionModal, selectPracticeSessionModal } from '@/features/practice/practiceSlice';
 
 const LayoutContainer = styled.div`
@@ -66,6 +67,7 @@ const Layout: React.FC = () => {
       <Toaster />
       <AssignmentPracticeModal />
       <PracticeSessionModalWrapper />
+      <PracticePart2Modal />
     </LayoutContainer>
   );
 };

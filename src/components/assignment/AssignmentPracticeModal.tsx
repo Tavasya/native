@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording } from '@/features/practice/practiceSlice';
+import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording, selectAssignmentContext } from '@/features/practice/practiceSlice';
 import { X, Square, Loader2 } from 'lucide-react';
 import MicIcon from "@/lib/images/mic.svg";
 import AudioVisualizer from './AudioVisualizer';
@@ -15,6 +15,7 @@ const AssignmentPracticeModal: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { practiceModal, recording } = useAppSelector(state => state.practice);
+  const assignmentContext = useAppSelector(selectAssignmentContext);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -35,39 +36,16 @@ const AssignmentPracticeModal: React.FC = () => {
     };
   }, []);
 
-  // Effect to create practice session and get improved transcript when modal opens
+  // Effect to create practice session when modal opens
   useEffect(() => {
     if (practiceModal.isOpen && practiceModal.assignmentId && !practiceSession && !isLoadingTranscript) {
-      createPracticeSessionAndImproveTranscript();
+      createPracticeSession();
     }
   }, [practiceModal.isOpen, practiceModal.assignmentId, practiceSession, isLoadingTranscript]);
 
-  // Real-time subscription for practice session updates
-  useEffect(() => {
-    if (practiceSession?.id) {
-      const channel = supabase
-        .channel(`practice_session_${practiceSession.id}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'practice_sessions',
-          filter: `id=eq.${practiceSession.id}`
-        }, (payload) => {
-          const updatedSession = payload.new as PracticeSession;
-          setPracticeSession(updatedSession);
-          if (updatedSession.improved_transcript) {
-            setIsLoadingTranscript(false);
-          }
-        })
-        .subscribe();
+  // No longer need real-time subscription since we create the session ready for practice
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [practiceSession?.id]);
-
-  const createPracticeSessionAndImproveTranscript = async () => {
+  const createPracticeSession = async () => {
     try {
       setIsLoadingTranscript(true);
       setUploadError(null);
@@ -78,14 +56,39 @@ const AssignmentPracticeModal: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
-      // Create practice session with question text as original transcript
+      // Try to find an existing submission for this assignment to get the improved transcript
+      const { data: submissions, error: submissionError } = await supabase
+        .from('submissions')
+        .select('section_feedback')
+        .eq('assignment_id', practiceModal.assignmentId)
+        .eq('student_id', userSession.user.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1);
+
+      let improvedTranscript = assignmentContext?.questionData?.question || 'No question text available'; // Fallback to question text
+
+      // Extract improved transcript from submission if available
+      if (!submissionError && submissions && submissions.length > 0) {
+        const submission = submissions[0];
+        if (submission.section_feedback && Array.isArray(submission.section_feedback)) {
+          const questionFeedback = submission.section_feedback[practiceModal.questionIndex];
+          if (questionFeedback?.section_feedback?.paragraph_restructuring?.improved_transcript) {
+            improvedTranscript = questionFeedback.section_feedback.paragraph_restructuring.improved_transcript;
+            console.log('Using improved transcript from submission:', improvedTranscript);
+          }
+        }
+      }
+
+      // Create practice session with improved transcript (or question text as fallback)
       const { data: sessionData, error: sessionError } = await supabase
         .from('practice_sessions')
         .insert({
           user_id: userSession.user.id,
           assignment_id: practiceModal.assignmentId,
-          original_transcript: practiceModal.questionText,
-          status: 'transcript_processing'
+          original_transcript: assignmentContext?.questionData?.question || 'No question text available',
+          improved_transcript: improvedTranscript,
+          status: 'transcript_ready', // Ready for practice immediately
+          practice_phase: 'pronunciation'
         })
         .select()
         .single();
@@ -95,20 +98,8 @@ const AssignmentPracticeModal: React.FC = () => {
       }
 
       setPracticeSession(sessionData);
+      setIsLoadingTranscript(false);
 
-      // Call the improve transcript API
-      const response = await fetch(`https://classconnect-staging-107872842385.us-west2.run.app/api/v1/practice/sessions/${sessionData.id}/improve-transcript`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to improve transcript: ${response.status}`);
-      }
-
-      // The real-time subscription will handle the updated session with improved_transcript
     } catch (error) {
       console.error('Error creating practice session:', error);
       setUploadError(error instanceof Error ? error.message : 'Failed to create practice session');
@@ -305,7 +296,7 @@ const AssignmentPracticeModal: React.FC = () => {
             <h3 className="font-medium text-gray-900 mb-2">Practice Text:</h3>
             {isLoadingTranscript ? (
               <div className="flex items-center gap-3 py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <Loader2 className="h-5 w-5 animate-spin text-[#272A69]" />
                 <span className="text-gray-600">Generating improved transcript...</span>
               </div>
             ) : practiceSession?.improved_transcript ? (
@@ -323,7 +314,7 @@ const AssignmentPracticeModal: React.FC = () => {
               </div>
             )}
             {recording.hasRecording && !recording.isRecording && (
-              <div className="text-green-600 font-medium">
+                              <div className="text-orange-600 font-medium">
                 Recording completed ({formatTime(recording.recordingTime)})
               </div>
             )}

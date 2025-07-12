@@ -1,15 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
-import { PracticeSession } from '@/features/practice/practiceTypes';
+import { PracticeSession, PronunciationResult, PracticeMode } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
-import { startPracticeSession, startFullTranscriptPractice as startFullTranscriptPracticeThunk, completePracticeSession as completePracticeSessionThunk, selectPracticeSessionModal, setPracticeSessionLoading, setPracticeSessionError, markTranscriptCompleted } from '@/features/practice/practiceSlice';
-import { AzureSpeechService } from '@/features/practice/azureSpeechService';
+import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
+import { 
+  startPracticeSession, 
+  startFullTranscriptPractice as startFullTranscriptPracticeThunk, 
+  completePracticeSession as completePracticeSessionThunk, 
+  selectPracticeSessionModal, 
+  setPracticeSessionLoading, 
+  setPracticeSessionError, 
+  markTranscriptCompleted,
+  selectCurrentSession,
+  selectCurrentSentenceIndex,
+  selectCurrentWordIndex,
+  selectPracticeMode,
+  selectPronunciationResult,
+  selectIsAssessing,
+  selectHasStartedRecording,
+  selectIsPlaying,
+  selectProblematicWords,
+  selectProblematicWordIndex,
+  selectIsRecordingTimerActive,
+  selectRecordingTimeElapsed,
+  selectRecordingMaxDuration,
+  selectHasTriedFullTranscript,
+  selectIsReturningToFullTranscript,
+  selectHighlights,
+  setCurrentSentenceIndex,
+  setCurrentWordIndex,
+  setPracticeMode,
+  setPronunciationResult,
+  setHasStartedRecording,
+  setIsPlaying,
+  setProblematicWords,
+  setProblematicWordIndex,
+  clearProblematicWords,
+  setHasTriedFullTranscript,
+  setIsReturningToFullTranscript,
+  startRecordingTimer,
+  tickRecordingTimer,
+  stopRecordingTimer,
+  resetRecordingTimer,
+  updateSessionProgress,
+  assessPronunciationInSession,
+  updateProblematicWords,
+  setSession,
+  openPracticePart2Modal,
+  selectAssignmentContext
+} from '@/features/practice/practiceSlice';
 
 interface PracticeSessionModalProps {
   isOpen: boolean;
@@ -18,20 +63,6 @@ interface PracticeSessionModalProps {
   onComplete?: () => void;
 }
 
-interface PronunciationResult {
-  overallScore: number;
-  wordScores: Array<{
-    word: string;
-    score: number;
-    phonemes: Array<{
-      phoneme: string;
-      score: number;
-    }>;
-  }>;
-  weakWords: string[];
-}
-
-type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
 
 const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   isOpen,
@@ -41,14 +72,98 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { error } = useSelector(selectPracticeSessionModal);
-  const [session, setSession] = useState<PracticeSession | null>(null);
-  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [pronunciationResult, setPronunciationResult] = useState<PronunciationResult | null>(null);
-  const [isAssessing, setIsAssessing] = useState(false);
-  const [practiceMode, setPracticeMode] = useState<PracticeMode>('sentence');
-  const [hasStartedRecording, setHasStartedRecording] = useState(false);
+  
+  // Local state for completion tracking
+  const [isCompleted, setIsCompleted] = useState(false);
+  
+  // Use Redux state instead of local state
+  const session = useSelector(selectCurrentSession);
+  const currentSentenceIndex = useSelector(selectCurrentSentenceIndex);
+  const currentWordIndex = useSelector(selectCurrentWordIndex);
+  const practiceMode = useSelector(selectPracticeMode);
+  const pronunciationResult = useSelector(selectPronunciationResult);
+  const isAssessing = useSelector(selectIsAssessing);
+  const hasStartedRecording = useSelector(selectHasStartedRecording);
+  const isPlaying = useSelector(selectIsPlaying);
+  const problematicWords = useSelector(selectProblematicWords);
+  const problematicWordIndex = useSelector(selectProblematicWordIndex);
+  
+  // Practice flow tracking state
+  const hasTriedFullTranscript = useSelector(selectHasTriedFullTranscript);
+  const isReturningToFullTranscript = useSelector(selectIsReturningToFullTranscript);
+  
+  // Recording timer state
+  const isRecordingTimerActive = useSelector(selectIsRecordingTimerActive);
+  const recordingTimeElapsed = useSelector(selectRecordingTimeElapsed);
+  const recordingMaxDuration = useSelector(selectRecordingMaxDuration);
+  
+  // Highlights state
+  const highlights = useSelector(selectHighlights);
+  
+  // Assignment context state
+  const assignmentContext = useSelector(selectAssignmentContext);
+
+  // Define loadSession function
+  const loadSession = useCallback(async () => {
+    try {
+      console.log('🔍 Loading session:', sessionId);
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error) throw error;
+
+      const sessionData = data as PracticeSession;
+      console.log('📋 Loaded session data:', {
+        id: sessionData.id,
+        status: sessionData.status,
+        sentencesCount: sessionData.sentences?.length || 0,
+        hasTranscript: !!sessionData.improved_transcript
+      });
+      
+      dispatch(setSession(sessionData));
+      dispatch(setCurrentSentenceIndex(sessionData.current_sentence_index || 0));
+      dispatch(setCurrentWordIndex(sessionData.current_word_index || 0));
+      
+      // Restore all practice state from database
+      dispatch(setPracticeMode((sessionData.practice_mode as PracticeMode) || 'full-transcript'));
+      dispatch(setHasTriedFullTranscript(sessionData.has_tried_full_transcript || false));
+      dispatch(setIsReturningToFullTranscript(sessionData.is_returning_to_full_transcript || false));
+      dispatch(setProblematicWordIndex(sessionData.problematic_word_index || 0));
+
+      // 🔧 FIX: Restore problematic words from database
+      if (sessionData.problematic_words && Array.isArray(sessionData.problematic_words)) {
+        // Convert database format to Redux format
+        const problematicWordsArray = sessionData.problematic_words.map(item => {
+          // Database format: { word: string; sentence_context?: string; ... }
+          // Redux format: string[]
+          return typeof item === 'object' && item.word ? item.word : String(item);
+        });
+        dispatch(setProblematicWords(problematicWordsArray));
+        console.log('🔄 Restored problematic words from database:', problematicWordsArray);
+      } else {
+        // Clear problematic words if none in database
+        dispatch(clearProblematicWords());
+      }
+
+      // 🔧 FIX: Restore completion state from database
+      if (sessionData.status === 'completed') {
+        setIsCompleted(true);
+        console.log('✅ Session already completed, showing completion screen');
+      }
+
+      // If session doesn't have sentences yet, start practice to generate them
+      if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
+        console.log('🚀 Starting practice session for transcript_ready status');
+        dispatch(startPracticeSession(sessionId));
+      }
+    } catch (err) {
+      console.error('❌ Error loading session:', err);
+      dispatch(setPracticeSessionError('Failed to load practice session'));
+    }
+  }, [sessionId, dispatch]);
 
   const {
     isRecording,
@@ -56,31 +171,66 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     toggleRecording
   } = useAudioRecording({
     onRecordingComplete: async (blob) => {
+      // Stop timer when recording completes
+      dispatch(stopRecordingTimer());
       await handlePronunciationAssessment(blob);
     },
     onError: (errorMessage) => {
+      // Stop timer on error
+      dispatch(stopRecordingTimer());
       dispatch(setPracticeSessionError(errorMessage));
     }
   });
+
+  // Timer management effect
+  useEffect(() => {
+    let timerInterval: NodeJS.Timeout;
+    
+    if (isRecordingTimerActive && isRecording) {
+      timerInterval = setInterval(() => {
+        dispatch(tickRecordingTimer());
+        
+        // Auto-stop recording when max duration reached
+        if (recordingTimeElapsed >= recordingMaxDuration - 1) {
+          toggleRecording(); // This will trigger onRecordingComplete
+        }
+      }, 1000);
+    }
+    
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [isRecordingTimerActive, isRecording, recordingTimeElapsed, recordingMaxDuration, dispatch, toggleRecording]);
+
+  // Start timer when recording starts
+  useEffect(() => {
+    if (isRecording && !isRecordingTimerActive) {
+      dispatch(startRecordingTimer(practiceMode));
+    } else if (!isRecording && isRecordingTimerActive) {
+      dispatch(stopRecordingTimer());
+    }
+  }, [isRecording, isRecordingTimerActive, practiceMode, dispatch]);
 
   // Auto-start recording when modal opens and sentence is ready
   useEffect(() => {
     if (isOpen && session?.sentences && session.sentences.length > 0 && !hasStartedRecording && !isRecording) {
       const timer = setTimeout(() => {
-        setHasStartedRecording(true);
+        dispatch(setHasStartedRecording(true));
         toggleRecording();
       }, 1000); // Small delay to let user see the sentence first
       
       return () => clearTimeout(timer);
     }
-  }, [isOpen, session?.sentences, hasStartedRecording, isRecording, toggleRecording]);
+  }, [isOpen, session?.sentences, hasStartedRecording, isRecording, toggleRecording, dispatch]);
 
   // Load session data
   useEffect(() => {
     if (isOpen && sessionId) {
       loadSession();
     }
-  }, [isOpen, sessionId]);
+  }, [isOpen, sessionId, loadSession]);
 
   // Real-time subscription for session updates
   useEffect(() => {
@@ -99,9 +249,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           const updatedSession = payload.new as PracticeSession;
           console.log('📊 Updated session status:', updatedSession.status);
           console.log('📝 Session sentences:', updatedSession.sentences?.length || 0);
-          setSession(updatedSession);
-          setCurrentSentenceIndex(updatedSession.current_sentence_index || 0);
-          setCurrentWordIndex(updatedSession.current_word_index || 0);
+          dispatch(setSession(updatedSession));
+          dispatch(setCurrentSentenceIndex(updatedSession.current_sentence_index || 0));
+          dispatch(setCurrentWordIndex(updatedSession.current_word_index || 0));
           dispatch(setPracticeSessionLoading(false));
         })
         .subscribe((status) => {
@@ -126,9 +276,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             if (currentSession.status !== session?.status || 
                 (currentSession.sentences?.length || 0) !== (session?.sentences?.length || 0)) {
               console.log('🔄 Session changed during poll, updating...');
-              setSession(currentSession);
-              setCurrentSentenceIndex(currentSession.current_sentence_index || 0);
-              setCurrentWordIndex(currentSession.current_word_index || 0);
+              dispatch(setSession(currentSession));
+              dispatch(setCurrentSentenceIndex(currentSession.current_sentence_index || 0));
+              dispatch(setCurrentWordIndex(currentSession.current_word_index || 0));
             }
           }
         } catch (err) {
@@ -144,125 +294,229 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }
   }, [sessionId, dispatch, session?.status, session?.sentences?.length]);
 
-  const loadSession = async () => {
-    try {
-      console.log('🔍 Loading session:', sessionId);
-      const { data, error } = await supabase
-        .from('practice_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .single();
-
-      if (error) throw error;
-
-      const sessionData = data as PracticeSession;
-      console.log('📋 Loaded session data:', {
-        id: sessionData.id,
-        status: sessionData.status,
-        sentencesCount: sessionData.sentences?.length || 0,
-        hasTranscript: !!sessionData.improved_transcript
-      });
-      
-      setSession(sessionData);
-      setCurrentSentenceIndex(sessionData.current_sentence_index || 0);
-      setCurrentWordIndex(sessionData.current_word_index || 0);
-
-      // If session doesn't have sentences yet, start practice to generate them
-      if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
-        console.log('🚀 Starting practice session for transcript_ready status');
-        dispatch(startPracticeSession(sessionId));
-      }
-    } catch (err) {
-      console.error('❌ Error loading session:', err);
-      dispatch(setPracticeSessionError('Failed to load practice session'));
-    }
-  };
-
-
   const handlePronunciationAssessment = async (blob: Blob) => {
     if (!session?.sentences) return;
     
     try {
-      setIsAssessing(true);
-      const azureService = new AzureSpeechService();
-      
       let referenceText = '';
       if (practiceMode === 'sentence') {
         referenceText = session.sentences[currentSentenceIndex]?.text || '';
       } else if (practiceMode === 'word-by-word') {
-        // Word-by-word mode
-        const sentence = session.sentences[currentSentenceIndex]?.text || '';
-        const words = sentence.split(' ');
-        referenceText = words[currentWordIndex] || '';
+        // Word-by-word mode - use problematic word if available
+        if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
+          referenceText = problematicWords[problematicWordIndex];
+        } else {
+          const sentence = session.sentences[currentSentenceIndex]?.text || '';
+          const words = sentence.split(' ');
+          referenceText = words[currentWordIndex] || '';
+        }
       } else if (practiceMode === 'full-transcript') {
         // Full transcript mode - use entire transcript
         referenceText = session.sentences.map(s => s.text).join(' ');
       }
       
-      const result = await azureService.assessPronunciation(blob, referenceText);
-      setPronunciationResult(result);
+      // Use Redux thunk for pronunciation assessment
+      const action = await dispatch(assessPronunciationInSession({
+        audioBlob: blob,
+        referenceText,
+        practiceMode
+      }));
       
-      // Determine if they got it right
-      let threshold = 70; // Default for sentence mode
-      if (practiceMode === 'word-by-word') {
-        threshold = 80; // Higher threshold for individual words
-      } else if (practiceMode === 'full-transcript') {
-        threshold = 35; // Much lower threshold for full transcript (longer texts are harder to assess accurately)
+      if (assessPronunciationInSession.fulfilled.match(action)) {
+        const { isCorrect } = action.payload;
+        
+        // Handle next steps based on result
+        setTimeout(() => {
+          if (isCorrect) {
+            handleCorrectPronunciation();
+          } else {
+            handleIncorrectPronunciation(action.payload);
+          }
+        }, 2000); // Show result for 2 seconds
       }
-      const isCorrect = result.overallScore >= threshold;
-      
-      // Handle next steps based on result
-      setTimeout(() => {
-        if (isCorrect) {
-          handleCorrectPronunciation();
-        } else {
-          handleIncorrectPronunciation(result);
-        }
-      }, 2000); // Show result for 2 seconds
       
     } catch (err) {
       console.error('Pronunciation assessment failed:', err);
       dispatch(setPracticeSessionError('Failed to assess pronunciation'));
-    } finally {
-      setIsAssessing(false);
     }
   };
 
   const handleCorrectPronunciation = () => {
-    if (practiceMode === 'sentence') {
+    if (practiceMode === 'full-transcript') {
+      if (!hasTriedFullTranscript) {
+        // First time success with full transcript - complete session
+        completePracticeSession();
+      } else if (isReturningToFullTranscript) {
+        // Successfully completed the return full transcript attempt - complete session
+        completePracticeSession();
+      } else {
+        // This shouldn't happen, but default to completion
+        completePracticeSession();
+      }
+    } else if (practiceMode === 'sentence') {
       // Move to next sentence
       handleNextSentence();
     } else if (practiceMode === 'word-by-word') {
       // Move to next word or back to sentence mode
       handleNextWord();
-    } else if (practiceMode === 'full-transcript') {
-      // Completed full transcript practice successfully
-      completePracticeSession();
     }
   };
 
   const handleIncorrectPronunciation = (result: PronunciationResult) => {
-    if (practiceMode === 'sentence') {
-      // Switch to word-by-word mode whenever pronunciation fails in sentence mode
-      setPracticeMode('word-by-word');
-      setCurrentWordIndex(0);
+    if (practiceMode === 'full-transcript') {
+      if (!hasTriedFullTranscript) {
+        // First time failure with full transcript - mark as tried
+        dispatch(setHasTriedFullTranscript(true));
+        
+        // Check if it's a single sentence transcript
+        if (session?.sentences && session.sentences.length === 1) {
+          // Skip sentence-by-sentence for single sentence - go directly to word-by-word
+          const sentence = session.sentences[0]?.text || '';
+          const words = sentence.split(' ');
+          
+          // Get weak words that actually exist in the sentence
+          const problematicWordsInSentence = result.weakWords.filter(weakWord => 
+            words.some(word => 
+              word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
+            )
+          );
+          
+          // If no weak words detected from assessment, use words with low scores
+          if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+            const lowScoringWords = result.wordScores
+              .filter(ws => ws.score < 75) // Words scoring below 75%
+              .map(ws => ws.word);
+            problematicWordsInSentence.push(...lowScoringWords);
+          }
+          
+          // Remove duplicates from current assessment (case-insensitive)
+          const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
+            array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
+          );
+          
+          // Store problematic words in Redux state
+          dispatch(setProblematicWords(uniqueProblematicWords));
+          
+          // Update database with problematic words
+          if (uniqueProblematicWords.length > 0 && sessionId) {
+            dispatch(updateProblematicWords({
+              sessionId,
+              problematicWords: uniqueProblematicWords,
+              sentenceContext: sentence
+            }));
+          }
+          
+          // Switch to word-by-word mode for single sentence
+          dispatch(setPracticeMode('word-by-word'));
+          dispatch(setProblematicWordIndex(0));
+          dispatch(setCurrentSentenceIndex(0));
+          dispatch(setCurrentWordIndex(0));
+          
+          // Persist state to database
+          dispatch(updateSessionProgress({ 
+            sessionId, 
+            sentenceIndex: 0, 
+            wordIndex: 0,
+            practiceMode: 'word-by-word',
+            hasTriedFullTranscript: true,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
+        } else {
+          // Multiple sentences - go to sentence-by-sentence mode
+          dispatch(setPracticeMode('sentence'));
+          dispatch(setCurrentSentenceIndex(0));
+          dispatch(setCurrentWordIndex(0));
+          dispatch(clearProblematicWords());
+          
+          // Persist state to database
+          dispatch(updateSessionProgress({ 
+            sessionId, 
+            sentenceIndex: 0, 
+            wordIndex: 0,
+            practiceMode: 'sentence',
+            hasTriedFullTranscript: true,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
+        }
+      } else {
+        // This is a return attempt that failed - just try again
+        // Reset for another attempt
+        setTimeout(() => {
+          resetForNextAttempt();
+        }, 3000);
+        return;
+      }
+    } else if (practiceMode === 'sentence') {
+      // Identify problematic words from pronunciation assessment
+      const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
+      const words = sentence.split(' ');
       
-      // Try to find the first weak word if any were detected
-      if (result.weakWords.length > 0) {
-        const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
-        const words = sentence.split(' ');
-        const firstWeakWordIndex = words.findIndex(word => 
-          result.weakWords.some(weakWord => 
-            word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
-          )
+      // Get weak words that actually exist in the sentence
+      const problematicWordsInSentence = result.weakWords.filter(weakWord => 
+        words.some(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
+        )
+      );
+      
+      // If no weak words detected from assessment, use words with low scores
+      if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+        const lowScoringWords = result.wordScores
+          .filter(ws => ws.score < 75) // Words scoring below 75% (increased from 60%)
+          .map(ws => ws.word);
+        problematicWordsInSentence.push(...lowScoringWords);
+      }
+      
+      // Remove duplicates from current assessment (case-insensitive)
+      const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
+        array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
+      );
+      
+      // Store problematic words in Redux state (replace existing, don't accumulate)
+      dispatch(setProblematicWords(uniqueProblematicWords));
+      
+      // Update database with problematic words
+      if (uniqueProblematicWords.length > 0 && sessionId) {
+        dispatch(updateProblematicWords({
+          sessionId,
+          problematicWords: uniqueProblematicWords,
+          sentenceContext: sentence
+        }));
+      }
+      
+      // Switch to word-by-word mode
+      dispatch(setPracticeMode('word-by-word'));
+      dispatch(setProblematicWordIndex(0)); // Start with first problematic word
+      
+      // Set currentWordIndex to the position of the first problematic word in the sentence
+      let finalWordIndex = 0;
+      if (uniqueProblematicWords.length > 0) {
+        const firstProblematicWordIndex = words.findIndex(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
         );
-        if (firstWeakWordIndex !== -1) {
-          setCurrentWordIndex(firstWeakWordIndex);
+        if (firstProblematicWordIndex !== -1) {
+          dispatch(setCurrentWordIndex(firstProblematicWordIndex));
+          finalWordIndex = firstProblematicWordIndex;
+        } else {
+          // Fallback to first word if we can't find the problematic word
+          dispatch(setCurrentWordIndex(0));
+          finalWordIndex = 0;
         }
       }
-      // If no specific weak words were detected, start from the first word
+      
+      // Persist state to database
+      dispatch(updateSessionProgress({ 
+        sessionId, 
+        sentenceIndex: currentSentenceIndex, 
+        wordIndex: finalWordIndex,
+        practiceMode: 'word-by-word',
+        hasTriedFullTranscript,
+        isReturningToFullTranscript,
+        problematicWordIndex: 0
+      }));
     }
-    // In full-transcript mode, just try again (no mode change needed)
+    // In word-by-word mode, just try again (no mode change needed)
     
     // Reset for another attempt
     setTimeout(() => {
@@ -270,34 +524,53 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }, 3000);
   };
 
-  const startFullTranscriptPractice = () => {
-    // Switch to full transcript mode
-    setPracticeMode('full-transcript');
-    setCurrentSentenceIndex(0);
-    setCurrentWordIndex(0);
+  const returnToFullTranscriptPractice = () => {
+    // Switch to full transcript mode and mark as returning
+    dispatch(setPracticeMode('full-transcript'));
+    dispatch(setCurrentSentenceIndex(0));
+    dispatch(setCurrentWordIndex(0));
+    dispatch(clearProblematicWords());
+    dispatch(setIsReturningToFullTranscript(true));
     
     // Update session status via Redux
     dispatch(startFullTranscriptPracticeThunk(sessionId));
+    
+    // Persist state to database
+    dispatch(updateSessionProgress({ 
+      sessionId, 
+      sentenceIndex: 0, 
+      wordIndex: 0,
+      practiceMode: 'full-transcript',
+      hasTriedFullTranscript,
+      isReturningToFullTranscript: true,
+      problematicWordIndex: 0
+    }));
+    
     resetForNextAttempt();
   };
 
   const handleNextSentence = () => {
     if (session?.sentences && currentSentenceIndex < session.sentences.length - 1) {
       const nextIndex = currentSentenceIndex + 1;
-      setCurrentSentenceIndex(nextIndex);
-      setPracticeMode('sentence');
-      setCurrentWordIndex(0);
-      updateSessionProgress(nextIndex, 0);
+      dispatch(setCurrentSentenceIndex(nextIndex));
+      dispatch(setPracticeMode('sentence'));
+      dispatch(setCurrentWordIndex(0));
+      dispatch(clearProblematicWords()); // Clear problematic words for new sentence
+      
+      // Update session progress in database via Redux thunk
+      dispatch(updateSessionProgress({ 
+        sessionId, 
+        sentenceIndex: nextIndex, 
+        wordIndex: 0,
+        practiceMode: 'sentence',
+        hasTriedFullTranscript,
+        isReturningToFullTranscript,
+        problematicWordIndex: 0
+      }));
       resetForNextAttempt();
     } else {
-      // All sentences completed
-      if (session?.sentences && session.sentences.length === 1) {
-        // Skip full transcript mode for single sentence - go straight to completion
-        completePracticeSession();
-      } else {
-        // Multiple sentences - practice the full transcript
-        startFullTranscriptPractice();
-      }
+      // All sentences completed - return to full transcript mode
+      returnToFullTranscriptPractice();
     }
   };
 
@@ -307,33 +580,67 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     const sentence = session.sentences[currentSentenceIndex]?.text || '';
     const words = sentence.split(' ');
     
-    if (currentWordIndex < words.length - 1) {
-      // Move to next word
-      const nextWordIndex = currentWordIndex + 1;
-      setCurrentWordIndex(nextWordIndex);
-      updateSessionProgress(currentSentenceIndex, nextWordIndex);
-      resetForNextAttempt();
+    // If we have problematic words, cycle through them specifically
+    if (problematicWords.length > 0) {
+      if (problematicWordIndex < problematicWords.length - 1) {
+        // Move to next problematic word
+        const nextProblematicWordIndex = problematicWordIndex + 1;
+        dispatch(setProblematicWordIndex(nextProblematicWordIndex));
+        
+        // Find the position of this problematic word in the sentence
+        const nextProblematicWord = problematicWords[nextProblematicWordIndex];
+        const nextWordIndex = words.findIndex(word => 
+          word.toLowerCase().replace(/[^\w]/g, '') === nextProblematicWord.toLowerCase()
+        );
+        
+        let finalWordIndex = nextWordIndex;
+        if (nextWordIndex !== -1) {
+          dispatch(setCurrentWordIndex(nextWordIndex));
+        } else {
+          // Fallback to current word index if we can't find the problematic word
+          finalWordIndex = currentWordIndex;
+        }
+        
+        // Update session progress in database via Redux thunk
+        dispatch(updateSessionProgress({ 
+          sessionId, 
+          sentenceIndex: currentSentenceIndex, 
+          wordIndex: finalWordIndex,
+          practiceMode: 'word-by-word',
+          hasTriedFullTranscript,
+          isReturningToFullTranscript,
+          problematicWordIndex: nextProblematicWordIndex
+        }));
+        resetForNextAttempt();
+      } else {
+        // Finished all problematic words - return to full transcript mode
+        returnToFullTranscriptPractice();
+      }
     } else {
-      // Finished all words, go back to sentence mode
-      setPracticeMode('sentence');
-      setCurrentWordIndex(0);
-      resetForNextAttempt();
+      // No problematic words identified, go through all words sequentially
+      if (currentWordIndex < words.length - 1) {
+        // Move to next word in sentence
+        const nextWordIndex = currentWordIndex + 1;
+        dispatch(setCurrentWordIndex(nextWordIndex));
+        
+        // Update session progress in database via Redux thunk
+        dispatch(updateSessionProgress({ 
+          sessionId, 
+          sentenceIndex: currentSentenceIndex, 
+          wordIndex: nextWordIndex,
+          practiceMode: 'word-by-word',
+          hasTriedFullTranscript,
+          isReturningToFullTranscript,
+          problematicWordIndex
+        }));
+        resetForNextAttempt();
+      } else {
+        // Finished all words in sentence - return to full transcript mode
+        returnToFullTranscriptPractice();
+      }
     }
   };
 
-  const updateSessionProgress = async (sentenceIndex: number, wordIndex: number = 0) => {
-    try {
-      await supabase
-        .from('practice_sessions')
-        .update({ 
-          current_sentence_index: sentenceIndex,
-          current_word_index: wordIndex
-        })
-        .eq('id', sessionId);
-    } catch (err) {
-      console.error('Error updating session progress:', err);
-    }
-  };
 
   const completePracticeSession = () => {
     // Mark this transcript as completed in Redux state
@@ -343,15 +650,55 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     // Update session status via Redux
     dispatch(completePracticeSessionThunk(sessionId));
     
+    // Set completion state to show Part 2 button instead of closing
+    setIsCompleted(true);
+    
     if (onComplete) {
       onComplete();
     }
+  };
+
+  const handleStartPart2 = async () => {
+    // Open Part 2 modal with improved transcript and highlights
+    const improvedTranscript = session?.improved_transcript || '';
+    
+    // Use the original question from assignment context directly
+    let originalQuestion: string | undefined = undefined;
+    if (assignmentContext?.questionData?.question) {
+      originalQuestion = assignmentContext.questionData.question;
+      console.log('📝 Using original question from context:', originalQuestion);
+    } else if (session?.assignment_id) {
+      // Fallback to fetching if assignment context is missing
+      try {
+        console.log('🔍 Fetching assignment for Part 2:', session.assignment_id);
+        const result = await dispatch(fetchAssignmentById(session.assignment_id)).unwrap();
+        console.log('🔍 Assignment loaded:', result);
+        
+        if (result?.questions && Array.isArray(result.questions)) {
+          const questionIndex = assignmentContext?.questionIndex ?? 0;
+          originalQuestion = result.questions[questionIndex]?.question || undefined;
+          console.log('📝 Found original question at index', questionIndex, ':', originalQuestion);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching assignment for Part 2:', err);
+      }
+    }
+    
+    dispatch(openPracticePart2Modal({ 
+      sessionId, 
+      improvedTranscript, 
+      highlights,
+      originalQuestion 
+    }));
+    
+    // Close this modal
     onClose();
   };
 
   const resetForNextAttempt = () => {
-    setPronunciationResult(null);
-    setHasStartedRecording(false);
+    dispatch(setPronunciationResult(null));
+    dispatch(setHasStartedRecording(false));
+    dispatch(resetRecordingTimer());
   };
 
   const playCurrentText = () => {
@@ -375,16 +722,16 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     utterance.rate = 0.8;
     utterance.pitch = 1;
     
-    utterance.onstart = () => setIsPlaying(true);
-    utterance.onend = () => setIsPlaying(false);
-    utterance.onerror = () => setIsPlaying(false);
+    utterance.onstart = () => dispatch(setIsPlaying(true));
+    utterance.onend = () => dispatch(setIsPlaying(false));
+    utterance.onerror = () => dispatch(setIsPlaying(false));
     
     speechSynthesis.speak(utterance);
   };
 
   const stopPlaying = () => {
     speechSynthesis.cancel();
-    setIsPlaying(false);
+    dispatch(setIsPlaying(false));
   };
 
   const getCurrentText = () => {
@@ -393,9 +740,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (practiceMode === 'sentence') {
       return session.sentences[currentSentenceIndex]?.text || '';
     } else if (practiceMode === 'word-by-word') {
-      const sentence = session.sentences[currentSentenceIndex]?.text || '';
-      const words = sentence.split(' ');
-      return words[currentWordIndex] || '';
+      // Use problematic words if available, otherwise fall back to current word in sentence
+      if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
+        return problematicWords[problematicWordIndex];
+      } else {
+        const sentence = session.sentences[currentSentenceIndex]?.text || '';
+        const words = sentence.split(' ');
+        return words[currentWordIndex] || '';
+      }
     } else if (practiceMode === 'full-transcript') {
       // Return the entire transcript as one text
       return session.sentences.map(s => s.text).join(' ');
@@ -406,24 +758,24 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const renderPronunciationFeedback = () => {
     if (!pronunciationResult) return null;
     
-    let threshold = 70; // Default for sentence mode
+    let threshold = 80; // Default for sentence mode (increased from 70)
     if (practiceMode === 'word-by-word') {
-      threshold = 80; // Higher threshold for individual words
+      threshold = 85; // Higher threshold for individual words (increased from 80)
     } else if (practiceMode === 'full-transcript') {
-      threshold = 50; // Lower threshold for full transcript
+      threshold = 60; // Moderate threshold for full transcript (increased from 50)
     }
     const isCorrect = pronunciationResult.overallScore >= threshold;
     
     return (
-      <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
         <div className="flex items-center gap-3 mb-2">
           {isCorrect ? (
-            <CheckCircle className="h-6 w-6 text-green-600" />
+            <CheckCircle className="h-6 w-6 text-orange-600" />
           ) : (
             <XCircle className="h-6 w-6 text-red-600" />
           )}
           <div>
-            <h4 className={`font-medium ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
+            <h4 className={`font-medium ${isCorrect ? 'text-orange-800' : 'text-red-800'}`}>
               {isCorrect ? 'Great job!' : 'Let\'s try again'}
             </h4>
           </div>
@@ -486,7 +838,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <DialogTitle>Preparing Practice Session</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#272A69]"></div>
             <span className="ml-2 text-gray-600">Please wait...</span>
           </div>
         </DialogContent>
@@ -494,19 +846,58 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   }
 
+  // Show completion state with Part 2 button
+  if (isCompleted) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>🎉 Practice Complete!</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 space-y-6">
+            <div className="text-center space-y-4">
+              <div className="text-lg text-gray-800">
+                Congratulations! You've completed the pronunciation practice.
+              </div>
+              <div className="text-sm text-gray-600">
+                Ready to move on to the next part?
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={handleStartPart2}
+                className="bg-[#272A69] hover:bg-[#272A69]/90"
+              >
+                Part 2 of Practice
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   const currentText = getCurrentText();
-  const progress = ((currentSentenceIndex + 1) / session.sentences.length) * 100;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {practiceMode === 'sentence' 
-              ? 'Practice Session' 
-              : practiceMode === 'word-by-word' 
-                ? 'Word Practice' 
-                : 'Full Transcript Practice'
+            {practiceMode === 'full-transcript' 
+              ? !hasTriedFullTranscript 
+                ? 'Pronunciation Practice' 
+                : 'Final Challenge'
+              : practiceMode === 'sentence' 
+                ? 'Sentence Practice' 
+                : 'Word Practice'
             }
           </DialogTitle>
         </DialogHeader>
@@ -514,31 +905,69 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         <div className="space-y-6">
           {/* Progress Bar */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-[#272A69]">
               <span>
-                {practiceMode === 'sentence' 
-                  ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
-                  : practiceMode === 'word-by-word'
-                    ? `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                {practiceMode === 'full-transcript' 
+                  ? !hasTriedFullTranscript 
+                    ? 'Full Transcript Practice'
                     : 'Final Challenge: Full Transcript'
+                  : practiceMode === 'sentence' 
+                    ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
+                    : practiceMode === 'word-by-word'
+                      ? problematicWords.length > 0 
+                        ? `Problematic Word ${problematicWordIndex + 1} of ${problematicWords.length}`
+                        : `Word ${currentWordIndex + 1} in sentence ${currentSentenceIndex + 1}`
+                      : 'Practice Session'
                 }
               </span>
               <span>
-                {practiceMode === 'full-transcript' ? '100% Complete' : `${Math.round(progress)}% Complete`}
+                {(() => {
+                  const isSingleSentence = session?.sentences && session.sentences.length === 1;
+                  if (practiceMode === 'full-transcript') {
+                    return !hasTriedFullTranscript 
+                      ? `Step 1 of ${isSingleSentence ? '3' : '4'}` 
+                      : 'Final Step';
+                  } else if (practiceMode === 'sentence') {
+                    return 'Step 2 of 4';
+                  } else if (practiceMode === 'word-by-word') {
+                    return isSingleSentence ? 'Step 2 of 3' : 'Step 3 of 4';
+                  }
+                  return 'Practice Session';
+                })()}
               </span>
             </div>
-            <Progress value={practiceMode === 'full-transcript' ? 100 : progress} className="h-2" />
+            <Progress value={
+              (() => {
+                const isSingleSentence = session?.sentences && session.sentences.length === 1;
+                if (practiceMode === 'full-transcript') {
+                  return !hasTriedFullTranscript 
+                    ? (isSingleSentence ? 33 : 25) 
+                    : 100;
+                } else if (practiceMode === 'sentence') {
+                  return 50; // Only for multiple sentences
+                } else if (practiceMode === 'word-by-word') {
+                  return isSingleSentence ? 66 : 75;
+                }
+                return 0;
+              })()
+            } className="h-2" />
           </div>
 
           {/* Current Text */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {practiceMode === 'sentence' 
-                  ? 'Read this sentence aloud:' 
-                  : practiceMode === 'word-by-word'
-                    ? 'Practice this word:'
-                    : 'Read the entire transcript aloud:'
+              <h3 className="text-lg font-medium text-[#272A69]">
+                {practiceMode === 'full-transcript' 
+                  ? !hasTriedFullTranscript 
+                    ? 'Read the entire transcript aloud:' 
+                    : 'Final challenge - read the full transcript:'
+                  : practiceMode === 'sentence' 
+                    ? 'Read this sentence aloud:' 
+                    : practiceMode === 'word-by-word'
+                      ? problematicWords.length > 0 
+                        ? 'Practice this problematic word:'
+                        : 'Practice this word:'
+                      : 'Read aloud:'
                 }
               </h3>
               <div className="flex gap-2">
@@ -554,18 +983,52 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               </div>
             </div>
             
-            <div className={`text-gray-800 leading-relaxed mb-6 ${practiceMode === 'word-by-word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
+            <div className={`text-[#272A69] leading-relaxed mb-4 ${practiceMode === 'word-by-word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
               {currentText}
             </div>
+
+
+
+            {/* Show problematic words list when in word-by-word mode */}
+            {practiceMode === 'word-by-word' && problematicWords.length > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                <div className="text-sm text-orange-800">
+                  <strong>Words to practice:</strong> {problematicWords.join(', ')}
+                </div>
+                <div className="text-xs text-orange-600 mt-1">
+                  These words need improvement based on your pronunciation
+                </div>
+              </div>
+            )}
 
             {/* Recording Status and Controls */}
             <div className="flex flex-col items-center space-y-4">
               {isRecording && (
-                <div className="space-y-3">
+                <div className="space-y-3 w-full">
                   <div className="flex items-center gap-2 text-red-600">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium">Recording... Speak now!</span>
+                    <span className="text-xs text-gray-500">
+                      ({Math.max(0, recordingMaxDuration - recordingTimeElapsed)}s left)
+                    </span>
                   </div>
+                  
+                  {/* Recording Progress Bar */}
+                  <div className="w-full">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>{recordingTimeElapsed}s</span>
+                      <span>{recordingMaxDuration}s</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-500 h-2 rounded-full transition-all duration-1000 ease-linear"
+                        style={{ 
+                          width: `${Math.min(100, (recordingTimeElapsed / recordingMaxDuration) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  
                   <Button
                     variant="destructive"
                     size="lg"
@@ -579,15 +1042,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               )}
 
               {isProcessing && (
-                <div className="flex items-center gap-2 text-blue-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <div className="flex items-center gap-2 text-[#272A69]">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#272A69]"></div>
                   <span className="text-sm">Processing...</span>
                 </div>
               )}
 
               {isAssessing && (
-                <div className="flex items-center gap-2 text-purple-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                <div className="flex items-center gap-2 text-[#272A69]">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#272A69]"></div>
                   <span className="text-sm">Assessing pronunciation...</span>
                 </div>
               )}
@@ -610,12 +1073,21 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               <Button
                 variant="outline"
                 onClick={() => {
-                  setPracticeMode('sentence');
-                  setCurrentWordIndex(0);
-                  resetForNextAttempt();
+                  returnToFullTranscriptPractice();
                 }}
               >
-                Back to Full Sentence
+                Skip to Full Transcript
+              </Button>
+            )}
+            
+            {practiceMode === 'sentence' && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  returnToFullTranscriptPractice();
+                }}
+              >
+                Skip to Full Transcript
               </Button>
             )}
           </div>

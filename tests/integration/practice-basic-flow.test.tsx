@@ -15,7 +15,6 @@ const mockPracticeSlice = (state = {
   feedbackError: null,
   practiceModal: {
     isOpen: false,
-    questionText: '',
     assignmentId: '',
     questionIndex: 0,
   },
@@ -63,7 +62,7 @@ const mockPracticeSlice = (state = {
     case 'practice/closePracticeModal':
       return { 
         ...state, 
-        practiceModal: { isOpen: false, questionText: '', assignmentId: '', questionIndex: 0 } 
+        practiceModal: { isOpen: false, assignmentId: '', questionIndex: 0 } 
       };
     case 'practice/openPracticeSessionModal':
       return { 
@@ -163,12 +162,12 @@ describe('Practice Basic Flow Integration', () => {
     // Test opening practice modal
     store.dispatch({
       type: 'practice/openPracticeModal',
-      payload: { questionText: 'Test question', assignmentId: 'assign-123', questionIndex: 0 }
+      payload: { assignmentId: 'assign-123', questionIndex: 0 }
     });
 
     let state = store.getState().practice;
     expect(state.practiceModal.isOpen).toBe(true);
-    expect(state.practiceModal.questionText).toBe('Test question');
+    expect(state.practiceModal.assignmentId).toBe('assign-123');
 
     // Test closing practice modal
     store.dispatch({ type: 'practice/closePracticeModal' });

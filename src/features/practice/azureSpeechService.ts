@@ -87,11 +87,6 @@ export class AzureSpeechService {
         duration: audioBuffer.duration
       });
       
-      // Check duration limit
-      if (audioBuffer.duration > 30) {
-        throw new Error('Audio duration exceeds 30 seconds limit for pronunciation assessment');
-      }
-      
       // Resample to 16kHz and convert to mono if needed
       const processedBuffer = await this.resampleAndConvertToMono(audioBuffer, 16000);
       const wavBuffer = this.audioBufferToWav(processedBuffer);
