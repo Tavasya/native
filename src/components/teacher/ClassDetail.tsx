@@ -461,7 +461,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
           <CardContent>
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Click on a student's name below to remove them from the class. This will remove their access to all assignments and their submission history.
+                 a student's name below to remove them from the class. This will remove their access to all assignments and their submission history.
               </p>
               
               {/* Get unique students from all submissions */}

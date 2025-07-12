@@ -213,16 +213,13 @@ const PracticePart2Modal: React.FC = () => {
       {/* Improved Transcript Display */}
       <div className="bg-gray-50 rounded-lg p-6">
         <h3 className="text-lg font-medium text-[#272A69] mb-4">
-          Improved Transcript
+          Highlight Words
         </h3>
                   <div className="text-[#272A69] leading-relaxed">
             {renderHighlightedText(improvedTranscript, highlights)}
           </div>
         {(highlights.length > 0 || userAddedHighlights.length > 0) && (
           <div className="mt-4 text-sm text-gray-600 space-y-2">
-            <div className="text-xs text-gray-500">
-              💡 Click any word to add it to your notes • Click highlighted words to remove them
-            </div>
           </div>
         )}
       </div>
@@ -231,7 +228,7 @@ const PracticePart2Modal: React.FC = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">
-            Word Definitions & Notes
+            Definitions & Notes
           </h3>
           <Button
             variant="outline"
@@ -378,7 +375,7 @@ const PracticePart2Modal: React.FC = () => {
         <div className="bg-gray-50 rounded-lg p-6">
           <div className="text-center space-y-4">
             <div className="text-sm text-gray-600">
-              Practice speaking about the words you've defined above
+              Use the words above to help answer the question
             </div>
             
             {/* Recording Controls */}
@@ -477,7 +474,10 @@ const PracticePart2Modal: React.FC = () => {
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
-            Part 2 of Practice {currentStep === 'recording' && '- Recording'}
+            {currentStep === 'transcript' 
+              ? "Highlight and write descriptions of words you want to remember"
+              : "Answer the question again"
+            }
           </DialogTitle>
         </DialogHeader>
         

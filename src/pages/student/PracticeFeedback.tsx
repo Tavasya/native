@@ -490,7 +490,7 @@ const PracticeFeedback: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    Part 2 of Practice
+                    Highlight & Practice
                   </>
                 )}
               </Button>
