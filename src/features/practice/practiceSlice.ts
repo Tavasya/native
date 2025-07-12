@@ -62,6 +62,9 @@ const initialState: PracticeState = {
     bulletPoints: [],
     highlights: [],
     userAddedHighlights: [],
+    currentStep: 'transcript',
+    recordingUrl: null,
+    isUploading: false,
   },
   // Practice feedback data
   feedbackData: null,
@@ -482,6 +485,14 @@ const practiceSlice = createSlice({
         console.log('📝 No feedbackData to update');
       }
     },
+    markPracticePart2Completed: (state, action: PayloadAction<{ recordingUrl: string }>) => {
+      console.log('📝 markPracticePart2Completed reducer called with recordingUrl:', action.payload.recordingUrl);
+      if (state.feedbackData) {
+        state.feedbackData.part2Completed = true;
+        state.feedbackData.part2RecordingUrl = action.payload.recordingUrl;
+        console.log('📝 Updated feedbackData with Part 2 completion:', state.feedbackData);
+      }
+    },
     // Part 2 Practice modal actions
     openPracticePart2Modal: (state, action: PayloadAction<{ sessionId: string; improvedTranscript: string; highlights: { word: string; position: number }[] }>) => {
       // Create bullet points from highlights, extracting actual words from transcript
@@ -507,6 +518,9 @@ const practiceSlice = createSlice({
         bulletPoints,
         highlights: highlights,
         userAddedHighlights: [],
+        currentStep: 'transcript',
+        recordingUrl: null,
+        isUploading: false,
       };
     },
     closePracticePart2Modal: (state) => {
@@ -517,6 +531,9 @@ const practiceSlice = createSlice({
         bulletPoints: [],
         highlights: [],
         userAddedHighlights: [],
+        currentStep: 'transcript',
+        recordingUrl: null,
+        isUploading: false,
       };
     },
     setPracticePart2BulletPointDescription: (state, action: PayloadAction<{ index: number; description: string }>) => {
@@ -565,6 +582,16 @@ const practiceSlice = createSlice({
       if (bulletPointIndex !== -1) {
         state.practicePart2Modal.bulletPoints.splice(bulletPointIndex, 1);
       }
+    },
+    setPracticePart2Step: (state, action: PayloadAction<'transcript' | 'recording'>) => {
+      state.practicePart2Modal.currentStep = action.payload;
+    },
+    setPracticePart2Recording: (state, action: PayloadAction<{ url: string | null }>) => {
+      state.practicePart2Modal.recordingUrl = action.payload.url;
+      state.practicePart2Modal.isUploading = false;
+    },
+    setPracticePart2Uploading: (state, action: PayloadAction<boolean>) => {
+      state.practicePart2Modal.isUploading = action.payload;
     },
     addPracticePart2HighlightFromTranscript: (state, action: PayloadAction<{ word: string; position: number }>) => {
       const { word, position } = action.payload;
@@ -895,6 +922,7 @@ export const {
   clearPracticeFeedbackData,
   setPracticeFeedbackError,
   markTranscriptCompleted,
+  markPracticePart2Completed,
   // Part 2 Practice modal actions
   openPracticePart2Modal,
   closePracticePart2Modal,
@@ -904,6 +932,9 @@ export const {
   removePracticePart2BulletPoint,
   addPracticePart2HighlightFromTranscript,
   removePracticePart2HighlightFromTranscript,
+  setPracticePart2Step,
+  setPracticePart2Recording,
+  setPracticePart2Uploading,
   // New current practice state actions
   setCurrentSentenceIndex,
   setCurrentWordIndex,
@@ -938,6 +969,16 @@ export const selectIsTranscriptCompleted = createSelector(
   (feedbackData) => {
     const isCompleted = Boolean(feedbackData?.completedSessionId);
     console.log('🔍 selectIsTranscriptCompleted:', { feedbackData, isCompleted });
+    return isCompleted;
+  }
+);
+
+// Selector to check if Part 2 practice is completed
+export const selectIsPracticePart2Completed = createSelector(
+  [selectPracticeFeedbackData],
+  (feedbackData) => {
+    const isCompleted = Boolean(feedbackData?.part2Completed);
+    console.log('🔍 selectIsPracticePart2Completed:', { feedbackData, isCompleted });
     return isCompleted;
   }
 );

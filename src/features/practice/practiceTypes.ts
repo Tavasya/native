@@ -26,7 +26,9 @@ export interface PracticeFeedbackData {
   enhanced: string;
   audioUrl: string;
   submissionId: string;
-  completedSessionId?: string; // Track if this transcript has a completed session
+  completedSessionId?: string;
+  part2Completed?: boolean;
+  part2RecordingUrl?: string;
 }
 
 export type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
@@ -100,6 +102,9 @@ export interface PracticeState {
     bulletPoints: { word: string; description: string; isHighlighted: boolean }[];
     highlights: { word: string; position: number }[];
     userAddedHighlights: { word: string; position: number }[];
+    currentStep: 'transcript' | 'recording';
+    recordingUrl: string | null;
+    isUploading: boolean;
   };
   // Practice feedback data
   feedbackData: PracticeFeedbackData | null;

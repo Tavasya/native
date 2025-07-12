@@ -13,6 +13,7 @@ import {
   openPracticeSessionModal,
   selectPracticeSessionModal,
   selectIsTranscriptCompleted,
+  selectIsPracticePart2Completed,
   addHighlight,
   removeHighlight,
   setHighlights,
@@ -31,6 +32,7 @@ const PracticeFeedback: React.FC = () => {
   const { error: sessionError } = useAppSelector(selectPracticeSessionModal);
   const { sessionLoading: practiceSessionLoading, highlights } = useAppSelector(state => state.practice);
   const isTranscriptCompleted = useAppSelector(selectIsTranscriptCompleted);
+  const isPart2Completed = useAppSelector(selectIsPracticePart2Completed);
 
   // Debug logging
   console.log('🔍 PracticeFeedback Debug:', {
@@ -199,7 +201,8 @@ const PracticeFeedback: React.FC = () => {
     // Open Part 2 modal with the completed session ID and enhanced transcript
     dispatch(openPracticePart2Modal({
       sessionId: feedbackData.completedSessionId,
-      improvedTranscript: feedbackData.enhanced
+      improvedTranscript: feedbackData.enhanced,
+      highlights: highlights
     }));
   };
 
@@ -280,6 +283,23 @@ const PracticeFeedback: React.FC = () => {
           </div>
         )}
         
+        {isPart2Completed && feedbackData.part2RecordingUrl && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-800">Part 2 Practice Recording</h4>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-sm font-medium text-green-800">Part 2 Practice Completed</span>
+              </div>
+              <audio controls className="w-full">
+                <source src={feedbackData.part2RecordingUrl} type="audio/webm" />
+                <source src={feedbackData.part2RecordingUrl} type="audio/mp3" />
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          </div>
+        )}
+        
         <div className="pt-4 border-t">
           <p className="text-sm text-gray-600 mb-4">
             The enhanced version shows improved vocabulary, better grammar, and more sophisticated language patterns based on your original response.
@@ -317,10 +337,24 @@ const PracticeFeedback: React.FC = () => {
             {isTranscriptCompleted && feedbackData?.completedSessionId && (
               <Button
                 onClick={handleStartPart2}
-                className="px-6 py-3 text-lg font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isPart2Completed}
+                className={`px-6 py-3 text-lg font-medium ${
+                  isPart2Completed 
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
                 size="lg"
               >
-                Part 2 of Practice
+                {isPart2Completed ? (
+                  <>
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Part 2 Completed
+                  </>
+                ) : (
+                  <>
+                    Part 2 of Practice
+                  </>
+                )}
               </Button>
             )}
           </div>
