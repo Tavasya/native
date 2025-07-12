@@ -110,7 +110,7 @@ describe('QuestionDisplay - Hint Feature', () => {
     expect(screen.queryByText('Think about what you enjoy doing in your free time.')).not.toBeInTheDocument();
   });
 
-  it('does not display hint for Part 2 (bulletPoints) questions', () => {
+  it('displays hint for Part 2 (bulletPoints) questions when enabled', () => {
     const part2Question: QuestionCard & { isCompleted?: boolean } = {
       id: 'q2',
       type: 'bulletPoints',
@@ -119,7 +119,7 @@ describe('QuestionDisplay - Hint Feature', () => {
       speakAloud: false,
       timeLimit: '3',
       hasHint: true,
-      hintText: 'This hint should not appear'
+      hintText: 'Think about activities you do in your free time'
     };
 
     renderWithProviders({
@@ -129,8 +129,8 @@ describe('QuestionDisplay - Hint Feature', () => {
       isRecording: false
     });
 
-    expect(screen.queryByText('Hint')).not.toBeInTheDocument();
-    expect(screen.queryByText('This hint should not appear')).not.toBeInTheDocument();
+    expect(screen.getByText('Hint')).toBeInTheDocument();
+    expect(screen.getByText('Think about activities you do in your free time')).toBeInTheDocument();
   });
 });
 

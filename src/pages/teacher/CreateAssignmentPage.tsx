@@ -1080,8 +1080,8 @@ const CreateAssignmentPage: React.FC = () => {
                                       </div>
                                     )}
 
-                                    {/* Hints - Only for Part 1 & Part 3 questions */}
-                                    {card.type === "normal" && card.hasHint && (
+                                    {/* Hints - Available for all question types */}
+                                    {card.hasHint && (
                                       <div
                                         className={cn(
                                           "p-4 rounded-lg",
@@ -1146,9 +1146,8 @@ const CreateAssignmentPage: React.FC = () => {
                                                   </Select>
                                                 </div>
 
-                                                {/* Hint Toggle - Only for Part 1 & Part 3 questions */}
-                                                {card.type === "normal" && (
-                                                  <div className="flex flex-col">
+                                                {/* Hint Toggle - Available for all question types */}
+                                                <div className="flex flex-col">
                                                     <label className="text-xs text-gray-500 mb-1">Hint</label>
                                                     <div className="flex items-center h-9">
                                                       <Switch
@@ -1162,7 +1161,6 @@ const CreateAssignmentPage: React.FC = () => {
                                                       />
                                                     </div>
                                                   </div>
-                                                )}
                                               </div>
                                               
                                               <div className="flex items-center gap-4">

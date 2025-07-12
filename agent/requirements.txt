@@ -1,4 +1,4 @@
-livekit-agents
+livekit-agents[elevenlabs]~=1.0
 livekit-plugins-cartesia
 livekit-plugins-deepgram
 livekit-plugins-openai

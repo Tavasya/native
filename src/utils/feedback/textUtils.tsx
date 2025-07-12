@@ -121,9 +121,12 @@ const findTextPosition = (
           // Find this sentence in the original text
           const sentenceStart = allText.toLowerCase().indexOf(targetSentence.toLowerCase());
           if (sentenceStart !== -1) {
-            // Find the phrase within this sentence
-            const phraseIndex = targetSentence.toLowerCase().indexOf(targetPhrase.toLowerCase());
-            if (phraseIndex !== -1) {
+            // Find the phrase within this sentence using word boundaries
+            const escapedPhrase = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const wordBoundaryRegex = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
+            const match = wordBoundaryRegex.exec(targetSentence.toLowerCase());
+            if (match) {
+              const phraseIndex = match.index;
               return {
                 start: sentenceStart + phraseIndex,
                 end: sentenceStart + phraseIndex + targetPhrase.length
@@ -138,9 +141,9 @@ const findTextPosition = (
     }
   }
 
-  // Strategy 2: Global search with some intelligence
+  // Strategy 2: Global search with word boundaries
   const escapedText = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(escapedText, 'gi'); // Global and case insensitive
+  const regex = new RegExp(`\\b${escapedText}\\b`, 'gi'); // Global, case insensitive, with word boundaries
   
   let match;
   const matches = [];

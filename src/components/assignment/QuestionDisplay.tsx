@@ -144,6 +144,24 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
             </Button>
           </div>
           <p className="text-gray-800 mb-3">{currentQuestion.question}</p>
+          
+          {/* Hints - Show for Part 2 questions, hide when recording, test mode, or audio-only mode */}
+          {currentQuestion.hasHint && 
+           currentQuestion.hintText && 
+           !isTestMode && 
+           !isAudioOnlyMode && 
+           !isRecording && (
+            <div className="mt-3 mb-3 p-3 border-l-2 border-gray-300 bg-gray-50">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="h-4 w-4 text-gray-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Hint</span>
+                  <p className="text-sm text-gray-700 mt-1">{currentQuestion.hintText}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <p className="text-gray-700 mb-2">You should say:</p>
           <ul className="list-disc pl-5 text-gray-700 space-y-1">
             {currentQuestion.bulletPoints?.map((point, idx) => (
@@ -199,10 +217,9 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
               </div>
               <p className="text-gray-800">{currentQuestion.question}</p>
               
-              {/* Hints - Show for Part 1 & Part 3 questions, hide when recording, test mode, or audio-only mode */}
+              {/* Hints - Show for all question types, hide when recording, test mode, or audio-only mode */}
               {currentQuestion.hasHint && 
                currentQuestion.hintText && 
-               currentQuestion.type === 'normal' && 
                !isTestMode && 
                !isAudioOnlyMode && 
                !isRecording && (

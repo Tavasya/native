@@ -41,7 +41,7 @@ const Dashboard = () => {
   const [weeks, setWeeks] = useState<Week[]>([]);
 
   // Load user's personalized curriculum from database
-  const loadCurriculum = async () => {
+  const loadCurriculum = async (retryCount = 0) => {
     if (!user?.id) {
       setLoadingCurriculum(false);
       return;
@@ -56,6 +56,16 @@ const Dashboard = () => {
         .single();
 
       if (curriculumError || !curriculum) {
+        // For new users (recently completed onboarding), wait for curriculum generation
+        const isRecentUser = user.onboarding_completed_at && 
+          new Date(user.onboarding_completed_at).getTime() > Date.now() - (5 * 60 * 1000); // Within last 5 minutes
+        
+        if (isRecentUser && retryCount < 3) {
+          console.log(`🔄 Curriculum not ready yet, retrying in 2 seconds (attempt ${retryCount + 1}/3)...`);
+          setTimeout(() => loadCurriculum(retryCount + 1), 2000);
+          return;
+        }
+
         console.log('No personalized curriculum found, using default scenarios');
         // Fallback to default scenarios
         const defaultWeek: Week = {

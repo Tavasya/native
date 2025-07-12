@@ -26,6 +26,7 @@ import AssignmentAnalyticsGraph from '@/components/dev/AssignmentAnalyticsGraph'
 import AssignmentListModal from '@/components/dev/AssignmentListModal';
 import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
 import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
+import ReportsProcessor from '@/components/dev/ReportsProcessor';
 
 // Icon component types
 interface IconProps {
@@ -645,9 +646,16 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-gray-900">Dev Tools</h2>
             </div>
 
+            {/* Reports Processor Section */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Batch Reports Processing</h3>
+              <ReportsProcessor />
+            </div>
+
+            {/* Individual Report Management */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Submission Report Management</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Individual Report Management</h3>
                 
                 <div className="space-y-4">
                   <div>

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import Agent, AgentSession, JobContext, JobRequest, WorkerOptions, cli, RoomInputOptions
 from livekit.agents.llm import ChatContext, ChatMessage, StopResponse
-from livekit.plugins import cartesia, deepgram, openai
+from livekit.plugins import elevenlabs, deepgram, openai
 
 logger = logging.getLogger("push-to-talk")
 logger.setLevel(logging.INFO)
@@ -40,8 +40,15 @@ def prewarm(proc):
         
         logger.info("Initializing TTS...")
         tts_start = time.time()
-        proc.userdata["tts"] = cartesia.TTS()
-        logger.info(f"TTS initialized in {time.time() - tts_start:.2f}s")
+        proc.userdata["tts"] = elevenlabs.TTS(
+            voice_id="XcXEQzuLXRU9RcfWzEJt",
+            voice_settings=elevenlabs.VoiceSettings(
+                stability=0.8,
+                similarity_boost=0.75,
+                speed=0.9
+            )
+        )
+        logger.info(f"✅ ElevenLabs TTS initialized with voice kdmDKE6EkgrWrrykO9Qt in {time.time() - tts_start:.2f}s")
         
         total_time = time.time() - start_time
         logger.info(f"Agent plugins prewarmed successfully in {total_time:.2f}s")
@@ -62,7 +69,14 @@ class MyAgent(Agent):
         # Use prewarmed plugins from process userdata if available
         stt = ctx.proc.userdata.get("stt") or deepgram.STT()
         llm = ctx.proc.userdata.get("llm") or openai.LLM(model="gpt-4o-mini")
-        tts = ctx.proc.userdata.get("tts") or cartesia.TTS()
+        tts = ctx.proc.userdata.get("tts") or elevenlabs.TTS(
+            voice_id="XcXEQzuLXRU9RcfWzEJt",
+            voice_settings=elevenlabs.VoiceSettings(
+                stability=0.8,
+                similarity_boost=0.75,
+                speed=0.9
+            )
+        )
         
         # Store the context to access room later
         self.ctx = ctx

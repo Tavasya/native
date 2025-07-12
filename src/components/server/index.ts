@@ -16,9 +16,15 @@ app.use(express.json());
 const API_KEY = process.env.LIVEKIT_API_KEY;
 const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
-console.log('LIVEKIT_URL loaded:', LIVEKIT_URL);
-console.log('API_KEY loaded:', API_KEY);
-console.log('API_SECRET loaded:', API_SECRET);
+console.log('🔍 LIVEKIT_URL loaded:', LIVEKIT_URL);
+console.log('🔍 API_KEY loaded:', API_KEY);
+console.log('🔍 API_SECRET loaded:', API_SECRET);
+console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
+console.log('🔍 All LIVEKIT env vars:', {
+  LIVEKIT_URL: process.env.LIVEKIT_URL,
+  LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY,
+  LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET
+});
 
 export type ConnectionDetails = {
   serverUrl: string;
