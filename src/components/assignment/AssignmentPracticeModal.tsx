@@ -295,7 +295,7 @@ const AssignmentPracticeModal: React.FC = () => {
             <h3 className="font-medium text-gray-900 mb-2">Practice Text:</h3>
             {isLoadingTranscript ? (
               <div className="flex items-center gap-3 py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                <Loader2 className="h-5 w-5 animate-spin text-[#272A69]" />
                 <span className="text-gray-600">Generating improved transcript...</span>
               </div>
             ) : practiceSession?.improved_transcript ? (
@@ -313,7 +313,7 @@ const AssignmentPracticeModal: React.FC = () => {
               </div>
             )}
             {recording.hasRecording && !recording.isRecording && (
-              <div className="text-green-600 font-medium">
+                              <div className="text-orange-600 font-medium">
                 Recording completed ({formatTime(recording.recordingTime)})
               </div>
             )}

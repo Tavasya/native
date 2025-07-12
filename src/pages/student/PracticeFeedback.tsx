@@ -313,7 +313,7 @@ const PracticeFeedback: React.FC = () => {
             <h3 className="text-lg font-medium">Practice Data Not Available</h3>
           </div>
           <p className="text-gray-600 mb-6">{feedbackError}</p>
-          <Button onClick={handleBack} className="bg-blue-600 hover:bg-blue-700" size="lg">
+          <Button onClick={handleBack} className="bg-[#272A69] hover:bg-[#272A69]/90" size="lg">
             Go Back
           </Button>
         </div>
@@ -325,7 +325,7 @@ const PracticeFeedback: React.FC = () => {
         <div className="text-center py-8">
           <h3 className="text-lg font-medium mb-4">Loading Practice Data...</h3>
           <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#272A69]"></div>
           </div>
         </div>
       );
@@ -333,11 +333,11 @@ const PracticeFeedback: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-medium">Practice Transcripts</h3>
+        <h3 className="text-lg font-medium text-[#272A69]">Practice Transcripts</h3>
         
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-3">
-            <h4 className="font-medium text-gray-800">Your Original Response</h4>
+            <h4 className="font-medium text-[#272A69]">Your Original Response</h4>
             <div className="p-4 bg-gray-50 rounded-lg border">
               <p className="text-sm whitespace-pre-wrap">
                 {feedbackData.original}
@@ -368,7 +368,7 @@ const PracticeFeedback: React.FC = () => {
 
         {feedbackData.audioUrl && (
           <div className="space-y-3">
-            <h4 className="font-medium text-gray-800">Your Recording</h4>
+            <h4 className="font-medium text-[#272A69]">Your Recording</h4>
             <audio controls className="w-full">
               <source src={feedbackData.audioUrl} type="audio/webm" />
               <source src={feedbackData.audioUrl} type="audio/mp3" />
@@ -379,7 +379,7 @@ const PracticeFeedback: React.FC = () => {
         
         {isPart2Completed && feedbackData.part2RecordingUrl && (
           <div className="space-y-3">
-            <h4 className="font-medium text-gray-800">Part 2 Practice Recording</h4>
+            <h4 className="font-medium text-[#272A69]">Part 2 Practice Recording</h4>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle className="h-5 w-5 text-green-600" />
@@ -403,10 +403,10 @@ const PracticeFeedback: React.FC = () => {
             <Button
               onClick={handleStartPronunciationPractice}
               disabled={practiceSessionLoading || !feedbackData?.enhanced || isTranscriptCompleted}
-              className={`px-6 py-3 text-lg font-medium ${
+                              className={`px-6 py-3 text-lg font-medium ${
                 isTranscriptCompleted 
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-[#272A69] hover:bg-[#272A69]/90 text-white'
               }`}
               size="lg"
             >
@@ -437,7 +437,7 @@ const PracticeFeedback: React.FC = () => {
                     ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
                     : loadingAssignment || !assignment
                       ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
                 }`}
                 size="lg"
               >
@@ -483,13 +483,13 @@ const PracticeFeedback: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={handleBack}
-            className="text-gray-600 hover:text-gray-900"
+            className="text-[#272A69] hover:text-[#272A69]/80"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Practice Feedback</h1>
+            <h1 className="text-2xl font-bold text-[#272A69]">Practice Feedback</h1>
             <p className="text-gray-600">Compare your original response with the enhanced version</p>
           </div>
         </div>

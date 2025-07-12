@@ -202,8 +202,8 @@ const PracticePart2Modal: React.FC = () => {
             Original Question
           </h3>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-gray-800 leading-relaxed">
+          <div className="bg-[#272A69]/5 border border-[#272A69]/20 rounded-lg p-4">
+            <p className="text-sm text-[#272A69] leading-relaxed">
               {originalQuestion}
             </p>
           </div>
@@ -212,12 +212,12 @@ const PracticePart2Modal: React.FC = () => {
 
       {/* Improved Transcript Display */}
       <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <h3 className="text-lg font-medium text-[#272A69] mb-4">
           Improved Transcript
         </h3>
-        <div className="text-gray-800 leading-relaxed">
-          {renderHighlightedText(improvedTranscript, highlights)}
-        </div>
+                  <div className="text-[#272A69] leading-relaxed">
+            {renderHighlightedText(improvedTranscript, highlights)}
+          </div>
         {(highlights.length > 0 || userAddedHighlights.length > 0) && (
           <div className="mt-4 text-sm text-gray-600 space-y-2">
             <div className="text-xs text-gray-500">
@@ -303,7 +303,7 @@ const PracticePart2Modal: React.FC = () => {
         
         <Button
           onClick={handleNext}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-[#272A69] hover:bg-[#272A69]/90"
         >
           Next
         </Button>
@@ -323,14 +323,14 @@ const PracticePart2Modal: React.FC = () => {
     return (
       <div className="space-y-4">
         {bulletPoints.map((bulletPoint, index) => (
-          <div key={index} className="text-gray-800">
+          <div key={index} className="text-[#272A69]">
             <div className="flex items-start gap-2">
               <span className="text-gray-600 font-medium min-w-fit">{index + 1}.</span>
               <div className="flex-1">
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-[#272A69]">
                   {bulletPoint.word}
                 </div>
-                <div className="mt-1 text-gray-700 leading-relaxed">
+                <div className="mt-1 text-[#272A69]/80 leading-relaxed">
                   {bulletPoint.description || <span className="italic text-gray-500">No description added.</span>}
                 </div>
               </div>
@@ -346,12 +346,12 @@ const PracticePart2Modal: React.FC = () => {
       {/* Original Question */}
       {originalQuestion && (
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-[#272A69]">
             Original Question
           </h3>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-gray-800 leading-relaxed">
+          <div className="bg-[#272A69]/5 border border-[#272A69]/20 rounded-lg p-4">
+            <p className="text-sm text-[#272A69] leading-relaxed">
               {originalQuestion}
             </p>
           </div>
@@ -360,7 +360,7 @@ const PracticePart2Modal: React.FC = () => {
 
       {/* Word Definitions & Notes (Read-only) */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">
+        <h3 className="text-lg font-medium text-[#272A69]">
           Your Word Definitions & Notes
         </h3>
         
@@ -371,7 +371,7 @@ const PracticePart2Modal: React.FC = () => {
 
       {/* Recording Section */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium text-gray-900">
+        <h3 className="text-lg font-medium text-[#272A69]">
           Record Your Practice
         </h3>
         
@@ -391,7 +391,7 @@ const PracticePart2Modal: React.FC = () => {
                     className={`w-16 h-16 rounded-full ${
                       isRecording 
                         ? 'bg-red-500 hover:bg-red-600' 
-                        : 'bg-blue-500 hover:bg-blue-600'
+                        : 'bg-[#272A69] hover:bg-[#272A69]/90'
                     }`}
                   >
                     {isProcessing || isUploading ? (
@@ -456,7 +456,7 @@ const PracticePart2Modal: React.FC = () => {
         {recordingUrl ? (
           <Button
             onClick={handleDone}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
           >
             Done
           </Button>

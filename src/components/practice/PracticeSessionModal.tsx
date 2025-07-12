@@ -674,15 +674,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     const isCorrect = pronunciationResult.overallScore >= threshold;
     
     return (
-      <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      <div className={`p-4 rounded-lg border ${isCorrect ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
         <div className="flex items-center gap-3 mb-2">
           {isCorrect ? (
-            <CheckCircle className="h-6 w-6 text-green-600" />
+            <CheckCircle className="h-6 w-6 text-orange-600" />
           ) : (
             <XCircle className="h-6 w-6 text-red-600" />
           )}
           <div>
-            <h4 className={`font-medium ${isCorrect ? 'text-green-800' : 'text-red-800'}`}>
+            <h4 className={`font-medium ${isCorrect ? 'text-orange-800' : 'text-red-800'}`}>
               {isCorrect ? 'Great job!' : 'Let\'s try again'}
             </h4>
           </div>
@@ -745,7 +745,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <DialogTitle>Preparing Practice Session</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#272A69]"></div>
             <span className="ml-2 text-gray-600">Please wait...</span>
           </div>
         </DialogContent>
@@ -780,7 +780,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               </Button>
               <Button
                 onClick={handleStartPart2}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-[#272A69] hover:bg-[#272A69]/90"
               >
                 Part 2 of Practice
               </Button>
@@ -812,7 +812,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         <div className="space-y-6">
           {/* Progress Bar */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-[#272A69]">
               <span>
                 {practiceMode === 'full-transcript' 
                   ? !hasTriedFullTranscript 
@@ -863,7 +863,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           {/* Current Text */}
           <div className="bg-gray-50 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
+              <h3 className="text-lg font-medium text-[#272A69]">
                 {practiceMode === 'full-transcript' 
                   ? !hasTriedFullTranscript 
                     ? 'Read the entire transcript aloud:' 
@@ -890,7 +890,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               </div>
             </div>
             
-            <div className={`text-gray-800 leading-relaxed mb-4 ${practiceMode === 'word-by-word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
+            <div className={`text-[#272A69] leading-relaxed mb-4 ${practiceMode === 'word-by-word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
               {currentText}
             </div>
 
@@ -898,11 +898,11 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
             {/* Show problematic words list when in word-by-word mode */}
             {practiceMode === 'word-by-word' && problematicWords.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <div className="text-sm text-yellow-800">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                <div className="text-sm text-orange-800">
                   <strong>Words to practice:</strong> {problematicWords.join(', ')}
                 </div>
-                <div className="text-xs text-yellow-600 mt-1">
+                <div className="text-xs text-orange-600 mt-1">
                   These words need improvement based on your pronunciation
                 </div>
               </div>
@@ -949,15 +949,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               )}
 
               {isProcessing && (
-                <div className="flex items-center gap-2 text-blue-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <div className="flex items-center gap-2 text-[#272A69]">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#272A69]"></div>
                   <span className="text-sm">Processing...</span>
                 </div>
               )}
 
               {isAssessing && (
-                <div className="flex items-center gap-2 text-purple-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                <div className="flex items-center gap-2 text-[#272A69]">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#272A69]"></div>
                   <span className="text-sm">Assessing pronunciation...</span>
                 </div>
               )}
