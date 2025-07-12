@@ -80,7 +80,7 @@ const OnboardingFlow: React.FC = () => {
   const [showPersonalization, setShowPersonalization] = useState(false);
   const [personalizationStep, setPersonalizationStep] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+
   const hasTriggeredCreation = useRef(false);
 
   const currentQuestion = onboardingQuestions[currentStep];
@@ -118,7 +118,7 @@ const OnboardingFlow: React.FC = () => {
         return;
       }
       
-      setIsCreatingPlan(true);
+
       
       const onboardingAnswers: OnboardingAnswers = {
         'target-score': answers['target-score'],
@@ -151,7 +151,7 @@ const OnboardingFlow: React.FC = () => {
       // Navigate anyway in case of unexpected errors
       navigate('/luna/dashboard');
     } finally {
-      setIsCreatingPlan(false);
+      // Cleanup if needed
     }
   }, [user?.id, answers, dispatch, navigate]);
 
