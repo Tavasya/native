@@ -73,7 +73,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
               className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-6 py-3 rounded-md flex items-center gap-2 mx-auto"
             >
               <Play className="h-5 w-5" />
-              What Tutorial Video
+              Watch Tutorial Video
             </Button>
           </div>
         </div>

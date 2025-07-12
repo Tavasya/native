@@ -9,7 +9,7 @@ export LIVEKIT_API_KEY="APIMeKq8mrmU6n5"
 export LIVEKIT_API_SECRET="fHdueZwHo6zaRv1Y9jxm7fXmFiliLe9xLlfWhAPn53kB"
 export OPENAI_API_KEY="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"
 export DEEPGRAM_API_KEY="b0bdf3d5fed47124f470623d838320ba6353ecb3"
-export ELEVENLABS_API_KEY="sk_ca532a6f1520a09377621d47e39b337ab38a5eac09a346cf"
+export ELEVENLABS_API_KEY="sk_541d927e98864e2b35e8471cc6cb79428d40b29ca4a31a8b"
 # Deploy to Cloud Run
 gcloud run deploy livekit-agent \
     --source . \

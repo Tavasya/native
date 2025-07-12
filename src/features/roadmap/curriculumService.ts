@@ -101,6 +101,9 @@ const distributeAssignments = (
     };
   });
   
+  // Track used assignments to prevent duplicates
+  const usedAssignmentIds = new Set<string>();
+  
   // Calculate progressive level distribution across weeks
   const levelDistribution = calculateLevelDistribution(levels, totalWeeks);
   
@@ -110,22 +113,24 @@ const distributeAssignments = (
     const conversationsNeeded = Math.ceil(assignmentsPerWeek * 0.7);
     const pronunciationsNeeded = assignmentsPerWeek - conversationsNeeded;
     
-    // Get available assignments for this week's level
-    const availableConversations = assignmentsByLevel[weekLevel]?.conversations || [];
-    const availablePronunciations = assignmentsByLevel[weekLevel]?.pronunciations || [];
+    // Get available assignments for this week's level (excluding already used ones)
+    const availableConversations = (assignmentsByLevel[weekLevel]?.conversations || [])
+      .filter(a => !usedAssignmentIds.has(a.id));
+    const availablePronunciations = (assignmentsByLevel[weekLevel]?.pronunciations || [])
+      .filter(a => !usedAssignmentIds.has(a.id));
     
     // Add conversations for this week
-    const weekConversations = selectAssignmentsForWeek(
+    const weekConversations = selectUniqueAssignmentsForWeek(
       availableConversations, 
       conversationsNeeded,
-      week
+      usedAssignmentIds
     );
     
     // Add pronunciations for this week
-    const weekPronunciations = selectAssignmentsForWeek(
+    const weekPronunciations = selectUniqueAssignmentsForWeek(
       availablePronunciations,
       pronunciationsNeeded,
-      week
+      usedAssignmentIds
     );
     
     // Mix conversations and pronunciations
@@ -172,23 +177,31 @@ const calculateLevelDistribution = (levels: string[], totalWeeks: number): strin
   return distribution;
 };
 
-// Helper function to select assignments for a week with cycling
-const selectAssignmentsForWeek = (
+// Helper function to select unique assignments for a week
+const selectUniqueAssignmentsForWeek = (
   availableAssignments: Assignment[],
   needed: number,
-  weekIndex: number
+  usedAssignmentIds: Set<string>
 ): Assignment[] => {
   if (availableAssignments.length === 0) return [];
   
   const selected: Assignment[] = [];
   const shuffled = shuffleArray([...availableAssignments]);
   
-  // Start from a different position each week to ensure variety
-  const startIndex = (weekIndex * 3) % shuffled.length;
+  // Select unique assignments up to the needed amount
+  for (const assignment of shuffled) {
+    if (selected.length >= needed) break;
+    
+    if (!usedAssignmentIds.has(assignment.id)) {
+      selected.push(assignment);
+      usedAssignmentIds.add(assignment.id);
+    }
+  }
   
-  for (let i = 0; i < needed; i++) {
-    const index = (startIndex + i) % shuffled.length;
-    selected.push(shuffled[index]);
+  // If we don't have enough unique assignments, we might need to allow some repetition
+  // but only if absolutely necessary (e.g., very long curriculum with limited assignments)
+  if (selected.length < needed && shuffled.length > 0) {
+    console.warn(`Only ${selected.length} unique assignments available for this level/type, needed ${needed}. Consider adding more assignments to the database.`);
   }
   
   return selected;
@@ -242,7 +255,13 @@ export const curriculumService = {
       progressionLevels.includes(assignment.level)
     );
     
-    // Step 4: Distribute across weeks with progressive difficulty
+    // Step 4: Check if we have enough unique assignments
+    const totalAssignmentsNeeded = totalWeeks * assignmentsPerWeek;
+    if (relevantAssignments.length < totalAssignmentsNeeded) {
+      console.warn(`Limited assignments available: ${relevantAssignments.length} available, ${totalAssignmentsNeeded} needed. Curriculum will include unique assignments only.`);
+    }
+    
+    // Step 5: Distribute across weeks with progressive difficulty and no duplicates
     const weeklyAssignments = distributeAssignments(
       relevantAssignments, 
       totalWeeks, 

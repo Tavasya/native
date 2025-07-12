@@ -23,6 +23,7 @@ import type { Scenario } from './scenario-dashboard';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 import { completionService } from '@/features/roadmap';
+import { useAgentControlBar } from '@/components/livekit/agent-control-bar/hooks/use-agent-control-bar';
 
 function isAgentAvailable(agentState: AgentState) {
   return agentState == 'listening' || agentState == 'thinking' || agentState == 'speaking';
@@ -42,8 +43,8 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   disabled,
   sessionStarted,
   selectedScenario,
-  assignmentId: _assignmentId,
-  onConversationCompleted: _onConversationCompleted,
+  assignmentId,
+  onConversationCompleted,
 }, ref) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
@@ -52,8 +53,35 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
   const { messages, send } = useChatAndTranscription();
   const { user } = useSelector((state: RootState) => state.auth);
   const room = useRoomContext();
+  const { pushToTalk } = useAgentControlBar();
 
   useDebugMode();
+
+  // Helper function to track assignment completion
+  const trackAssignmentCompletion = async (reason: string) => {
+    if (user?.id && assignmentId && selectedScenario && !completionTracked) {
+      console.log(`🎯 ${reason} - Tracking assignment completion...`);
+      try {
+        const result = await completionService.markAssignmentComplete({
+          userId: user.id,
+          assignmentId: assignmentId,
+          assignmentType: 'conversation',
+          scenarioName: selectedScenario.name
+        });
+        
+        if (result.success) {
+          console.log(`✅ Assignment completion tracked in database (${reason})`);
+          setCompletionTracked(true);
+          // Notify app component that conversation is completed
+          onConversationCompleted?.();
+        } else {
+          console.error(`❌ Failed to track completion (${reason}):`, result.error);
+        }
+      } catch (error) {
+        console.error(`❌ Error tracking completion (${reason}):`, error);
+      }
+    }
+  };
 
   async function handleSendMessage(message: string) {
     await send(message);
@@ -119,43 +147,47 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
     }
   }, [agentState, sessionStarted, selectedScenario, messages.length, room]);
 
-  // Auto-end conversation when we reach the final turn
+  // Auto-end conversation when we reach the final turn (or beyond)
   useEffect(() => {
     if (selectedScenario && scriptAwareTurns >= selectedScenario.turns && !completionTracked) {
       console.log(`🎯 Conversation completed! Reached turn ${scriptAwareTurns}/${selectedScenario.turns}, ending call...`);
       
-      // Mark assignment as complete
-      if (user?.id) {
-        completionService.markAssignmentComplete({
-          userId: user.id,
-          assignmentId: selectedScenario.id,
-          assignmentType: 'conversation',
-          scenarioName: selectedScenario.name
-        }).then(result => {
-          if (result.success) {
-            console.log(`✅ Conversation completion tracked in database`);
-          } else {
-            console.error(`❌ Failed to track completion:`, result.error);
-          }
+      // Track assignment completion
+      trackAssignmentCompletion("Final turn reached");
+      
+      // Disconnect immediately after completion
+      if (room.state === 'connected') {
+        console.log(`🔚 Disconnecting from room after conversation completion`);
+        toastAlert({
+          title: 'Conversation Completed!',
+          description: `Great job completing ${selectedScenario.name}!`,
         });
-        setCompletionTracked(true);
+        room.disconnect();
       }
-      
-      // Add a small delay to let the final message finish playing
-      const endCallTimeout = setTimeout(() => {
-        // Only disconnect if still connected to avoid multiple disconnection attempts
-        if (room.state === 'connected') {
-          toastAlert({
-            title: 'Conversation Completed!',
-            description: `Great job completing ${selectedScenario.name}!`,
-          });
-          room.disconnect();
-        }
-      }, 2000); // Reduced to 2 second delay for better responsiveness
-      
-      return () => clearTimeout(endCallTimeout);
     }
-  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id]);
+    
+    // Also track completion if we've gone significantly beyond expected turns
+    if (selectedScenario && scriptAwareTurns > selectedScenario.turns + 2 && !completionTracked) {
+      console.log(`🎯 Conversation went beyond expected turns (${scriptAwareTurns}/${selectedScenario.turns}), marking as complete anyway...`);
+      trackAssignmentCompletion("Exceeded expected turns");
+    }
+  }, [scriptAwareTurns, selectedScenario, room, completionTracked, user?.id, trackAssignmentCompletion]);
+
+  // Track completion when user disconnects if they've done enough turns
+  useEffect(() => {
+    const handleDisconnect = () => {
+      // If user has done at least 70% of expected turns, mark as complete
+      if (selectedScenario && scriptAwareTurns >= Math.ceil(selectedScenario.turns * 0.7) && !completionTracked) {
+        console.log(`🎯 User disconnected after ${scriptAwareTurns}/${selectedScenario.turns} turns, marking as complete...`);
+        trackAssignmentCompletion("User disconnected with sufficient progress");
+      }
+    };
+
+    room.on('disconnected', handleDisconnect);
+    return () => {
+      room.off('disconnected', handleDisconnect);
+    };
+  }, [room, selectedScenario, scriptAwareTurns, completionTracked, trackAssignmentCompletion]);
 
   const { supportsChatInput, supportsVideoInput, supportsScreenShare } = appConfig;
   const capabilities = {
@@ -179,7 +211,7 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
         className={
           // prevent page scrollbar
           // when !chatOpen due to 'translate-y-20'
-          cn(!chatOpen && 'max-h-svh overflow-hidden')
+          cn(!chatOpen && 'max-h-svh overflow-y-hidden overflow-x-visible')
         }
       >
       <ChatMessageView
@@ -234,6 +266,7 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
         sessionStarted={sessionStarted}
         onResponseSelect={handleSuggestedResponse}
         onTurnChange={setScriptAwareTurns}
+        isPttActive={pushToTalk.isPttActive}
       />
 
       {/* Suggested Responses now integrated into AgentTile */}
@@ -279,7 +312,7 @@ export const SessionView = forwardRef<HTMLElement, SessionViewProps>(({
             />
           </div>
           {/* skrim */}
-          <div className="from-background border-background absolute top-0 left-0 h-12 w-full -translate-y-full bg-gradient-to-t to-transparent" />
+          <div className="from-background border-background absolute top-0 left-0 h-12 w-full -translate-y-full bg-gradient-to-t to-transparent z-10" />
         </motion.div>
       </div>
     </main>

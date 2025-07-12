@@ -730,7 +730,7 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/5">
                               <div className="flex items-center gap-2">
                                 <Button
-                                  variant="ghost"
+                                  variant="secondary"
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();

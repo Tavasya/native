@@ -321,12 +321,13 @@ class MyAgent(Agent):
                             # Don't raise StopResponse - let LLM handle the conversation
                             return
                 else:
-                    # User is off script, repeat current turn's response to help them get back on track
+                    # User is off script, provide feedback and then the expected script
                     scripted_response = current_script.get("agent", "")
-                    logger.info(f"🎭 User off script - Repeating current turn response for turn {self.current_turn}: '{scripted_response}'")
+                    off_script_response = f"I couldn't understand you. {scripted_response}"
+                    logger.info(f"🎭 User off script - Saying 'I couldn't understand you' + current turn response for turn {self.current_turn}: '{off_script_response}'")
                     
-                    # Speak the scripted response directly
-                    await self.session.say(scripted_response)
+                    # Speak the feedback with scripted response
+                    await self.session.say(off_script_response)
                     
                     # Stay on current turn
                     logger.info(f"🎭 User off script - Staying on turn {self.current_turn}")

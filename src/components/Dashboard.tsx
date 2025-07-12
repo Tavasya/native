@@ -313,7 +313,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div className="max-w-6xl mx-auto p-6 pt-20">
+      <div className="max-w-6xl mx-auto p-4 md:p-6 pt-20">
         {/* Header */}
         <div className="mb-8">
 
@@ -397,36 +397,38 @@ const Dashboard = () => {
                     {week.assignments.map((assignment, index) => (
                       <div 
                         key={assignment.id}
-                        className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-all duration-200 hover:shadow-sm border border-transparent hover:border-gray-200"
+                        className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-all duration-200 hover:shadow-sm border border-transparent hover:border-gray-200"
                         onClick={() => handleAssignmentClick(assignment)}
                       >
-                        <div className="w-6 text-center text-sm font-medium text-gray-500">
+                        <div className="w-6 text-center text-sm font-medium text-gray-500 mt-1">
                           {index + 1}
                         </div>
                         <div className="text-2xl">
                           {assignment.icon}
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-1">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-1">
                             <h3 className={`font-medium ${assignment.completed ? 'line-through text-gray-500' : 'text-blue-600 hover:text-blue-700'}`}>
                               {assignment.title}
                             </h3>
-                            <span className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(assignment.difficulty)} bg-opacity-10`}>
-                              {assignment.difficulty}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {assignment.duration}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(assignment.difficulty)} bg-opacity-10`}>
+                                {assignment.difficulty}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {assignment.duration}
+                              </span>
+                              <span className={`text-xs px-2 py-1 rounded-full ${getTypeColor(assignment.type)}`}>
+                                {assignment.type}
+                              </span>
+                            </div>
                           </div>
                           <p className="text-sm text-gray-600">
                             {assignment.description}
                           </p>
                         </div>
-                        <span className={`text-xs px-3 py-1 rounded-full ${getTypeColor(assignment.type)}`}>
-                          {assignment.type}
-                        </span>
                         <div 
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
                             assignment.completed 
                               ? 'bg-green-500 border-green-500' 
                               : 'border-gray-300 hover:border-gray-400'

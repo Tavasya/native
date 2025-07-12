@@ -94,9 +94,10 @@ interface MediaTilesProps {
   sessionStarted?: boolean;
   onResponseSelect?: (response: string) => void;
   onTurnChange?: (turn: number) => void;
+  isPttActive?: boolean;
 }
 
-export function MediaTiles({ chatOpen, selectedScenario, sessionStarted, onResponseSelect, onTurnChange }: MediaTilesProps) {
+export function MediaTiles({ chatOpen, selectedScenario, sessionStarted, onResponseSelect, onTurnChange, isPttActive }: MediaTilesProps) {
   const {
     state: agentState,
     audioTrack: agentAudioTrack,
@@ -217,14 +218,15 @@ export function MediaTiles({ chatOpen, selectedScenario, sessionStarted, onRespo
         
         {/* Suggested Responses positioned outside agent tile */}
         {selectedScenario && sessionStarted && onResponseSelect && !chatOpen && (
-          <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 pointer-events-auto z-60">
-            <div className="w-80 max-w-sm">
+          <div className="fixed bottom-52 left-1/2 transform -translate-x-1/2 pointer-events-auto z-60">
+            <div className="min-w-80 max-w-2xl">
               <SuggestedResponses
                 scenario={selectedScenario}
                 onResponseSelect={onResponseSelect}
                 disabled={!isAgentAvailable}
                 onTurnChange={onTurnChange}
                 agentState={agentState}
+                isPttActive={isPttActive}
               />
             </div>
           </div>

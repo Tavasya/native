@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useVoiceAssistant, useTranscriptions, useRoomContext, type AgentState } from '@livekit/components-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { Badge } from './ui/badge';
 import type { Scenario } from './scenario-dashboard';
 
 interface SuggestedResponsesProps {
@@ -12,40 +11,24 @@ interface SuggestedResponsesProps {
   disabled?: boolean;
   onTurnChange?: (turns: number) => void; // Callback to notify parent of turn changes
   agentState?: AgentState;
+  isPttActive?: boolean; // Whether user is actively holding space to talk
 }
 
-// Text similarity function for off-script detection
-function calculateSimilarity(userText: string, expectedText: string): number {
-  if (!userText || !expectedText) return 0;
-  
-  const userWords = userText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-  const expectedWords = expectedText.toLowerCase().split(/\s+/).filter(word => word.length > 2);
-  
-  if (userWords.length === 0 || expectedWords.length === 0) return 0;
-  
-  const commonWords = userWords.filter(word => 
-    expectedWords.some(expected => 
-      expected.includes(word) || word.includes(expected) || 
-      word === expected
-    )
-  );
-  
-  return commonWords.length / Math.max(userWords.length, expectedWords.length);
-}
 
 export function SuggestedResponses({ 
   scenario, 
   onResponseSelect, 
   disabled,
   onTurnChange,
-  agentState 
+  agentState,
+  isPttActive 
 }: SuggestedResponsesProps) {
   const [selectedResponse, setSelectedResponse] = useState<string | null>(null);
   const [currentTurn, setCurrentTurn] = useState(1);
-  const [isOffScript, setIsOffScript] = useState(false);
   const [lastEvaluatedTranscript, setLastEvaluatedTranscript] = useState<string>('');
   const [isHidden, setIsHidden] = useState(false);
   const [lastAgentState, setLastAgentState] = useState<AgentState>('disconnected');
+  const [wasActivelySpeaking, setWasActivelySpeaking] = useState(false);
   const { state } = useVoiceAssistant();
   const transcriptions = useTranscriptions();
   const room = useRoomContext();
@@ -84,7 +67,19 @@ export function SuggestedResponses({
         const data = JSON.parse(new TextDecoder().decode(payload));
         if (data.type === 'turn_advancement' && typeof data.turn === 'number') {
           console.log('🔔 SuggestedResponses: Received turn advancement from agent:', data.turn);
-          setCurrentTurn(data.turn);
+          
+          // Hide component briefly when turn advances (AI accepted response)
+          setIsHidden(true);
+          
+          // Show component again for new turn after brief delay
+          setTimeout(() => {
+            setCurrentTurn(data.turn);
+            setLastEvaluatedTranscript('');
+            setWasActivelySpeaking(false);
+            setIsHidden(false);
+            console.log('🔄 Showing component for new turn');
+          }, 500);
+          
           // Notify parent of turn advancement for progress tracking
           onTurnChange?.(data.turn - 1); // ConversationProgress expects 0-based turn count
         }
@@ -99,51 +94,44 @@ export function SuggestedResponses({
     };
   }, [room, onTurnChange]);
 
-  // Track transcription changes for script checking - only show off-script warnings, let agent control turn progression
+  // Track when user starts/stops speaking (push-to-talk)
+  useEffect(() => {
+    if (isPttActive && !wasActivelySpeaking) {
+      // User just started speaking - show component
+      console.log('🎤 User started speaking');
+      setIsHidden(false);
+      setWasActivelySpeaking(true);
+    } else if (!isPttActive && wasActivelySpeaking) {
+      // User just stopped speaking
+      console.log('🎤 User stopped speaking');
+      setWasActivelySpeaking(false);
+    }
+  }, [isPttActive, wasActivelySpeaking]);
+
+  // Let the AI agent be the sole decision maker for script adherence
+  // Keep component visible unless AI explicitly advances turn
   useEffect(() => {
     if (!latestUserTranscript || !scenario || latestUserTranscript === lastEvaluatedTranscript) return;
     
-    const currentScript = scenario?.conversationScript.find(script => script.turn === currentTurn);
-    const expectedResponse = currentScript?.suggestedResponse;
-    
-    if (expectedResponse) {
-      const similarity = calculateSimilarity(latestUserTranscript, expectedResponse);
-      const isOnScript = similarity > 0.3; // Threshold for script adherence
-      
-      console.log('🎯 SuggestedResponses script check:', {
-        currentTurn: currentTurn,
-        userSaid: latestUserTranscript,
-        expected: expectedResponse,
-        similarity: similarity.toFixed(3),
-        isOnScript: isOnScript,
-        lastEvaluated: lastEvaluatedTranscript
-      });
-      
-      // Mark this transcription as evaluated
-      setLastEvaluatedTranscript(latestUserTranscript);
-      
-      if (isOnScript) {
-        // User is on script - clear off-script warnings and hide component temporarily
-        console.log('✅ SuggestedResponses: User is on script, hiding component');
-        setIsOffScript(false);
-        setIsHidden(true); // Hide when user gets it right
-        // Note: Will show again when agent stops speaking
-      } else {
-        // User is off script - show warning and make sure component is visible
-        console.log('❌ SuggestedResponses: User is off script, showing warning');
-        setIsOffScript(true);
-        setIsHidden(false); // Make sure it's visible for off-script feedback
-      }
+    // Don't evaluate while user is actively speaking (holding space)
+    if (isPttActive || wasActivelySpeaking) {
+      console.log('🎤 User is speaking, keeping component visible');
+      return;
     }
-  }, [latestUserTranscript, scenario?.conversationScript, currentTurn, lastEvaluatedTranscript]);
+    
+    // Mark this transcription as evaluated but don't hide - let AI decide by advancing turn
+    setLastEvaluatedTranscript(latestUserTranscript);
+    console.log('✅ User finished speaking, waiting for AI decision');
+    
+  }, [latestUserTranscript, scenario?.conversationScript, currentTurn, lastEvaluatedTranscript, isPttActive, wasActivelySpeaking]);
 
   // Reset turn when scenario changes
   useEffect(() => {
     setCurrentTurn(1);
     setSelectedResponse(null);
-    setIsOffScript(false);
     setIsHidden(false);
     setLastEvaluatedTranscript('');
+    setWasActivelySpeaking(false);
   }, [scenario]);
 
   if (!scenario) {
@@ -179,36 +167,23 @@ export function SuggestedResponses({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className="w-full"
+        className="min-w-80 max-w-2xl"
       >
-        <div className="w-full">
-          <Card className={`backdrop-blur-sm border-2 transition-all duration-300 ${
-            isOffScript 
-              ? 'border-orange-300 bg-orange-50/90 shadow-lg shadow-orange-100' 
-              : 'border-primary/20 bg-background/95 shadow-lg'
-          }`}>
+        <div className="min-w-80 max-w-2xl">
+          <Card className="backdrop-blur-sm border-2 transition-all duration-300 border-primary/20 bg-background/95 shadow-lg">
             <CardContent className="p-4">
-              {isOffScript && (
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="destructive" className="text-xs">
-                    ⚠️ Off Script
-                  </Badge>
-                </div>
-              )}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold uppercase tracking-wide ${
-                    isOffScript ? 'text-orange-800' : 'text-muted-foreground'
-                  }`}>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Say:
                   </span>
                 </div>
                 <Button
-                  variant={isOffScript ? "destructive" : "outline"}
+                  variant="outline"
                   size="sm"
                   onClick={() => handleResponseClick(suggestedResponse)}
                   disabled={disabled}
-                  className={`w-full text-left justify-start h-auto p-3 text-sm font-medium transition-all hover:scale-[1.02] ${
+                  className={`min-w-80 max-w-2xl whitespace-normal text-left justify-start h-auto p-3 text-sm font-medium transition-all hover:scale-[1.02] ${
                     selectedResponse === suggestedResponse 
                       ? 'ring-2 ring-primary ring-offset-2' 
                       : ''
@@ -216,11 +191,6 @@ export function SuggestedResponses({
                 >
                   <span className="text-foreground">"{suggestedResponse}"</span>
                 </Button>
-                {!isOffScript && (
-                  <p className="text-xs text-muted-foreground text-center">
-                  
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
