@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -61,11 +61,12 @@ const onboardingQuestions = [
 ];
 
 const personalizationSteps = [
-  "Analyzing your target score...",
-  "Creating your study schedule...",
-  "Mapping your learning path...",
-  "Personalizing practice sessions...",
-  "Finalizing your IELTS plan..."
+  "Analyzing your IELTS goals and timeline...",
+  "Mapping optimal learning pathways...",
+  "Selecting personalized practice scenarios...",
+  "Calibrating difficulty progression algorithms...",
+  "Generating your adaptive curriculum...",
+  "Optimizing for maximum score improvement..."
 ];
 
 const OnboardingFlow: React.FC = () => {
@@ -79,27 +80,11 @@ const OnboardingFlow: React.FC = () => {
   const [showPersonalization, setShowPersonalization] = useState(false);
   const [personalizationStep, setPersonalizationStep] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const hasTriggeredCreation = useRef(false);
 
   const currentQuestion = onboardingQuestions[currentStep];
   const isLastQuestion = currentStep === onboardingQuestions.length - 1;
-
-  useEffect(() => {
-    if (showPersonalization && !isComplete) {
-      const timer = setInterval(() => {
-        setPersonalizationStep(prev => {
-          if (prev < personalizationSteps.length - 1) {
-            return prev + 1;
-          } else {
-            setIsComplete(true);
-            clearInterval(timer);
-            return prev;
-          }
-        });
-      }, 800); // Faster loading - 800ms per step instead of 1200ms
-
-      return () => clearInterval(timer);
-    }
-  }, [showPersonalization, isComplete]);
 
   const handleOptionSelect = (value: string) => {
     setSelectedOption(value);
@@ -126,12 +111,14 @@ const OnboardingFlow: React.FC = () => {
     }
   };
 
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     try {
       if (!user?.id) {
         console.error('User not authenticated');
         return;
       }
+      
+      setIsCreatingPlan(true);
       
       const onboardingAnswers: OnboardingAnswers = {
         'target-score': answers['target-score'],
@@ -140,19 +127,56 @@ const OnboardingFlow: React.FC = () => {
         'current-score': answers['current-score']
       };
 
-      // Save to Redux and backend
-      dispatch(saveOnboarding({ answers: onboardingAnswers, userId: user.id }));
+      // Save to Redux and backend - wait for curriculum creation to complete
+      const result = await dispatch(saveOnboarding({ answers: onboardingAnswers, userId: user.id }));
       dispatch(setOnboardingAnswers(onboardingAnswers));
 
       // Still store in localStorage for backward compatibility
       localStorage.setItem('lunaOnboardingAnswers', JSON.stringify(answers));
       
-      // Navigate to Dashboard
-      navigate('/luna/dashboard');
+      // Only navigate after curriculum creation is complete
+      if (saveOnboarding.fulfilled.match(result)) {
+        console.log('Onboarding and curriculum creation completed, navigating to dashboard');
+        // Small delay to ensure curriculum is fully committed to database
+        setTimeout(() => {
+          navigate('/luna/dashboard');
+        }, 500);
+      } else if (saveOnboarding.rejected.match(result)) {
+        console.error('Onboarding failed:', result.payload);
+        // Still navigate even if curriculum creation failed
+        navigate('/luna/dashboard');
+      }
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      // Navigate anyway in case of unexpected errors
+      navigate('/luna/dashboard');
+    } finally {
+      setIsCreatingPlan(false);
     }
-  };
+  }, [user?.id, answers, dispatch, navigate]);
+
+  useEffect(() => {
+    if (showPersonalization && !isComplete) {
+      const timer = setInterval(() => {
+        setPersonalizationStep(prev => {
+          if (prev === 2 && !hasTriggeredCreation.current) {
+            // On step 3 (index 2 - "Selecting..."), trigger curriculum creation
+            hasTriggeredCreation.current = true;
+            handleComplete();
+            return prev + 1;
+          } else if (prev < personalizationSteps.length - 1) {
+            return prev + 1;
+          } else {
+            setIsComplete(true);
+            clearInterval(timer);
+            return prev;
+          }
+        });
+      }, 300); // Much faster steps
+
+      return () => clearInterval(timer);
+    }
+  }, [showPersonalization, isComplete, handleComplete]);
 
   if (showPersonalization) {
     return (
@@ -189,15 +213,6 @@ const OnboardingFlow: React.FC = () => {
               ))}
             </div>
           </div>
-          
-          {isComplete && (
-            <Button 
-              onClick={handleComplete}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg"
-            >
-              Start My IELTS Journey
-            </Button>
-          )}
         </div>
       </div>
     );

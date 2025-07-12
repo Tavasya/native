@@ -3,9 +3,15 @@
 -- Drop existing policies to recreate them
 drop policy if exists "Users can view their curriculum assignments" on public.curriculum_assignments;
 drop policy if exists "Users can update their curriculum assignments" on public.curriculum_assignments;
+drop policy if exists "Users can view their own curricula" on public.personalized_curricula;
 drop policy if exists "Users can insert their own curricula" on public.personalized_curricula;
 
 -- Recreate policies with proper permissions
+
+-- Allow users to view their own curricula
+create policy "Users can view their own curricula"
+  on public.personalized_curricula for select
+  using (auth.uid() = user_id);
 
 -- Allow users to insert their own curricula
 create policy "Users can insert their own curricula" 

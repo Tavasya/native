@@ -34,7 +34,7 @@ interface Week {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, profile } = useSelector((state: RootState) => state.auth);
   const [wordsLearned, setWordsLearned] = useState(0);
   const [loadingCurriculum, setLoadingCurriculum] = useState(true);
 
@@ -48,17 +48,30 @@ const Dashboard = () => {
     }
 
     try {
+      console.log('🔍 DEBUG: Attempting to fetch curriculum for user:', user.id);
+      
+      // First, let's try a simple select to see if the table is accessible
+      const { data: testData, error: testError } = await supabase
+        .from('personalized_curricula')
+        .select('id, user_id')
+        .limit(1);
+      
+      console.log('🔍 DEBUG: Test query result:', { testData, testError });
+      
       // Fetch user's curriculum
       const { data: curriculum, error: curriculumError } = await supabase
         .from('personalized_curricula')
         .select('*')
         .eq('user_id', user.id)
         .single();
+        
+      console.log('🔍 DEBUG: Curriculum query result:', { curriculum, curriculumError });
+      console.log('🔍 DEBUG: Error details:', curriculumError?.message, curriculumError?.code, curriculumError?.details);
 
       if (curriculumError || !curriculum) {
         // For new users (recently completed onboarding), wait for curriculum generation
-        const isRecentUser = user.onboarding_completed_at && 
-          new Date(user.onboarding_completed_at).getTime() > Date.now() - (5 * 60 * 1000); // Within last 5 minutes
+        const isRecentUser = profile?.onboarding_completed_at && 
+          new Date(profile.onboarding_completed_at).getTime() > Date.now() - (5 * 60 * 1000); // Within last 5 minutes
         
         if (isRecentUser && retryCount < 3) {
           console.log(`🔄 Curriculum not ready yet, retrying in 2 seconds (attempt ${retryCount + 1}/3)...`);

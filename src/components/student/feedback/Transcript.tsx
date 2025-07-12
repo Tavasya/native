@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
-import { createHighlightedText } from '@/utils/feedback/textUtils';
+import { createHighlightedText, generateEnhancedTranscript } from '@/utils/feedback/textUtils';
 import { SectionFeedback } from '@/types/feedback';
 
 interface TranscriptProps {
@@ -28,20 +28,40 @@ const Transcript: React.FC<TranscriptProps> = ({
 }) => {
   const [showImproved, setShowImproved] = useState(false);
   
-  // Check if improved transcript is available
-  const hasImprovedTranscript = currentFeedback?.paragraph_restructuring?.improved_transcript;
+  // Check if improved transcript is available (general or grammar/vocab specific)
+  const hasGeneralImprovedTranscript = currentFeedback?.paragraph_restructuring?.improved_transcript;
+  
+  // For grammar/vocabulary, generate enhanced transcript by applying corrections
+  const hasGrammarVocabCorrections = (highlightType === 'grammar' || highlightType === 'vocabulary') && 
+    currentFeedback && 
+    (
+      (currentFeedback.grammar && (
+        (currentFeedback.grammar as any).grammar_corrections || 
+        (currentFeedback.grammar as any).issues
+      )) ||
+      (currentFeedback.vocabulary && (currentFeedback.vocabulary as any).vocabulary_suggestions)
+    );
+  
+  const hasImprovedTranscript = hasGeneralImprovedTranscript || hasGrammarVocabCorrections;
   
   // Get the text to display
-  const displayText = showImproved && hasImprovedTranscript 
-    ? currentFeedback?.paragraph_restructuring?.improved_transcript 
-    : transcript;
+  let displayText = transcript;
+  if (showImproved && hasImprovedTranscript) {
+    if (hasGeneralImprovedTranscript) {
+      // Use general improved transcript from paragraph restructuring (works for all sections)
+      displayText = currentFeedback?.paragraph_restructuring?.improved_transcript || transcript;
+    } else if (hasGrammarVocabCorrections) {
+      // Fallback: Generate enhanced transcript by applying grammar/vocabulary corrections
+      displayText = generateEnhancedTranscript(transcript, currentFeedback, selectedQuestionIndex);
+    }
+  }
 
   // Don't highlight grammar/vocabulary issues on the improved transcript
   const effectiveHighlightType = showImproved && hasImprovedTranscript ? 'none' : highlightType;
   const effectiveFeedback = showImproved && hasImprovedTranscript ? null : currentFeedback;
 
-  // Use clean_transcript for grammar and vocabulary highlighting when available
-  const textForHighlighting = (highlightType === 'grammar' || highlightType === 'vocabulary') && cleanTranscript 
+  // Use clean_transcript for grammar and vocabulary highlighting when available (only for original transcript)
+  const textForHighlighting = (highlightType === 'grammar' || highlightType === 'vocabulary') && cleanTranscript && !showImproved
     ? cleanTranscript 
     : displayText;
 

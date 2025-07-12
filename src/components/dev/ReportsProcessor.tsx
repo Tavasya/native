@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, RefreshCw, Timer, Settings } from 'lucide-react';
+import { Play, Pause, RefreshCw, Timer } from 'lucide-react';
 import { submissionService } from '@/features/submissions/submissionsService';
-import type { Submission } from '@/features/submissions/types';
+
 import PendingReportsTable from './PendingReportsTable';
 import ProcessedReportsTable, { type ProcessedReport } from './ProcessedReportsTable';
 
