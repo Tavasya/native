@@ -133,6 +133,27 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       dispatch(setIsReturningToFullTranscript(sessionData.is_returning_to_full_transcript || false));
       dispatch(setProblematicWordIndex(sessionData.problematic_word_index || 0));
 
+      // 🔧 FIX: Restore problematic words from database
+      if (sessionData.problematic_words && Array.isArray(sessionData.problematic_words)) {
+        // Convert database format to Redux format
+        const problematicWordsArray = sessionData.problematic_words.map(item => {
+          // Database format: { word: string; sentence_context?: string; ... }
+          // Redux format: string[]
+          return typeof item === 'object' && item.word ? item.word : String(item);
+        });
+        dispatch(setProblematicWords(problematicWordsArray));
+        console.log('🔄 Restored problematic words from database:', problematicWordsArray);
+      } else {
+        // Clear problematic words if none in database
+        dispatch(clearProblematicWords());
+      }
+
+      // 🔧 FIX: Restore completion state from database
+      if (sessionData.status === 'completed') {
+        setIsCompleted(true);
+        console.log('✅ Session already completed, showing completion screen');
+      }
+
       // If session doesn't have sentences yet, start practice to generate them
       if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
         console.log('🚀 Starting practice session for transcript_ready status');

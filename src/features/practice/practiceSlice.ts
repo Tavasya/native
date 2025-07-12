@@ -196,27 +196,87 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
         .select('assignment_id')
         .eq('id', submissionId)
         .single();
-      
+
       if (!submissionError && submission?.assignment_id) {
         finalAssignmentId = submission.assignment_id;
       }
     }
 
-    // Create session with enhanced transcript - don't save highlights yet
+    const userId = userSession.user.id;
+    
+    // 🔧 FIX: Check if a session already exists for this user/assignment/submission
+    let query = supabase
+      .from('practice_sessions')
+      .select('*')
+      .eq('user_id', userId);
+
+    // Prioritize by submission_id, then assignment_id
+    if (submissionId) {
+      query = query.eq('submission_id', submissionId);
+    } else if (finalAssignmentId) {
+      query = query.eq('assignment_id', finalAssignmentId);
+    }
+
+    const { data: existingSessions, error: searchError } = await query
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!searchError && existingSessions && existingSessions.length > 0) {
+      // Found an existing session, return it with completion status
+      const existingSession = existingSessions[0];
+      const isPart1Completed = existingSession.status === 'completed';
+      const isPart2Completed = existingSession.highlights && Array.isArray(existingSession.highlights) && existingSession.highlights.length > 0;
+      
+      console.log('🔄 Found existing practice session:', {
+        sessionId: existingSession.id,
+        status: existingSession.status,
+        isPart1Completed,
+        isPart2Completed,
+        hasHighlights: !!existingSession.highlights
+      });
+      
+      return {
+        ...existingSession,
+        isExistingSession: true,
+        isAlreadyCompleted: isPart1Completed,
+        isPart2Completed: isPart2Completed
+      } as PracticeSession & { isExistingSession: boolean; isAlreadyCompleted: boolean; isPart2Completed: boolean };
+    }
+
+    // No existing session found, create a new one
+    console.log('🆕 Creating new practice session...');
     const { data, error } = await supabase
       .from('practice_sessions')
       .insert({
-        user_id: userSession.user.id,
+        user_id: userId,
         assignment_id: finalAssignmentId || null,
+        submission_id: submissionId,
         improved_transcript: enhancedTranscript,
         highlights: null, // Don't save highlights until Part 2 is completed
-        status: 'transcript_ready'
+        status: 'transcript_ready',
+        practice_phase: 'ready',
+        practice_mode: 'full-transcript',
+        has_tried_full_transcript: false,
+        is_returning_to_full_transcript: false,
+        current_sentence_index: 0,
+        current_word_index: 0,
+        problematic_word_index: 0,
       })
       .select()
       .single();
 
-    if (error) throw error;
-    return data as PracticeSession;
+    if (error) {
+      console.error('Error creating practice session:', error);
+      throw new Error(`Failed to create practice session: ${error.message}`);
+    }
+
+    console.log('✅ Created new practice session:', data.id);
+    return {
+      ...data,
+      isExistingSession: false,
+      isAlreadyCompleted: false,
+      isPart2Completed: false
+    } as PracticeSession & { isExistingSession: boolean; isAlreadyCompleted: boolean; isPart2Completed: boolean };
   }
 );
 
@@ -290,7 +350,14 @@ export const updateSessionProgress = createAsyncThunk(
     isReturningToFullTranscript?: boolean;
     problematicWordIndex?: number;
   }) => {
-    const updateData: any = {
+    const updateData: {
+      current_sentence_index: number;
+      current_word_index: number;
+      practice_mode?: string;
+      has_tried_full_transcript?: boolean;
+      is_returning_to_full_transcript?: boolean;
+      problematic_word_index?: number;
+    } = {
       current_sentence_index: sentenceIndex,
       current_word_index: wordIndex
     };
@@ -880,10 +947,21 @@ const practiceSlice = createSlice({
         state.sessionLoading = true;
         state.sessionError = null;
       })
-      .addCase(createPracticeSessionFromFeedback.fulfilled, (state, action: PayloadAction<PracticeSession>) => {
+      .addCase(createPracticeSessionFromFeedback.fulfilled, (state, action: PayloadAction<PracticeSession & { isExistingSession: boolean; isAlreadyCompleted: boolean; isPart2Completed?: boolean }>) => {
         state.sessionLoading = false;
         state.currentSession = action.payload;
         state.sessionError = null;
+        // Update feedback data with completion status if it's an existing session
+        if (action.payload.isExistingSession && state.feedbackData) {
+          if (action.payload.isAlreadyCompleted) {
+            state.feedbackData.completedSessionId = action.payload.id;
+            console.log('📝 Updated feedbackData with Part 1 completion:', state.feedbackData);
+          }
+          if (action.payload.isPart2Completed) {
+            state.feedbackData.part2Completed = true;
+            console.log('📝 Updated feedbackData with Part 2 completion:', state.feedbackData);
+          }
+        }
       })
       .addCase(createPracticeSessionFromFeedback.rejected, (state, action) => {
         state.sessionLoading = false;
@@ -1071,8 +1149,7 @@ export const selectPracticeFeedbackError = (state: { practice: PracticeState }) 
 export const selectIsTranscriptCompleted = createSelector(
   [selectPracticeFeedbackData],
   (feedbackData) => {
-    const isCompleted = Boolean(feedbackData?.completedSessionId);
-    console.log('🔍 selectIsTranscriptCompleted:', { feedbackData, isCompleted });
+    const isCompleted = Boolean(feedbackData?.isAlreadyCompleted || feedbackData?.completedSessionId);
     return isCompleted;
   }
 );

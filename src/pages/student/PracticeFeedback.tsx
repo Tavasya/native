@@ -62,12 +62,25 @@ const PracticeFeedback: React.FC = () => {
     const stateData = location.state?.transcriptData;
     
     if (stateData) {
-      // Set the feedback data directly from navigation state
-      dispatch(setPracticeFeedbackData(stateData));
+      // Set the feedback data from navigation state
+      dispatch(setPracticeFeedbackData({
+        original: stateData.original,
+        enhanced: stateData.enhanced,
+        audioUrl: stateData.audioUrl,
+        submissionId: stateData.submissionId
+      }));
       
       // Set the question index if it exists in the state data
       if (stateData.questionIndex !== undefined) {
         setQuestionIndex(stateData.questionIndex);
+      }
+      
+      // 🔧 FIX: Always call createPracticeSessionFromFeedback to check DB for completion status
+      if (stateData.enhanced && stateData.submissionId) {
+        dispatch(createPracticeSessionFromFeedback({
+          enhancedTranscript: stateData.enhanced,
+          submissionId: stateData.submissionId
+        }));
       }
     } else {
       // Try to get data from URL params (new flow)
@@ -78,10 +91,19 @@ const PracticeFeedback: React.FC = () => {
         const parsedQuestionIndex = parseInt(questionIndexParam, 10);
         setQuestionIndex(parsedQuestionIndex);
         
+        // Load feedback data and then check for existing practice sessions
         dispatch(loadPracticeFeedbackFromSubmission({
           submissionId,
           questionIndex: parsedQuestionIndex
-        }));
+        })).unwrap().then((feedbackResult) => {
+          // Also check for existing practice sessions to get completion status
+          dispatch(createPracticeSessionFromFeedback({
+            enhancedTranscript: feedbackResult.enhanced,
+            submissionId: feedbackResult.submissionId
+          }));
+        }).catch((error) => {
+          console.error('Error loading practice feedback:', error);
+        });
       } else {
         // No data available
         dispatch(clearPracticeFeedbackData());
@@ -244,7 +266,15 @@ const PracticeFeedback: React.FC = () => {
 
       if (createPracticeSessionFromFeedback.fulfilled.match(action)) {
         const session = action.payload;
-        console.log('Session created successfully:', session.id);
+        console.log('Session created/found successfully:', session.id);
+        
+        // Check if the session is already completed
+        if (session.isAlreadyCompleted) {
+          console.log('🎉 Session already completed, showing Part 2 option');
+          // The Redux state should now be updated with completion status
+          // The component will re-render and show the "Practice Completed" button
+          return;
+        }
         
         // Set assignment context with correct question index if we have assignment data
         if (assignment) {

@@ -29,6 +29,9 @@ export interface PracticeFeedbackData {
   completedSessionId?: string;
   part2Completed?: boolean;
   part2RecordingUrl?: string;
+  isExistingSession?: boolean;
+  isAlreadyCompleted?: boolean;
+  practiceSessionId?: string;
 }
 
 export type PracticeMode = 'sentence' | 'word-by-word' | 'full-transcript';
