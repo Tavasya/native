@@ -156,4 +156,10 @@ export interface PracticeSession {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  // New persistence fields
+  practice_phase: string;
+  practice_mode: string;
+  has_tried_full_transcript: boolean;
+  is_returning_to_full_transcript: boolean;
+  problematic_word_index: number;
 } 

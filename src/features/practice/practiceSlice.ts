@@ -246,7 +246,10 @@ export const completePracticeSession = createAsyncThunk(
   async (sessionId: string) => {
     const { error } = await supabase
       .from('practice_sessions')
-      .update({ status: 'completed' })
+      .update({ 
+        status: 'completed',
+        practice_phase: 'completed'
+      })
       .eq('id', sessionId);
 
     if (error) throw error;
@@ -270,17 +273,41 @@ export const loadPracticeSessionHighlights = createAsyncThunk(
 
 export const updateSessionProgress = createAsyncThunk(
   'practice/updateSessionProgress',
-  async ({ sessionId, sentenceIndex, wordIndex = 0 }: { sessionId: string; sentenceIndex: number; wordIndex?: number }) => {
+  async ({ 
+    sessionId, 
+    sentenceIndex, 
+    wordIndex = 0, 
+    practiceMode, 
+    hasTriedFullTranscript, 
+    isReturningToFullTranscript, 
+    problematicWordIndex 
+  }: { 
+    sessionId: string; 
+    sentenceIndex: number; 
+    wordIndex?: number;
+    practiceMode?: string;
+    hasTriedFullTranscript?: boolean;
+    isReturningToFullTranscript?: boolean;
+    problematicWordIndex?: number;
+  }) => {
+    const updateData: any = {
+      current_sentence_index: sentenceIndex,
+      current_word_index: wordIndex
+    };
+
+    // Only update optional fields if they are provided
+    if (practiceMode !== undefined) updateData.practice_mode = practiceMode;
+    if (hasTriedFullTranscript !== undefined) updateData.has_tried_full_transcript = hasTriedFullTranscript;
+    if (isReturningToFullTranscript !== undefined) updateData.is_returning_to_full_transcript = isReturningToFullTranscript;
+    if (problematicWordIndex !== undefined) updateData.problematic_word_index = problematicWordIndex;
+
     const { error } = await supabase
       .from('practice_sessions')
-      .update({ 
-        current_sentence_index: sentenceIndex,
-        current_word_index: wordIndex
-      })
+      .update(updateData)
       .eq('id', sessionId);
 
     if (error) throw error;
-    return { sessionId, sentenceIndex, wordIndex };
+    return { sessionId, sentenceIndex, wordIndex, practiceMode, hasTriedFullTranscript, isReturningToFullTranscript, problematicWordIndex };
   }
 );
 

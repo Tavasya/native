@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
-import { PracticeSession, PronunciationResult } from '@/features/practice/practiceTypes';
+import { PracticeSession, PronunciationResult, PracticeMode } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
@@ -126,18 +126,18 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       dispatch(setSession(sessionData));
       dispatch(setCurrentSentenceIndex(sessionData.current_sentence_index || 0));
       dispatch(setCurrentWordIndex(sessionData.current_word_index || 0));
+      
+      // Restore all practice state from database
+      dispatch(setPracticeMode((sessionData.practice_mode as PracticeMode) || 'full-transcript'));
+      dispatch(setHasTriedFullTranscript(sessionData.has_tried_full_transcript || false));
+      dispatch(setIsReturningToFullTranscript(sessionData.is_returning_to_full_transcript || false));
+      dispatch(setProblematicWordIndex(sessionData.problematic_word_index || 0));
 
       // If session doesn't have sentences yet, start practice to generate them
       if (!sessionData.sentences && sessionData.status === 'transcript_ready') {
         console.log('🚀 Starting practice session for transcript_ready status');
         dispatch(startPracticeSession(sessionId));
       }
-      
-      // Reset practice flow tracking for new session
-      dispatch(setHasTriedFullTranscript(false));
-      dispatch(setIsReturningToFullTranscript(false));
-      // Ensure we start with full transcript mode
-      dispatch(setPracticeMode('full-transcript'));
     } catch (err) {
       console.error('❌ Error loading session:', err);
       dispatch(setPracticeSessionError('Failed to load practice session'));
@@ -390,12 +390,34 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           dispatch(setProblematicWordIndex(0));
           dispatch(setCurrentSentenceIndex(0));
           dispatch(setCurrentWordIndex(0));
+          
+          // Persist state to database
+          dispatch(updateSessionProgress({ 
+            sessionId, 
+            sentenceIndex: 0, 
+            wordIndex: 0,
+            practiceMode: 'word-by-word',
+            hasTriedFullTranscript: true,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
         } else {
           // Multiple sentences - go to sentence-by-sentence mode
           dispatch(setPracticeMode('sentence'));
           dispatch(setCurrentSentenceIndex(0));
           dispatch(setCurrentWordIndex(0));
           dispatch(clearProblematicWords());
+          
+          // Persist state to database
+          dispatch(updateSessionProgress({ 
+            sessionId, 
+            sentenceIndex: 0, 
+            wordIndex: 0,
+            practiceMode: 'sentence',
+            hasTriedFullTranscript: true,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
         }
       } else {
         // This is a return attempt that failed - just try again
@@ -447,17 +469,31 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       dispatch(setProblematicWordIndex(0)); // Start with first problematic word
       
       // Set currentWordIndex to the position of the first problematic word in the sentence
+      let finalWordIndex = 0;
       if (uniqueProblematicWords.length > 0) {
         const firstProblematicWordIndex = words.findIndex(word => 
           word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
         );
         if (firstProblematicWordIndex !== -1) {
           dispatch(setCurrentWordIndex(firstProblematicWordIndex));
+          finalWordIndex = firstProblematicWordIndex;
         } else {
           // Fallback to first word if we can't find the problematic word
           dispatch(setCurrentWordIndex(0));
+          finalWordIndex = 0;
         }
       }
+      
+      // Persist state to database
+      dispatch(updateSessionProgress({ 
+        sessionId, 
+        sentenceIndex: currentSentenceIndex, 
+        wordIndex: finalWordIndex,
+        practiceMode: 'word-by-word',
+        hasTriedFullTranscript,
+        isReturningToFullTranscript,
+        problematicWordIndex: 0
+      }));
     }
     // In word-by-word mode, just try again (no mode change needed)
     
@@ -477,6 +513,18 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     
     // Update session status via Redux
     dispatch(startFullTranscriptPracticeThunk(sessionId));
+    
+    // Persist state to database
+    dispatch(updateSessionProgress({ 
+      sessionId, 
+      sentenceIndex: 0, 
+      wordIndex: 0,
+      practiceMode: 'full-transcript',
+      hasTriedFullTranscript,
+      isReturningToFullTranscript: true,
+      problematicWordIndex: 0
+    }));
+    
     resetForNextAttempt();
   };
 
@@ -489,7 +537,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       dispatch(clearProblematicWords()); // Clear problematic words for new sentence
       
       // Update session progress in database via Redux thunk
-      dispatch(updateSessionProgress({ sessionId, sentenceIndex: nextIndex, wordIndex: 0 }));
+      dispatch(updateSessionProgress({ 
+        sessionId, 
+        sentenceIndex: nextIndex, 
+        wordIndex: 0,
+        practiceMode: 'sentence',
+        hasTriedFullTranscript,
+        isReturningToFullTranscript,
+        problematicWordIndex: 0
+      }));
       resetForNextAttempt();
     } else {
       // All sentences completed - return to full transcript mode
@@ -525,7 +581,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         }
         
         // Update session progress in database via Redux thunk
-        dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: finalWordIndex }));
+        dispatch(updateSessionProgress({ 
+          sessionId, 
+          sentenceIndex: currentSentenceIndex, 
+          wordIndex: finalWordIndex,
+          practiceMode: 'word-by-word',
+          hasTriedFullTranscript,
+          isReturningToFullTranscript,
+          problematicWordIndex: nextProblematicWordIndex
+        }));
         resetForNextAttempt();
       } else {
         // Finished all problematic words - return to full transcript mode
@@ -539,7 +603,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         dispatch(setCurrentWordIndex(nextWordIndex));
         
         // Update session progress in database via Redux thunk
-        dispatch(updateSessionProgress({ sessionId, sentenceIndex: currentSentenceIndex, wordIndex: nextWordIndex }));
+        dispatch(updateSessionProgress({ 
+          sessionId, 
+          sentenceIndex: currentSentenceIndex, 
+          wordIndex: nextWordIndex,
+          practiceMode: 'word-by-word',
+          hasTriedFullTranscript,
+          isReturningToFullTranscript,
+          problematicWordIndex
+        }));
         resetForNextAttempt();
       } else {
         // Finished all words in sentence - return to full transcript mode

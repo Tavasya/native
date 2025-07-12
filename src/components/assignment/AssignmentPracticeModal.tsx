@@ -87,7 +87,8 @@ const AssignmentPracticeModal: React.FC = () => {
           assignment_id: practiceModal.assignmentId,
           original_transcript: assignmentContext?.questionData?.question || 'No question text available',
           improved_transcript: improvedTranscript,
-          status: 'transcript_ready' // Ready for practice immediately
+          status: 'transcript_ready', // Ready for practice immediately
+          practice_phase: 'pronunciation'
         })
         .select()
         .single();
