@@ -3,11 +3,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { Assignment, QuestionCard } from '@/features/assignments/types';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
+// import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { useAppDispatch } from '@/app/hooks';
+
 import { generateTTSAudio } from '@/features/tts/ttsService';
 import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
+
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+
 
 interface AssignmentQuestionsProps {
   assignment: Assignment;
@@ -17,10 +21,10 @@ interface AssignmentQuestionsProps {
 const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, selectedQuestionIndex }) => {
   const dispatch = useAppDispatch();
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   
   // Get the current submission data to pass transcript info
-  const selectedSubmission = useAppSelector(state => state.submissions.selectedSubmission);
+  // const selectedSubmission = useAppSelector(state => state.submissions.selectedSubmission);
 
   // Parse questions if they're stored as a string
   const questions: QuestionCard[] = (() => {
@@ -83,14 +87,17 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     }
   };
 
+
   const handlePracticeQuestion = async () => {
     // Get the current question's feedback data
     const currentQuestionFeedback = selectedSubmission?.section_feedback?.[selectedQuestionIndex];
+
     
-    if (!currentQuestionFeedback) {
-      console.error('No feedback data available for practice');
-      return;
-    }
+  //   if (!currentQuestionFeedback) {
+  //     console.error('No feedback data available for practice');
+  //     return;
+  //   }
+
 
     // 🔧 CREATE DATABASE RECORD WHEN PRACTICE BUTTON IS CLICKED
     try {
@@ -193,6 +200,7 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
       });
     }
   };
+
   
   console.log('Displaying question:', { 
     selectedQuestionIndex, 
@@ -214,14 +222,14 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
+              { <Button
                 variant="outline"
                 size="sm"
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                 onClick={handlePracticeQuestion}
               >
                 Practice
-              </Button>
+              </Button> }
               <Button
                 variant="outline"
                 size="sm"

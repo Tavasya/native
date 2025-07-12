@@ -3,13 +3,16 @@ import time
 import json
 import base64
 import binascii
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from dotenv import load_dotenv
 
 from livekit import rtc
 from livekit.agents import Agent, AgentSession, JobContext, JobRequest, WorkerOptions, cli, RoomInputOptions
 from livekit.agents.llm import ChatContext, ChatMessage, StopResponse
-from livekit.plugins import cartesia, deepgram, openai
+from livekit.plugins import elevenlabs, deepgram, openai
 
 logger = logging.getLogger("push-to-talk")
 logger.setLevel(logging.INFO)
@@ -37,8 +40,15 @@ def prewarm(proc):
         
         logger.info("Initializing TTS...")
         tts_start = time.time()
-        proc.userdata["tts"] = cartesia.TTS()
-        logger.info(f"TTS initialized in {time.time() - tts_start:.2f}s")
+        proc.userdata["tts"] = elevenlabs.TTS(
+            voice_id="XcXEQzuLXRU9RcfWzEJt",
+            voice_settings=elevenlabs.VoiceSettings(
+                stability=0.8,
+                similarity_boost=0.75,
+                speed=0.9
+            )
+        )
+        logger.info(f"✅ ElevenLabs TTS initialized with voice kdmDKE6EkgrWrrykO9Qt in {time.time() - tts_start:.2f}s")
         
         total_time = time.time() - start_time
         logger.info(f"Agent plugins prewarmed successfully in {total_time:.2f}s")
@@ -59,7 +69,14 @@ class MyAgent(Agent):
         # Use prewarmed plugins from process userdata if available
         stt = ctx.proc.userdata.get("stt") or deepgram.STT()
         llm = ctx.proc.userdata.get("llm") or openai.LLM(model="gpt-4o-mini")
-        tts = ctx.proc.userdata.get("tts") or cartesia.TTS()
+        tts = ctx.proc.userdata.get("tts") or elevenlabs.TTS(
+            voice_id="XcXEQzuLXRU9RcfWzEJt",
+            voice_settings=elevenlabs.VoiceSettings(
+                stability=0.8,
+                similarity_boost=0.75,
+                speed=0.9
+            )
+        )
         
         # Store the context to access room later
         self.ctx = ctx
@@ -430,5 +447,32 @@ async def handle_request(request: JobRequest) -> None:
     )
 
 
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'{"status": "healthy"}')
+    
+    def log_message(self, format, *args):
+        pass  # Suppress HTTP logs
+
+
+def start_health_server():
+    port = int(os.environ.get('PORT', 8080))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    logger.info(f"Health check server running on port {port}")
+    server.serve_forever()
+
+
 if __name__ == "__main__":
+    import sys
+    
+    # Start health check server for Cloud Run (only when no args or when 'start' is used)
+    if os.environ.get('PORT') and (len(sys.argv) == 1 or 'start' in sys.argv):
+        health_thread = threading.Thread(target=start_health_server, daemon=True)
+        health_thread.start()
+        logger.info("Started health check server for Cloud Run")
+    
+    # Run the LiveKit agent with CLI support
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, request_fnc=handle_request, prewarm_fnc=prewarm))

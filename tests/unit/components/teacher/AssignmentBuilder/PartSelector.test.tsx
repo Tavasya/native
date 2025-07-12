@@ -133,14 +133,14 @@ describe('PartSelector', () => {
     it('renders the component with correct title', () => {
       render(<PartSelector {...defaultProps} />);
       
-      expect(screen.getByText('Part Library')).toBeInTheDocument();
+      expect(screen.getByText('Topic Library')).toBeInTheDocument();
       expect(screen.getByTestId('plus-icon')).toBeInTheDocument();
     });
 
     it('renders search input', () => {
       render(<PartSelector {...defaultProps} />);
       
-      expect(screen.getByPlaceholderText('Search parts...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search topics...')).toBeInTheDocument();
       expect(screen.getByTestId('search-icon')).toBeInTheDocument();
     });
 
@@ -209,7 +209,7 @@ describe('PartSelector', () => {
       const user = userEvent.setup();
       render(<PartSelector {...defaultProps} />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search topics...');
       await user.type(searchInput, 'personal');
       
       expect(screen.getByText('Personal Introduction')).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('PartSelector', () => {
       const user = userEvent.setup();
       render(<PartSelector {...defaultProps} />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search topics...');
       await user.type(searchInput, 'introduce');
       
       expect(screen.getByText('Personal Introduction')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('PartSelector', () => {
       const user = userEvent.setup();
       render(<PartSelector {...defaultProps} />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search topics...');
       await user.type(searchInput, 'combo');
       
       expect(screen.getByText('Work & Education Combo')).toBeInTheDocument();
@@ -242,7 +242,7 @@ describe('PartSelector', () => {
       const user = userEvent.setup();
       render(<PartSelector {...defaultProps} />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search topics...');
       await user.type(searchInput, 'nonexistent');
       
       expect(screen.getByText('No parts found')).toBeInTheDocument();
@@ -382,7 +382,7 @@ describe('PartSelector', () => {
       const user = userEvent.setup();
       render(<PartSelector {...defaultProps} selectedTopic="Work" />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search topics...');
       await user.type(searchInput, 'experience');
       
       expect(screen.getByText('Work Experience')).toBeInTheDocument();

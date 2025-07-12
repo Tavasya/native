@@ -129,4 +129,16 @@ export const classService = {
 
     return classData;
   },
+
+  async removeStudentFromClass(studentId: string, classId: string): Promise<void> {
+    const { error } = await supabase
+      .from('students_classes')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('class_id', classId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  },
 }

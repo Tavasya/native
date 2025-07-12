@@ -121,9 +121,12 @@ const findTextPosition = (
           // Find this sentence in the original text
           const sentenceStart = allText.toLowerCase().indexOf(targetSentence.toLowerCase());
           if (sentenceStart !== -1) {
-            // Find the phrase within this sentence
-            const phraseIndex = targetSentence.toLowerCase().indexOf(targetPhrase.toLowerCase());
-            if (phraseIndex !== -1) {
+            // Find the phrase within this sentence using word boundaries
+            const escapedPhrase = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const wordBoundaryRegex = new RegExp(`\\b${escapedPhrase}\\b`, 'gi');
+            const match = wordBoundaryRegex.exec(targetSentence.toLowerCase());
+            if (match) {
+              const phraseIndex = match.index;
               return {
                 start: sentenceStart + phraseIndex,
                 end: sentenceStart + phraseIndex + targetPhrase.length
@@ -138,9 +141,9 @@ const findTextPosition = (
     }
   }
 
-  // Strategy 2: Global search with some intelligence
+  // Strategy 2: Global search with word boundaries
   const escapedText = targetPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(escapedText, 'gi'); // Global and case insensitive
+  const regex = new RegExp(`\\b${escapedText}\\b`, 'gi'); // Global, case insensitive, with word boundaries
   
   let match;
   const matches = [];
@@ -456,4 +459,119 @@ export const createHighlightedText = (
   }
 
   return result.length > 0 ? result : [text];
+};
+
+// Generate enhanced transcript by applying all grammar and vocabulary corrections
+export const generateEnhancedTranscript = (
+  originalText: string,
+  feedback: SectionFeedback | null,
+  questionIndex: number
+): string => {
+  if (!feedback || !originalText) return originalText;
+
+  const corrections: Array<{
+    start: number;
+    end: number;
+    replacement: string;
+  }> = [];
+
+  // Collect grammar corrections
+  if (feedback.grammar) {
+    const grammarData = feedback.grammar as ExtendedGrammar;
+    
+    // Handle v2/v3 format with grammar_corrections
+    if (grammarData.grammar_corrections) {
+      Object.values(grammarData.grammar_corrections).forEach(correction => {
+        correction.corrections?.forEach(item => {
+          if (item.sentence_index === questionIndex && 
+              item.original_phrase && 
+              item.suggested_correction &&
+              item.original_phrase !== item.suggested_correction) {
+            
+            const regex = new RegExp(`\\b${escapeRegExp(item.original_phrase)}\\b`, 'gi');
+            let match;
+            while ((match = regex.exec(originalText)) !== null) {
+              corrections.push({
+                start: match.index,
+                end: match.index + match[0].length,
+                replacement: item.suggested_correction
+              });
+            }
+          }
+        });
+      });
+    }
+    
+    // Handle v1 format with issues array
+    if (grammarData.issues) {
+      grammarData.issues.forEach((issue: any) => {
+        if (issue.sentence_index === questionIndex &&
+            issue.original_phrase &&
+            issue.suggested_correction &&
+            issue.original_phrase !== issue.suggested_correction) {
+          
+          const regex = new RegExp(`\\b${escapeRegExp(issue.original_phrase)}\\b`, 'gi');
+          let match;
+          while ((match = regex.exec(originalText)) !== null) {
+            corrections.push({
+              start: match.index,
+              end: match.index + match[0].length,
+              replacement: issue.suggested_correction
+            });
+          }
+        }
+      });
+    }
+  }
+
+  // Collect vocabulary corrections
+  if (feedback.vocabulary) {
+    const vocabData = feedback.vocabulary as ExtendedVocabulary;
+    
+    if (vocabData.vocabulary_suggestions) {
+      Object.values(vocabData.vocabulary_suggestions).forEach(suggestion => {
+        if (suggestion.sentence_index === questionIndex &&
+            suggestion.original_word &&
+            suggestion.suggested_word &&
+            suggestion.original_word !== suggestion.suggested_word) {
+          
+          const regex = new RegExp(`\\b${escapeRegExp(suggestion.original_word)}\\b`, 'gi');
+          let match;
+          while ((match = regex.exec(originalText)) !== null) {
+            corrections.push({
+              start: match.index,
+              end: match.index + match[0].length,
+              replacement: suggestion.suggested_word
+            });
+          }
+        }
+      });
+    }
+  }
+
+  // Sort corrections by position (descending to avoid index shifting)
+  corrections.sort((a, b) => b.start - a.start);
+
+  // Remove overlapping corrections
+  const filteredCorrections = corrections.filter((correction, index) => {
+    return !corrections.slice(0, index).some(prev => 
+      (correction.start >= prev.start && correction.start < prev.end) ||
+      (correction.end > prev.start && correction.end <= prev.end)
+    );
+  });
+
+  // Apply corrections from right to left to maintain indices
+  let enhancedText = originalText;
+  filteredCorrections.forEach(correction => {
+    enhancedText = enhancedText.slice(0, correction.start) + 
+                   correction.replacement + 
+                   enhancedText.slice(correction.end);
+  });
+
+  return enhancedText;
+};
+
+// Helper function to escape regex special characters
+const escapeRegExp = (string: string): string => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };

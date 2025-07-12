@@ -412,6 +412,38 @@ export const submissionService = {
     }
   },
 
+  // Fetch submissions by status
+  async getSubmissionsByStatus(status: string): Promise<Submission[]> {
+    try {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select(`
+          *,
+          assignments!inner(title),
+          users!inner(name)
+        `)
+        .eq("status", status)
+        .order("submitted_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching submissions by status:", error);
+        throw new Error(`Failed to fetch submissions: ${error.message}`);
+      }
+
+      // Transform the data to include assignment_title and student_name
+      const transformedData = (data || []).map(submission => ({
+        ...submission,
+        assignment_title: submission.assignments?.title,
+        student_name: submission.users?.name
+      }));
+
+      return transformedData;
+    } catch (error) {
+      console.error("Error in getSubmissionsByStatus:", error);
+      throw error;
+    }
+  },
+
   // Add this new function to verify submission details
   async verifySubmission(id: string): Promise<{
     exists: boolean;

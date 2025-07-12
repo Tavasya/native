@@ -161,7 +161,7 @@ const Navbar: React.FC = () => {
                       className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <Play className="h-4 w-4" />
-                      Watch Help Video
+                      What Tutorial Video
                     </button>
                   )}
                   

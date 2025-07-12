@@ -195,7 +195,17 @@ export const wordService = {
 
       // Update word review count
       await supabase
-        .rpc('increment_review_count', { word_id: wordId });
+        .from('saved_words')
+        .update({ 
+          review_count: (await supabase
+            .from('saved_words')
+            .select('review_count')
+            .eq('id', wordId)
+            .single()).data?.review_count + 1 || 1,
+          last_reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', wordId);
 
       return true;
     } catch (error) {

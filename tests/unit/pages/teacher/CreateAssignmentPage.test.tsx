@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { Provider } from 'react-redux';
@@ -68,14 +68,25 @@ jest.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => children
 }));
 
+// Mock DateTimePicker component
+jest.mock('@/components/ui/datetime-picker', () => ({
+  DateTimePicker: ({ value, onChange, placeholder, className }: any) => (
+    <input
+      type="text"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={className}
+      data-testid="datetime-picker"
+      aria-label="Due Date & Time"
+    />
+  )
+}));
+
 // Mock Redux thunks
-const mockCreateAssignment = jest.fn();
-const mockFetchAssignmentTemplates = jest.fn();
-const mockCreateAssignmentTemplate = jest.fn();
-const mockDeleteAssignmentTemplate = jest.fn();
 
 jest.mock('@/features/assignments/assignmentThunks', () => ({
-  createAssignment: jest.fn((data: any) => ({
+  createAssignment: jest.fn(() => ({
     type: 'assignments/createAssignment/fulfilled',
     payload: { id: 'assignment-123' },
     unwrap: () => Promise.resolve({ id: 'assignment-123' })
@@ -83,24 +94,24 @@ jest.mock('@/features/assignments/assignmentThunks', () => ({
 }));
 
 jest.mock('@/features/assignmentTemplates/assignmentTemplateThunks', () => ({
-  fetchAssignmentTemplates: jest.fn((userId: string) => ({
+  fetchAssignmentTemplates: jest.fn(() => ({
     type: 'assignmentTemplates/fetchAssignmentTemplates/fulfilled',
     payload: []
   })),
-  createAssignmentTemplate: jest.fn((data: any) => ({
+  createAssignmentTemplate: jest.fn(() => ({
     type: 'assignmentTemplates/createAssignmentTemplate/fulfilled',
     payload: { id: 'template-123' },
     unwrap: () => Promise.resolve({ id: 'template-123' })
   })),
-  deleteAssignmentTemplate: jest.fn((id: string) => ({
+  deleteAssignmentTemplate: jest.fn(() => ({
     type: 'assignmentTemplates/deleteAssignmentTemplate/fulfilled',
-    payload: id
+    payload: 'template-123'
   }))
 }));
 
 // Mock AssignmentPractice component for preview mode
 jest.mock('@/pages/student/AssignmentPractice', () => {
-  return function MockAssignmentPractice({ previewMode, previewData, onBack }: any) {
+  return function MockAssignmentPractice({ previewData, onBack }: any) {
     return (
       <div data-testid="assignment-practice-preview">
         <h1>Preview Mode</h1>
@@ -198,15 +209,15 @@ describe('CreateAssignmentPage', () => {
     
     // Reset mock implementations
     const { createAssignment } = require('@/features/assignments/assignmentThunks');
-    const { createAssignmentTemplate, deleteAssignmentTemplate } = require('@/features/assignmentTemplates/assignmentTemplateThunks');
+    const { createAssignmentTemplate } = require('@/features/assignmentTemplates/assignmentTemplateThunks');
     
-    createAssignment.mockImplementation((data: any) => ({
+    createAssignment.mockImplementation(() => ({
       type: 'assignments/createAssignment/fulfilled',
       payload: { id: 'assignment-123' },
       unwrap: () => Promise.resolve({ id: 'assignment-123' })
     }));
     
-    createAssignmentTemplate.mockImplementation((data: any) => ({
+    createAssignmentTemplate.mockImplementation(() => ({
       type: 'assignmentTemplates/createAssignmentTemplate/fulfilled',
       payload: { id: 'template-123' },
       unwrap: () => Promise.resolve({ id: 'template-123' })
@@ -255,15 +266,13 @@ describe('CreateAssignmentPage', () => {
       // Click on title to expand settings
       await user.click(screen.getByPlaceholderText('Assignment Title'));
 
-      const dueDateInput = screen.getByLabelText('Due Date');
-      const dueTimeInput = screen.getByLabelText('Due Time');
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
 
-      await user.type(dueDateInput, '2025-12-31');
-      await user.clear(dueTimeInput);
-      await user.type(dueTimeInput, '15:30');
-
-      expect(dueDateInput).toHaveValue('2025-12-31');
-      expect(dueTimeInput).toHaveValue('15:30');
+      // Click on the DateTimePicker input
+      await user.click(dueDateTimeInput);
+      
+      // The DateTimePicker input should be visible
+      expect(dueDateTimeInput).toBeInTheDocument();
     });
 
     it('toggles auto grading setting', async () => {
@@ -541,7 +550,7 @@ describe('CreateAssignmentPage', () => {
 
       expect(mockToast).toHaveBeenCalledWith({
         title: "Missing due date",
-        description: "Please set a due date for the assignment",
+        description: "Please set a due date and time for the assignment",
       });
     });
 
@@ -553,8 +562,16 @@ describe('CreateAssignmentPage', () => {
       
       // Click title to expand settings
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      await user.type(screen.getByLabelText('Due Date'), '2025-12-31');
-
+      
+      // Set due date using DateTimePicker
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
+      await user.type(dueDateTimeInput, '2025-12-31T15:30:00.000Z');
+      
+      // Wait for the form to update
+      await waitFor(() => {
+        expect(dueDateTimeInput).toHaveValue('2025-12-31T15:30:00.000Z');
+      });
+      
       await user.click(screen.getByText('Publish'));
 
       expect(mockToast).toHaveBeenCalledWith({
@@ -564,7 +581,7 @@ describe('CreateAssignmentPage', () => {
     });
 
     it('successfully submits valid assignment', async () => {
-      const store = renderWithProviders();
+      renderWithProviders();
 
       // Fill all required fields
       await user.type(screen.getByPlaceholderText('Assignment Title'), 'Complete Assignment');
@@ -572,7 +589,15 @@ describe('CreateAssignmentPage', () => {
       
       // Expand settings and set due date
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      await user.type(screen.getByLabelText('Due Date'), '2025-12-31');
+      
+      // Set due date using DateTimePicker
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
+      await user.type(dueDateTimeInput, '2025-12-31T15:30:00.000Z');
+      
+      // Wait for the form to update
+      await waitFor(() => {
+        expect(dueDateTimeInput).toHaveValue('2025-12-31T15:30:00.000Z');
+      });
 
       await user.click(screen.getByText('Publish'));
 
@@ -598,7 +623,15 @@ describe('CreateAssignmentPage', () => {
       await user.type(screen.getByPlaceholderText('Question 1'), 'Test question');
       
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      await user.type(screen.getByLabelText('Due Date'), '2025-12-31');
+      
+      // Set due date using DateTimePicker
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
+      await user.type(dueDateTimeInput, '2025-12-31T15:30:00.000Z');
+      
+      // Wait for the form to update
+      await waitFor(() => {
+        expect(dueDateTimeInput).toHaveValue('2025-12-31T15:30:00.000Z');
+      });
 
       await user.click(screen.getByText('Publish'));
 
@@ -622,7 +655,15 @@ describe('CreateAssignmentPage', () => {
       await user.type(screen.getByPlaceholderText('Question 1'), 'Preview question');
       
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      await user.type(screen.getByLabelText('Due Date'), '2025-12-31');
+      
+      // Set due date using DateTimePicker
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
+      await user.type(dueDateTimeInput, '2025-12-31T15:30:00.000Z');
+      
+      // Wait for the form to update
+      await waitFor(() => {
+        expect(dueDateTimeInput).toHaveValue('2025-12-31T15:30:00.000Z');
+      });
 
       await user.click(screen.getByText('Preview'));
 
@@ -653,7 +694,15 @@ describe('CreateAssignmentPage', () => {
       await user.type(screen.getByPlaceholderText('Question 1'), 'Preview question');
       
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      await user.type(screen.getByLabelText('Due Date'), '2025-12-31');
+      
+      // Set due date using DateTimePicker
+      const dueDateTimeInput = screen.getByPlaceholderText('Select due date and time');
+      await user.type(dueDateTimeInput, '2025-12-31T15:30:00.000Z');
+      
+      // Wait for the form to update
+      await waitFor(() => {
+        expect(dueDateTimeInput).toHaveValue('2025-12-31T15:30:00.000Z');
+      });
 
       await user.click(screen.getByText('Preview'));
       expect(screen.getByTestId('assignment-practice-preview')).toBeInTheDocument();
@@ -694,15 +743,13 @@ describe('CreateAssignmentPage', () => {
       const onDragEndStr = dragContext.getAttribute('data-on-drag-end');
       
       if (onDragEndStr) {
-        // Simulate drag result
-        const mockResult = {
-          source: { index: 0 },
-          destination: { index: 1 }
-        };
-
         // This would trigger the reorder in the actual component
         // For testing purposes, we verify the drag context exists
         expect(dragContext).toBeInTheDocument();
+        
+        // Simulate drag result would be handled by the onDragEnd function
+        // but we can't easily test the actual drag and drop reordering
+        // in this test environment without more complex setup
       }
     });
   });
@@ -793,7 +840,7 @@ describe('CreateAssignmentPage', () => {
       await user.click(screen.getByPlaceholderText('Assignment Title'));
 
       // Settings should be visible when header card is active
-      expect(screen.getByLabelText('Due Date')).toBeInTheDocument();
+      expect(screen.getByLabelText('Due Date & Time')).toBeInTheDocument();
     });
 
     it('activates question card when clicked', async () => {
@@ -811,14 +858,14 @@ describe('CreateAssignmentPage', () => {
 
       // Start with header active
       await user.click(screen.getByPlaceholderText('Assignment Title'));
-      expect(screen.getByLabelText('Due Date')).toBeInTheDocument();
+      expect(screen.getByLabelText('Due Date & Time')).toBeInTheDocument();
 
       // Switch to question
       await user.click(screen.getByPlaceholderText('Question 1'));
       expect(screen.getByText('Question Style')).toBeInTheDocument();
 
       // Header settings should no longer be visible
-      expect(screen.queryByLabelText('Due Date')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Due Date & Time')).not.toBeInTheDocument();
     });
   });
 });

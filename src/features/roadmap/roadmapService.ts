@@ -26,7 +26,7 @@ export const roadmapService = {
         request.answers['test-timeline']
       );
 
-      // Save to Supabase
+      // Save to Supabase with proper upsert
       const { data, error } = await supabase
         .from('practice_onboarding')
         .upsert({
@@ -37,6 +37,8 @@ export const roadmapService = {
           current_score: request.answers['current-score'],
           assessed_level: assessedLevel,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
         })
         .select()
         .single();
