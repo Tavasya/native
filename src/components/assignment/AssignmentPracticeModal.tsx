@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording } from '@/features/practice/practiceSlice';
+import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording, selectAssignmentContext } from '@/features/practice/practiceSlice';
 import { X, Square, Loader2 } from 'lucide-react';
 import MicIcon from "@/lib/images/mic.svg";
 import AudioVisualizer from './AudioVisualizer';
@@ -15,6 +15,7 @@ const AssignmentPracticeModal: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { practiceModal, recording } = useAppSelector(state => state.practice);
+  const assignmentContext = useAppSelector(selectAssignmentContext);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -64,7 +65,7 @@ const AssignmentPracticeModal: React.FC = () => {
         .order('submitted_at', { ascending: false })
         .limit(1);
 
-      let improvedTranscript = practiceModal.questionText; // Fallback to question text
+      let improvedTranscript = assignmentContext?.questionData?.question || 'No question text available'; // Fallback to question text
 
       // Extract improved transcript from submission if available
       if (!submissionError && submissions && submissions.length > 0) {
@@ -84,7 +85,7 @@ const AssignmentPracticeModal: React.FC = () => {
         .insert({
           user_id: userSession.user.id,
           assignment_id: practiceModal.assignmentId,
-          original_transcript: practiceModal.questionText,
+          original_transcript: assignmentContext?.questionData?.question || 'No question text available',
           improved_transcript: improvedTranscript,
           status: 'transcript_ready' // Ready for practice immediately
         })

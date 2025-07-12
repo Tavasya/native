@@ -43,7 +43,6 @@ const initialState: PracticeState = {
   // Assignment practice modal state
   practiceModal: {
     isOpen: false,
-    questionText: '',
     assignmentId: '',
     questionIndex: 0,
   },
@@ -62,6 +61,8 @@ const initialState: PracticeState = {
     bulletPoints: [],
     highlights: [],
     userAddedHighlights: [],
+    removedOriginalHighlights: [],
+    originalQuestion: null,
     currentStep: 'transcript',
     recordingUrl: null,
     isUploading: false,
@@ -181,7 +182,7 @@ export const loadPracticeFeedbackFromSubmission = createAsyncThunk(
 
 export const createPracticeSessionFromFeedback = createAsyncThunk(
   'practice/createSessionFromFeedback',
-  async ({ enhancedTranscript, highlights, assignmentId, submissionId }: { enhancedTranscript: string; highlights?: { word: string; position: number }[]; assignmentId?: string; submissionId?: string }) => {
+  async ({ enhancedTranscript, assignmentId, submissionId }: { enhancedTranscript: string; assignmentId?: string; submissionId?: string }) => {
     const { data: { session: userSession } } = await supabase.auth.getSession();
     if (!userSession?.user?.id) {
       throw new Error('User not authenticated');
@@ -201,14 +202,14 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
       }
     }
 
-    // Create session with enhanced transcript as improved_transcript (what backend expects)
+    // Create session with enhanced transcript - don't save highlights yet
     const { data, error } = await supabase
       .from('practice_sessions')
       .insert({
         user_id: userSession.user.id,
         assignment_id: finalAssignmentId || null,
         improved_transcript: enhancedTranscript,
-        highlights: highlights || null,
+        highlights: null, // Don't save highlights until Part 2 is completed
         status: 'transcript_ready'
       })
       .select()
@@ -328,6 +329,30 @@ export const updateProblematicWords = createAsyncThunk(
   }
 );
 
+// Mark Part 2 as completed and save highlights
+export const markPracticePart2Completed = createAsyncThunk(
+  'practice/markPracticePart2Completed',
+  async ({ recordingUrl, sessionId, highlights, userAddedHighlights }: { 
+    recordingUrl: string; 
+    sessionId: string; 
+    highlights: { word: string; position: number }[]; 
+    userAddedHighlights: { word: string; position: number }[] 
+  }) => {
+    // Combine original highlights with user-added highlights
+    const allHighlights = [...highlights, ...userAddedHighlights];
+    
+    // Save highlights to database
+    const { error } = await supabase
+      .from('practice_sessions')
+      .update({ highlights: allHighlights })
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    
+    return { recordingUrl, sessionId, highlights: allHighlights };
+  }
+);
+
 const practiceSlice = createSlice({
   name: 'practice',
   initialState,
@@ -415,10 +440,9 @@ const practiceSlice = createSlice({
     clearAssignmentContext: (state) => {
       state.assignmentContext = null;
     },
-    openPracticeModal: (state, action: PayloadAction<{ questionText: string; assignmentId: string; questionIndex: number }>) => {
+    openPracticeModal: (state, action: PayloadAction<{ assignmentId: string; questionIndex: number }>) => {
       state.practiceModal = {
         isOpen: true,
-        questionText: action.payload.questionText,
         assignmentId: action.payload.assignmentId,
         questionIndex: action.payload.questionIndex,
       };
@@ -426,7 +450,6 @@ const practiceSlice = createSlice({
     closePracticeModal: (state) => {
       state.practiceModal = {
         isOpen: false,
-        questionText: '',
         assignmentId: '',
         questionIndex: 0,
       };
@@ -485,39 +508,22 @@ const practiceSlice = createSlice({
         console.log('📝 No feedbackData to update');
       }
     },
-    markPracticePart2Completed: (state, action: PayloadAction<{ recordingUrl: string }>) => {
-      console.log('📝 markPracticePart2Completed reducer called with recordingUrl:', action.payload.recordingUrl);
-      if (state.feedbackData) {
-        state.feedbackData.part2Completed = true;
-        state.feedbackData.part2RecordingUrl = action.payload.recordingUrl;
-        console.log('📝 Updated feedbackData with Part 2 completion:', state.feedbackData);
-      }
-    },
     // Part 2 Practice modal actions
-    openPracticePart2Modal: (state, action: PayloadAction<{ sessionId: string; improvedTranscript: string; highlights: { word: string; position: number }[] }>) => {
-      // Create bullet points from highlights, extracting actual words from transcript
-      const transcriptWords = action.payload.improvedTranscript.split(' ');
-      const highlights = action.payload.highlights || []; // Safe fallback to empty array
-      const bulletPoints = highlights.map(highlight => {
-        // Extract the actual word from the transcript at the given position
-        const actualWord = transcriptWords[highlight.position] || highlight.word;
-        // Clean up punctuation for display
-        const cleanWord = actualWord.replace(/[.,!?;:]$/, '');
-        
-        return {
-          word: cleanWord,
-          description: '',
-          isHighlighted: true
-        };
-      });
-      
+    openPracticePart2Modal: (state, action: PayloadAction<{ 
+      sessionId: string; 
+      improvedTranscript: string; 
+      highlights: { word: string; position: number }[];
+      originalQuestion?: string;
+    }>) => {
       state.practicePart2Modal = {
         isOpen: true,
         sessionId: action.payload.sessionId,
         improvedTranscript: action.payload.improvedTranscript,
-        bulletPoints,
-        highlights: highlights,
+        bulletPoints: action.payload.highlights.map(h => ({ word: h.word, description: '', isHighlighted: true })),
+        highlights: action.payload.highlights,
         userAddedHighlights: [],
+        removedOriginalHighlights: [],
+        originalQuestion: action.payload.originalQuestion || null,
         currentStep: 'transcript',
         recordingUrl: null,
         isUploading: false,
@@ -531,6 +537,8 @@ const practiceSlice = createSlice({
         bulletPoints: [],
         highlights: [],
         userAddedHighlights: [],
+        removedOriginalHighlights: [],
+        originalQuestion: null, // Reset originalQuestion
         currentStep: 'transcript',
         recordingUrl: null,
         isUploading: false,
@@ -570,17 +578,41 @@ const practiceSlice = createSlice({
     removePracticePart2HighlightFromTranscript: (state, action: PayloadAction<{ word: string; position: number }>) => {
       const { word, position } = action.payload;
       
-      // Remove user highlight
-      state.practicePart2Modal.userAddedHighlights = state.practicePart2Modal.userAddedHighlights.filter(
-        h => h.position !== position
+      // Check if it's a user-added highlight first
+      const userHighlightIndex = state.practicePart2Modal.userAddedHighlights.findIndex(
+        h => h.position === position
       );
       
-      // Remove corresponding bullet point if it exists and is user-added
-      const bulletPointIndex = state.practicePart2Modal.bulletPoints.findIndex(
-        bp => bp.word.toLowerCase() === word.toLowerCase() && !bp.isHighlighted
-      );
-      if (bulletPointIndex !== -1) {
-        state.practicePart2Modal.bulletPoints.splice(bulletPointIndex, 1);
+      if (userHighlightIndex !== -1) {
+        // Remove from user-added highlights
+        state.practicePart2Modal.userAddedHighlights.splice(userHighlightIndex, 1);
+        
+        // Remove corresponding bullet point if it exists and is user-added
+        const bulletPointIndex = state.practicePart2Modal.bulletPoints.findIndex(
+          bp => bp.word.toLowerCase() === word.toLowerCase() && !bp.isHighlighted
+        );
+        if (bulletPointIndex !== -1) {
+          state.practicePart2Modal.bulletPoints.splice(bulletPointIndex, 1);
+        }
+      } else {
+        // Check if it's an original highlight
+        const isOriginalHighlight = state.practicePart2Modal.highlights.some(h => h.position === position);
+        
+        if (isOriginalHighlight) {
+          // Add to removed original highlights if not already there
+          const alreadyRemoved = state.practicePart2Modal.removedOriginalHighlights.some(h => h.position === position);
+          if (!alreadyRemoved) {
+            state.practicePart2Modal.removedOriginalHighlights.push({ word, position });
+          }
+          
+          // Remove corresponding bullet point if it exists and is from original highlights
+          const bulletPointIndex = state.practicePart2Modal.bulletPoints.findIndex(
+            bp => bp.word.toLowerCase() === word.toLowerCase() && bp.isHighlighted
+          );
+          if (bulletPointIndex !== -1) {
+            state.practicePart2Modal.bulletPoints.splice(bulletPointIndex, 1);
+          }
+        }
       }
     },
     setPracticePart2Step: (state, action: PayloadAction<'transcript' | 'recording'>) => {
@@ -614,6 +646,29 @@ const practiceSlice = createSlice({
           description: '',
           isHighlighted: false // User-added, not from original practice
         });
+      }
+    },
+    restorePracticePart2OriginalHighlight: (state, action: PayloadAction<{ word: string; position: number }>) => {
+      const { word, position } = action.payload;
+      
+      // Remove from removed original highlights list
+      state.practicePart2Modal.removedOriginalHighlights = state.practicePart2Modal.removedOriginalHighlights.filter(
+        h => h.position !== position
+      );
+      
+      // Add back to bullet points if it was an original highlight
+      const isOriginalHighlight = state.practicePart2Modal.highlights.some(h => h.position === position);
+      if (isOriginalHighlight) {
+        const existingBulletPoint = state.practicePart2Modal.bulletPoints.find(
+          bp => bp.word.toLowerCase() === word.toLowerCase()
+        );
+        if (!existingBulletPoint) {
+          state.practicePart2Modal.bulletPoints.push({
+            word: word.replace(/[.,!?;:]$/, ''), // Clean punctuation
+            description: '',
+            isHighlighted: true // Mark as from original practice
+          });
+        }
       }
     },
 
@@ -890,6 +945,28 @@ const practiceSlice = createSlice({
       .addCase(assessPronunciationInSession.rejected, (state, action) => {
         state.currentPracticeState.isAssessing = false;
         state.practiceSessionModal.error = action.error.message || 'Failed to assess pronunciation';
+      })
+      .addCase(markPracticePart2Completed.pending, (state) => {
+        state.practiceSessionModal.loading = true;
+        state.practiceSessionModal.error = null;
+      })
+      .addCase(markPracticePart2Completed.fulfilled, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = null;
+        // Update the current session with the new highlights
+        if (state.currentSession && state.currentSession.id === action.payload.sessionId) {
+          state.currentSession.highlights = action.payload.highlights;
+        }
+        // Update feedback data with Part 2 completion
+        if (state.feedbackData) {
+          state.feedbackData.part2Completed = true;
+          state.feedbackData.part2RecordingUrl = action.payload.recordingUrl;
+          console.log('📝 Updated feedbackData with Part 2 completion:', state.feedbackData);
+        }
+      })
+      .addCase(markPracticePart2Completed.rejected, (state, action) => {
+        state.practiceSessionModal.loading = false;
+        state.practiceSessionModal.error = action.error.message || 'Failed to mark Part 2 completed';
       });
   },
 });
@@ -922,7 +999,6 @@ export const {
   clearPracticeFeedbackData,
   setPracticeFeedbackError,
   markTranscriptCompleted,
-  markPracticePart2Completed,
   // Part 2 Practice modal actions
   openPracticePart2Modal,
   closePracticePart2Modal,
@@ -935,6 +1011,7 @@ export const {
   setPracticePart2Step,
   setPracticePart2Recording,
   setPracticePart2Uploading,
+  restorePracticePart2OriginalHighlight,
   // New current practice state actions
   setCurrentSentenceIndex,
   setCurrentWordIndex,
@@ -1016,5 +1093,8 @@ export const selectIsReturningToFullTranscript = (state: { practice: PracticeSta
 
 // Highlights selector
 export const selectHighlights = (state: { practice: PracticeState }) => state.practice.highlights;
+
+// Assignment context selector
+export const selectAssignmentContext = (state: { practice: PracticeState }) => state.practice.assignmentContext;
 
 export default practiceSlice.reducer; 

@@ -8,6 +8,7 @@ import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
 import { PracticeSession, PronunciationResult } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
 import { 
   startPracticeSession, 
   startFullTranscriptPractice as startFullTranscriptPracticeThunk, 
@@ -51,7 +52,8 @@ import {
   assessPronunciationInSession,
   updateProblematicWords,
   setSession,
-  openPracticePart2Modal
+  openPracticePart2Modal,
+  selectAssignmentContext
 } from '@/features/practice/practiceSlice';
 
 interface PracticeSessionModalProps {
@@ -97,6 +99,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   
   // Highlights state
   const highlights = useSelector(selectHighlights);
+  
+  // Assignment context state
+  const assignmentContext = useSelector(selectAssignmentContext);
 
   // Define loadSession function
   const loadSession = useCallback(async () => {
@@ -560,10 +565,38 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }
   };
 
-  const handleStartPart2 = () => {
+  const handleStartPart2 = async () => {
     // Open Part 2 modal with improved transcript and highlights
     const improvedTranscript = session?.improved_transcript || '';
-    dispatch(openPracticePart2Modal({ sessionId, improvedTranscript, highlights }));
+    
+    // Use the original question from assignment context directly
+    let originalQuestion: string | undefined = undefined;
+    if (assignmentContext?.questionData?.question) {
+      originalQuestion = assignmentContext.questionData.question;
+      console.log('📝 Using original question from context:', originalQuestion);
+    } else if (session?.assignment_id) {
+      // Fallback to fetching if assignment context is missing
+      try {
+        console.log('🔍 Fetching assignment for Part 2:', session.assignment_id);
+        const result = await dispatch(fetchAssignmentById(session.assignment_id)).unwrap();
+        console.log('🔍 Assignment loaded:', result);
+        
+        if (result?.questions && Array.isArray(result.questions)) {
+          const questionIndex = assignmentContext?.questionIndex ?? 0;
+          originalQuestion = result.questions[questionIndex]?.question || undefined;
+          console.log('📝 Found original question at index', questionIndex, ':', originalQuestion);
+        }
+      } catch (err) {
+        console.error('❌ Error fetching assignment for Part 2:', err);
+      }
+    }
+    
+    dispatch(openPracticePart2Modal({ 
+      sessionId, 
+      improvedTranscript, 
+      highlights,
+      originalQuestion 
+    }));
     
     // Close this modal
     onClose();

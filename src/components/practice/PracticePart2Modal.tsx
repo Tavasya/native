@@ -15,6 +15,7 @@ import {
   removePracticePart2BulletPoint,
   addPracticePart2HighlightFromTranscript,
   removePracticePart2HighlightFromTranscript,
+  restorePracticePart2OriginalHighlight,
   setPracticePart2Step,
   setPracticePart2Recording,
   setPracticePart2Uploading,
@@ -26,7 +27,15 @@ import AudioPlayer from '@/components/assignment/AudioPlayer';
 
 const PracticePart2Modal: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { isOpen, sessionId, improvedTranscript, bulletPoints, highlights, userAddedHighlights, currentStep, recordingUrl, isUploading } = useSelector(selectPracticePart2Modal);
+  const { isOpen, sessionId, improvedTranscript, bulletPoints, highlights, userAddedHighlights, removedOriginalHighlights, originalQuestion, currentStep, recordingUrl, isUploading } = useSelector(selectPracticePart2Modal);
+
+  // Debug logging
+  console.log('🔍 Part 2 Modal Debug:', {
+    isOpen,
+    originalQuestion,
+    currentStep,
+    hasOriginalQuestion: !!originalQuestion
+  });
 
   const handleClose = () => {
     dispatch(closePracticePart2Modal());
@@ -57,9 +66,21 @@ const PracticePart2Modal: React.FC = () => {
   };
 
   const handleDone = () => {
-    if (recordingUrl) {
-      // Mark Part 2 as complete with the recording URL
-      dispatch(markPracticePart2Completed({ recordingUrl }));
+    if (recordingUrl && sessionId) {
+      // Filter out removed original highlights from the original highlights
+      const activeOriginalHighlights = highlights.filter(
+        originalHighlight => !removedOriginalHighlights.some(
+          removedHighlight => removedHighlight.position === originalHighlight.position
+        )
+      );
+      
+      // Mark Part 2 as complete with the recording URL and save highlights
+      dispatch(markPracticePart2Completed({ 
+        recordingUrl, 
+        sessionId, 
+        highlights: activeOriginalHighlights, 
+        userAddedHighlights 
+      }));
     }
     // Close the modal
     dispatch(closePracticePart2Modal());
@@ -103,7 +124,16 @@ const PracticePart2Modal: React.FC = () => {
   });
 
   const handleWordClick = (word: string, position: number) => {
-    dispatch(addPracticePart2HighlightFromTranscript({ word, position }));
+    // Check if this was a removed original highlight - if so, restore it
+    const wasRemovedOriginalHighlight = removedOriginalHighlights.some(h => h.position === position);
+    if (wasRemovedOriginalHighlight) {
+      // Remove from removed list to restore the highlight
+      // We'll need a new action for this, but for now let's add it as user highlight
+      dispatch(restorePracticePart2OriginalHighlight({ word, position }));
+    } else {
+      // Normal case - add as user highlight
+      dispatch(addPracticePart2HighlightFromTranscript({ word, position }));
+    }
   };
 
   const handleRemoveHighlight = (word: string, position: number) => {
@@ -116,35 +146,30 @@ const PracticePart2Modal: React.FC = () => {
     
     words.forEach((word, index) => {
       const isOriginalHighlight = originalHighlights.some(h => h.position === index);
+      const isRemovedOriginalHighlight = removedOriginalHighlights.some(h => h.position === index);
       const isUserHighlight = userAddedHighlights.some(h => h.position === index);
+      // Only consider it highlighted if it's an original highlight that hasn't been removed, or a user highlight
+      const isHighlighted = (isOriginalHighlight && !isRemovedOriginalHighlight) || isUserHighlight;
       const cleanWord = word.replace(/[.,!?;:]$/, ''); // Remove punctuation for matching
       const punctuation = word.match(/[.,!?;:]$/)?.[0] || '';
       
-      if (isOriginalHighlight) {
-        // Original practice highlights - yellow background (not clickable to remove)
-        elements.push(
-          <span key={index} className="bg-yellow-200 font-medium px-1 rounded">
-            {cleanWord}
-          </span>
-        );
-      } else if (isUserHighlight) {
-        // User-added highlights - blue background (clickable to remove)
+      if (isHighlighted) {
+        // All highlights look the same - clickable to remove
         elements.push(
           <span 
             key={index} 
-            className="bg-blue-200 font-medium px-1 rounded cursor-pointer hover:bg-blue-300 transition-colors"
+            className="bg-yellow-200 font-medium py-0.5 px-1 rounded mx-0.5 cursor-pointer hover:bg-yellow-300 transition-colors"
             onClick={() => handleRemoveHighlight(cleanWord, index)}
-            title="Click to remove highlight"
           >
             {cleanWord}
           </span>
         );
       } else {
-        // Non-highlighted words - clickable
+        // Non-highlighted words - clickable to add
         elements.push(
           <span 
             key={index} 
-            className="text-gray-800 hover:bg-gray-100 cursor-pointer px-1 rounded transition-colors"
+            className="text-gray-800 hover:bg-gray-100 cursor-pointer py-0.5 px-1 rounded transition-colors mx-0.5"
             onClick={() => handleWordClick(cleanWord, index)}
           >
             {cleanWord}
@@ -159,11 +184,6 @@ const PracticePart2Modal: React.FC = () => {
           </span>
         );
       }
-      
-      // Add space between words (except for the last word)
-      if (index < words.length - 1) {
-        elements.push(' ');
-      }
     });
     
     return <span className="leading-relaxed">{elements}</span>;
@@ -175,6 +195,21 @@ const PracticePart2Modal: React.FC = () => {
 
   const renderTranscriptStep = () => (
     <div className="space-y-6">
+      {/* Original Question */}
+      {originalQuestion && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">
+            Original Question
+          </h3>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-gray-800 leading-relaxed">
+              {originalQuestion}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Improved Transcript Display */}
       <div className="bg-gray-50 rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -185,22 +220,8 @@ const PracticePart2Modal: React.FC = () => {
         </div>
         {(highlights.length > 0 || userAddedHighlights.length > 0) && (
           <div className="mt-4 text-sm text-gray-600 space-y-2">
-            <div className="flex flex-wrap gap-4">
-              {highlights.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="bg-yellow-200 font-medium px-1 rounded">Yellow</span>
-                  <span>words from practice</span>
-                </div>
-              )}
-              {userAddedHighlights.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <span className="bg-blue-200 font-medium px-1 rounded">Blue</span>
-                  <span>words you selected</span>
-                </div>
-              )}
-            </div>
             <div className="text-xs text-gray-500">
-              💡 Click any word to add it to your notes • Click blue highlighted words to remove them
+              💡 Click any word to add it to your notes • Click highlighted words to remove them
             </div>
           </div>
         )}
@@ -242,11 +263,7 @@ const PracticePart2Modal: React.FC = () => {
                       className="font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   )}
-                  {bulletPoint.isHighlighted && (
-                    <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-                      From practice
-                    </span>
-                  )}
+
                 </div>
                 <Textarea
                   placeholder="Write your definition or notes about this word..."
@@ -312,11 +329,6 @@ const PracticePart2Modal: React.FC = () => {
               <div className="flex-1">
                 <div className="font-semibold text-gray-900">
                   {bulletPoint.word}
-                  {bulletPoint.isHighlighted && (
-                    <span className="ml-2 text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded">
-                      from practice
-                    </span>
-                  )}
                 </div>
                 <div className="mt-1 text-gray-700 leading-relaxed">
                   {bulletPoint.description || <span className="italic text-gray-500">No description added.</span>}
@@ -331,6 +343,21 @@ const PracticePart2Modal: React.FC = () => {
 
   const renderRecordingStep = () => (
     <div className="space-y-6">
+      {/* Original Question */}
+      {originalQuestion && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-gray-900">
+            Original Question
+          </h3>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-gray-800 leading-relaxed">
+              {originalQuestion}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Word Definitions & Notes (Read-only) */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-900">
@@ -449,19 +476,9 @@ const PracticePart2Modal: React.FC = () => {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold">
-              Part 2 of Practice {currentStep === 'recording' && '- Recording'}
-            </DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-xl font-semibold">
+            Part 2 of Practice {currentStep === 'recording' && '- Recording'}
+          </DialogTitle>
         </DialogHeader>
         
         {currentStep === 'transcript' ? renderTranscriptStep() : renderRecordingStep()}

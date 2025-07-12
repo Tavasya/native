@@ -99,7 +99,8 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
           original: currentQuestionFeedback.transcript || 'No original transcript available',
           enhanced: currentQuestionFeedback.section_feedback?.paragraph_restructuring?.improved_transcript || 'No enhanced transcript available', 
           audioUrl: currentQuestionFeedback.audio_url || '',
-          submissionId: selectedSubmission?.id || ''
+          submissionId: selectedSubmission?.id || '',
+          questionIndex: selectedQuestionIndex  // Pass the correct question index
         }
       }
     });

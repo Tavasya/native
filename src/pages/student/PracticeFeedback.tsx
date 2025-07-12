@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Volume2, Loader2, CheckCircle } from 'lucide-react';
@@ -18,14 +18,23 @@ import {
   removeHighlight,
   setHighlights,
   loadPracticeSessionHighlights,
-  openPracticePart2Modal
+  openPracticePart2Modal,
+  setAssignmentContext
 } from '@/features/practice/practiceSlice';
+import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
+import { Assignment } from '@/features/assignments/types';
+import { supabase } from '@/integrations/supabase/client';
 
 const PracticeFeedback: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const dispatch = useAppDispatch();
+  
+  // Local state for assignment data and question index
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [questionIndex, setQuestionIndex] = useState<number>(0);
+  const [loadingAssignment, setLoadingAssignment] = useState(false);
   
   const feedbackData = useAppSelector(selectPracticeFeedbackData);
   const feedbackError = useAppSelector(selectPracticeFeedbackError);
@@ -37,8 +46,12 @@ const PracticeFeedback: React.FC = () => {
   // Debug logging
   console.log('🔍 PracticeFeedback Debug:', {
     feedbackData,
+    submissionId: feedbackData?.submissionId,
     isTranscriptCompleted,
-    completedSessionId: feedbackData?.completedSessionId
+    completedSessionId: feedbackData?.completedSessionId,
+    hasAssignment: !!assignment,
+    loadingAssignment,
+    originalQuestion: assignment?.questions[questionIndex]?.question
   });
 
   useEffect(() => {
@@ -51,15 +64,23 @@ const PracticeFeedback: React.FC = () => {
     if (stateData) {
       // Set the feedback data directly from navigation state
       dispatch(setPracticeFeedbackData(stateData));
+      
+      // Set the question index if it exists in the state data
+      if (stateData.questionIndex !== undefined) {
+        setQuestionIndex(stateData.questionIndex);
+      }
     } else {
       // Try to get data from URL params (new flow)
       const submissionId = searchParams.get('submissionId');
-      const questionIndex = searchParams.get('questionIndex');
+      const questionIndexParam = searchParams.get('questionIndex');
       
-      if (submissionId && questionIndex !== null) {
+      if (submissionId && questionIndexParam !== null) {
+        const parsedQuestionIndex = parseInt(questionIndexParam, 10);
+        setQuestionIndex(parsedQuestionIndex);
+        
         dispatch(loadPracticeFeedbackFromSubmission({
           submissionId,
-          questionIndex: parseInt(questionIndex, 10)
+          questionIndex: parsedQuestionIndex
         }));
       } else {
         // No data available
@@ -67,6 +88,53 @@ const PracticeFeedback: React.FC = () => {
       }
     }
   }, [location.state, searchParams, dispatch]);
+
+  // Load assignment data when feedback data is available
+  useEffect(() => {
+    const loadAssignmentData = async () => {
+      console.log('🔍 Assignment Loading Check:', {
+        hasSubmissionId: !!feedbackData?.submissionId,
+        submissionId: feedbackData?.submissionId,
+        hasAssignment: !!assignment,
+        loadingAssignment,
+        shouldLoad: !!(feedbackData?.submissionId && !assignment && !loadingAssignment)
+      });
+      
+      if (feedbackData?.submissionId && !assignment && !loadingAssignment) {
+        console.log('🔍 Starting assignment load for submissionId:', feedbackData.submissionId);
+        setLoadingAssignment(true);
+        
+        try {
+          // Get submission data to find assignment_id
+          const { data: submission, error } = await supabase
+            .from('submissions')
+            .select('assignment_id')
+            .eq('id', feedbackData.submissionId)
+            .single();
+          
+          console.log('🔍 Submission query result:', { submission, error });
+          
+          if (error) {
+            console.error('Error loading submission:', error);
+            return;
+          }
+          
+          // Fetch assignment data
+          console.log('🔍 Fetching assignment with ID:', submission.assignment_id);
+          const result = await dispatch(fetchAssignmentById(submission.assignment_id)).unwrap();
+          console.log('🔍 Assignment loaded:', result);
+          setAssignment(result);
+          
+        } catch (error) {
+          console.error('Error loading assignment:', error);
+        } finally {
+          setLoadingAssignment(false);
+        }
+      }
+    };
+    
+    loadAssignmentData();
+  }, [feedbackData?.submissionId, assignment, loadingAssignment, dispatch]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -171,13 +239,29 @@ const PracticeFeedback: React.FC = () => {
       // Create practice session with enhanced transcript and highlights
       const action = await dispatch(createPracticeSessionFromFeedback({
         enhancedTranscript: feedbackData.enhanced,
-        highlights: highlights, // Save full highlight objects with position info
         submissionId: feedbackData.submissionId // Pass submissionId to get assignment_id
       }));
 
       if (createPracticeSessionFromFeedback.fulfilled.match(action)) {
         const session = action.payload;
         console.log('Session created successfully:', session.id);
+        
+        // Set assignment context with correct question index if we have assignment data
+        if (assignment) {
+          dispatch(setAssignmentContext({
+            assignmentId: assignment.id,
+            questionIndex: questionIndex,
+            questionData: {
+              id: assignment.questions[questionIndex]?.id || '',
+              type: assignment.questions[questionIndex]?.type || '',
+              question: assignment.questions[questionIndex]?.question || '',
+              speakAloud: assignment.questions[questionIndex]?.speakAloud || false,
+              timeLimit: assignment.questions[questionIndex]?.timeLimit || '',
+              prepTime: assignment.questions[questionIndex]?.prepTime,
+              bulletPoints: assignment.questions[questionIndex]?.bulletPoints
+            }
+          }));
+        }
         
         // Open the modal - PracticeSessionModal will handle starting the backend processing
         dispatch(openPracticeSessionModal(session.id));
@@ -198,11 +282,21 @@ const PracticeFeedback: React.FC = () => {
       return;
     }
 
+    // Debug logging
+    console.log('🔍 Part 2 Debug:', {
+      assignment,
+      questionIndex,
+      loadingAssignment,
+      originalQuestion: assignment?.questions[questionIndex]?.question,
+      questions: assignment?.questions
+    });
+
     // Open Part 2 modal with the completed session ID and enhanced transcript
     dispatch(openPracticePart2Modal({
       sessionId: feedbackData.completedSessionId,
       improvedTranscript: feedbackData.enhanced,
-      highlights: highlights
+      highlights: highlights,
+      originalQuestion: assignment?.questions[questionIndex]?.question // Pass the original question
     }));
   };
 
@@ -337,11 +431,13 @@ const PracticeFeedback: React.FC = () => {
             {isTranscriptCompleted && feedbackData?.completedSessionId && (
               <Button
                 onClick={handleStartPart2}
-                disabled={isPart2Completed}
+                disabled={isPart2Completed || loadingAssignment || !assignment}
                 className={`px-6 py-3 text-lg font-medium ${
                   isPart2Completed 
                     ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : loadingAssignment || !assignment
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
                 size="lg"
               >
@@ -349,6 +445,15 @@ const PracticeFeedback: React.FC = () => {
                   <>
                     <CheckCircle className="h-5 w-5 mr-2" />
                     Part 2 Completed
+                  </>
+                ) : loadingAssignment ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : !assignment ? (
+                  <>
+                    Loading Assignment...
                   </>
                 ) : (
                   <>

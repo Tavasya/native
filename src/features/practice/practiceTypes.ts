@@ -83,7 +83,6 @@ export interface PracticeState {
   // Assignment practice modal state
   practiceModal: {
     isOpen: boolean;
-    questionText: string;
     assignmentId: string;
     questionIndex: number;
   };
@@ -102,6 +101,8 @@ export interface PracticeState {
     bulletPoints: { word: string; description: string; isHighlighted: boolean }[];
     highlights: { word: string; position: number }[];
     userAddedHighlights: { word: string; position: number }[];
+    removedOriginalHighlights: { word: string; position: number }[];
+    originalQuestion: string | null;
     currentStep: 'transcript' | 'recording';
     recordingUrl: string | null;
     isUploading: boolean;
