@@ -27,7 +27,7 @@ interface PartLibraryProps {
   parts: AssignmentPart[];
   combinations: PartCombination[];
   partsLoading: boolean;
-  onAddPart: (part: AssignmentPart | PartCombination) => void;
+  onAddPart: (part: AssignmentPart | PartCombination, insertIndex?: number, createNewSection?: boolean) => void;
   onDragStart: (part: AssignmentPart | PartCombination) => void;
   onDragEnd: () => void;
 }
@@ -366,7 +366,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
                             onDragStart(item);
                           }}
                           onDragEnd={onDragEnd}
-                          onClick={() => onAddPart(item)}
+                          onClick={() => onAddPart(item, undefined, true)}
                         >
                           <CardContent className="p-3">
                             <div className="flex items-start justify-between">

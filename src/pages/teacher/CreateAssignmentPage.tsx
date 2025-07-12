@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, ChevronDown, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown, Info, FolderPlus, MoreVertical, Copy, Move } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,6 +43,13 @@ interface QuestionCard {
   prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
   hasHint?: boolean;          // Toggle for enabling/disabling hints (Part 1 & 3 only)
   hintText?: string;          // The actual hint content
+  sectionIndex?: number;      // Which section this question belongs to
+}
+
+interface SectionTag {
+  id: string;
+  name: string;
+  questionStartIndex: number; // Index where this section starts
 }
 
 const CreateAssignmentPage: React.FC = () => {
@@ -75,6 +82,13 @@ const CreateAssignmentPage: React.FC = () => {
   const [isTest, setIsTest] = useState(false);
   const [audioOnlyMode, setAudioOnlyMode] = useState(false);
   
+  // Sections state
+  const [sections, setSections] = useState<SectionTag[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [openSectionMenu, setOpenSectionMenu] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [tempSections, setTempSections] = useState<SectionTag[]>([]);
+  
   // Part library state
   const [isPartLibraryOpen, setIsPartLibraryOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +109,256 @@ const CreateAssignmentPage: React.FC = () => {
     { value: "3", label: "3 minutes" },
   ];
 
+  // Section helper functions
+  const getSectionForQuestionIndex = (questionIndex: number): SectionTag | null => {
+    if (sections.length === 0) return null;
+    
+    // Find the section that starts at or before this question index
+    for (let i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].questionStartIndex <= questionIndex) {
+        return sections[i];
+      }
+    }
+    return sections[0];
+  };
 
+  const createNewSection = () => {
+    // If there are already questions but no sections yet, create first section at index 0
+    if (questionCards.length > 0 && sections.length === 0) {
+      const firstSection: SectionTag = {
+        id: `section-${Date.now()}`,
+        name: 'Section 1',
+        questionStartIndex: 0
+      };
+      setSections([firstSection]);
+      return;
+    }
+    
+    // If no questions exist at all, this shouldn't happen but handle it
+    if (questionCards.length === 0) {
+      return; // Do nothing - user should add a question first
+    }
+
+    // Create new section after existing questions
+    const newSection: SectionTag = {
+      id: `section-${Date.now()}`,
+      name: `Section ${sections.length + 1}`,
+      questionStartIndex: questionCards.length
+    };
+    
+    // Add a new question to the new section
+    const newCard: QuestionCard = {
+      id: `card-${Date.now()}`,
+      type: 'normal',
+      question: '',
+      speakAloud: false,
+      timeLimit: '1',
+      prepTime: '0:15'
+    };
+    
+    setSections(prev => [...prev, newSection]);
+    setQuestionCards(prev => [...prev, newCard]);
+    setActiveCardId(newCard.id);
+  };
+
+  const addQuestionToSection = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
+    if (!section) return;
+    
+    // Find the insertion point (after the last question of this section)
+    let insertIndex = questionCards.length;
+    if (sectionIndex < sections.length - 1) {
+      // Find the start of the next section
+      const nextSection = sections[sectionIndex + 1];
+      insertIndex = nextSection.questionStartIndex;
+    }
+    
+    const newCard: QuestionCard = {
+      id: `card-${Date.now()}`,
+      type: 'normal',
+      question: '',
+      speakAloud: false,
+      timeLimit: '1',
+      prepTime: '0:15',
+      sectionIndex
+    };
+    
+    const newCards = [...questionCards];
+    newCards.splice(insertIndex, 0, newCard);
+    setQuestionCards(newCards);
+    
+    // Update section start indices for sections after the insertion point
+    setSections(prev => prev.map((s, i) => {
+      if (i > sectionIndex) {
+        return { ...s, questionStartIndex: s.questionStartIndex + 1 };
+      }
+      return s;
+    }));
+    
+    setActiveCardId(newCard.id);
+  };
+
+  const deleteSection = (sectionId: string) => {
+    const sectionToDelete = sections.find(s => s.id === sectionId);
+    if (!sectionToDelete) return;
+
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    
+    // Find questions that belong to this section
+    let questionsToDelete: string[] = [];
+    
+    if (sectionIndex === sections.length - 1) {
+      // Last section - delete from start index to end
+      questionsToDelete = questionCards
+        .slice(sectionToDelete.questionStartIndex)
+        .map(card => card.id);
+    } else {
+      // Not last section - delete from start index to next section start
+      const nextSection = sections[sectionIndex + 1];
+      questionsToDelete = questionCards
+        .slice(sectionToDelete.questionStartIndex, nextSection.questionStartIndex)
+        .map(card => card.id);
+    }
+
+    // Remove the questions
+    const newQuestionCards = questionCards.filter(card => !questionsToDelete.includes(card.id));
+    
+    // Remove the section
+    const newSections = sections.filter(s => s.id !== sectionId);
+    
+    // Update start indices for remaining sections
+    const updatedSections = newSections.map((section, index) => {
+      if (index < sectionIndex) {
+        return section; // Sections before deleted one stay the same
+      } else {
+        // Sections after deleted one need their start index adjusted
+        return {
+          ...section,
+          questionStartIndex: section.questionStartIndex - questionsToDelete.length
+        };
+      }
+    });
+
+    setQuestionCards(newQuestionCards);
+    setSections(updatedSections);
+    
+    // If no sections left, exit section mode
+    if (updatedSections.length === 0) {
+      // If no questions left either, add a default question
+      if (newQuestionCards.length === 0) {
+        const defaultCard: QuestionCard = {
+          id: `card-${Date.now()}`,
+          type: 'normal',
+          question: '',
+          speakAloud: false,
+          timeLimit: '1',
+          prepTime: '0:15'
+        };
+        setQuestionCards([defaultCard]);
+        setActiveCardId(defaultCard.id);
+      }
+    }
+    
+    setShowDeleteConfirm(null);
+  };
+
+  const duplicateSection = (sectionId: string) => {
+    const sectionToDuplicate = sections.find(s => s.id === sectionId);
+    if (!sectionToDuplicate) return;
+
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    
+    // Find questions that belong to this section
+    let questionsInSection: QuestionCard[] = [];
+    
+    if (sectionIndex === sections.length - 1) {
+      // Last section - get from start index to end
+      questionsInSection = questionCards.slice(sectionToDuplicate.questionStartIndex);
+    } else {
+      // Not last section - get from start index to next section start
+      const nextSection = sections[sectionIndex + 1];
+      questionsInSection = questionCards.slice(sectionToDuplicate.questionStartIndex, nextSection.questionStartIndex);
+    }
+
+    // Create duplicated questions with new IDs
+    const duplicatedQuestions: QuestionCard[] = questionsInSection.map(q => ({
+      ...q,
+      id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    // Create new section
+    const newSection: SectionTag = {
+      id: `section-${Date.now()}`,
+      name: `${sectionToDuplicate.name} (Copy)`,
+      questionStartIndex: questionCards.length
+    };
+
+    // Update state
+    setQuestionCards(prev => [...prev, ...duplicatedQuestions]);
+    setSections(prev => [...prev, newSection]);
+    
+    setOpenSectionMenu(null);
+  };
+
+  const openMoveModal = () => {
+    setTempSections([...sections]);
+    setShowMoveModal(true);
+    setOpenSectionMenu(null);
+  };
+
+  const handleMoveModalDragEnd = (result: any) => {
+    if (!result.destination) return;
+
+    const reorderedSections = Array.from(tempSections);
+    const [movedSection] = reorderedSections.splice(result.source.index, 1);
+    reorderedSections.splice(result.destination.index, 0, movedSection);
+
+    setTempSections(reorderedSections);
+  };
+
+  const applyMoveChanges = () => {
+    // First, gather all questions for each section
+    const sectionQuestions: { [key: string]: QuestionCard[] } = {};
+    
+    sections.forEach((section, index) => {
+      let questionsInSection: QuestionCard[] = [];
+      
+      if (index === sections.length - 1) {
+        questionsInSection = questionCards.slice(section.questionStartIndex);
+      } else {
+        const nextSection = sections[index + 1];
+        questionsInSection = questionCards.slice(section.questionStartIndex, nextSection.questionStartIndex);
+      }
+      
+      sectionQuestions[section.id] = questionsInSection;
+    });
+
+    // Now reorder sections and calculate new start indices
+    let currentStartIndex = 0;
+    const reorderedSections = tempSections.map((section) => {
+      const newSection = {
+        ...section,
+        questionStartIndex: currentStartIndex
+      };
+      currentStartIndex += sectionQuestions[section.id].length;
+      return newSection;
+    });
+
+    // Reorder questions based on section reordering
+    const newQuestionCards: QuestionCard[] = [];
+    reorderedSections.forEach((section) => {
+      newQuestionCards.push(...sectionQuestions[section.id]);
+    });
+
+    setSections(reorderedSections);
+    setQuestionCards(newQuestionCards);
+    setShowMoveModal(false);
+  };
+
+  const cancelMoveChanges = () => {
+    setTempSections([]);
+    setShowMoveModal(false);
+  };
 
   useEffect(() => {
     if (user) {
@@ -126,6 +389,11 @@ const CreateAssignmentPage: React.FC = () => {
       setAutoGrade(editData.metadata?.autoGrade ?? true);
       setIsTest(editData.metadata?.isTest ?? false);
       setAudioOnlyMode(editData.metadata?.audioOnlyMode ?? false);
+      
+      // Load sections if they exist
+      if (editData.metadata?.sections) {
+        setSections(editData.metadata.sections);
+      }
       
       // Restore the actual question cards that were edited
       if (editData.questions) {
@@ -185,7 +453,16 @@ const CreateAssignmentPage: React.FC = () => {
 
   const deleteQuestionCard = (id: string) => {
     if (questionCards.length > 1) {
+      const deletedIndex = questionCards.findIndex(card => card.id === id);
       setQuestionCards(questionCards.filter(card => card.id !== id));
+
+      // Update section start indices after deletion
+      setSections(prev => prev.map(section => {
+        if (section.questionStartIndex > deletedIndex) {
+          return { ...section, questionStartIndex: section.questionStartIndex - 1 };
+        }
+        return section;
+      }).filter(section => section.questionStartIndex < questionCards.length - 1)); // Remove sections that no longer have questions
 
       // If we're deleting the active card, set a new active card
       if (activeCardId === id) {
@@ -371,7 +648,12 @@ const CreateAssignmentPage: React.FC = () => {
             bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
             hintText: card.hintText?.trim()
           })),
-          metadata: { autoGrade, isTest, audioOnlyMode },
+          metadata: { 
+            autoGrade, 
+            isTest, 
+            audioOnlyMode,
+            ...(sections.length > 0 && { sections })
+          },
         };
 
         await dispatch(updateAssignment({ assignmentId, data: updateData })).unwrap();
@@ -388,7 +670,12 @@ const CreateAssignmentPage: React.FC = () => {
             bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
             hintText: card.hintText?.trim()
           })),
-          metadata: { autoGrade, isTest, audioOnlyMode },
+          metadata: { 
+            autoGrade, 
+            isTest, 
+            audioOnlyMode,
+            ...(sections.length > 0 && { sections })
+          },
           status: 'not_started' as const
         };
 
@@ -498,7 +785,10 @@ const CreateAssignmentPage: React.FC = () => {
           bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
           hintText: card.hintText?.trim()
         })),
-        metadata: { autoGrade }
+        metadata: { 
+          autoGrade,
+          ...(sections.length > 0 && { sections })
+        }
       };
 
       await dispatch(createAssignmentTemplate(templateData)).unwrap();
@@ -529,7 +819,7 @@ const CreateAssignmentPage: React.FC = () => {
   };
 
   // Add part to assignment
-  const handleAddPart = (part: AssignmentPart | PartCombination, insertIndex?: number) => {
+  const handleAddPart = (part: AssignmentPart | PartCombination, insertIndex?: number, createNewSection?: boolean) => {
     let questions: any[] = [];
     
     if ('part2' in part && 'part3' in part) {
@@ -583,9 +873,77 @@ const CreateAssignmentPage: React.FC = () => {
         newCards.splice(insertIndex, 0, ...newQuestionCards);
         return newCards;
       });
+      
+      // Update section start indices if sections exist
+      if (sections.length > 0) {
+        setSections(prev => prev.map(section => {
+          // If this section starts at or after the insert point, update its start index
+          if (section.questionStartIndex >= insertIndex) {
+            return {
+              ...section,
+              questionStartIndex: section.questionStartIndex + newQuestionCards.length
+            };
+          }
+          return section;
+        }));
+      }
     } else {
-      // Add to end
-      setQuestionCards(prev => [...prev, ...newQuestionCards]);
+      // Add to end - check if we should create a new section
+      const currentQuestionCount = questionCards.length;
+      
+      // Check if we have any non-empty questions
+      const hasNonEmptyQuestions = questionCards.some(q => q.question.trim() !== '');
+      
+      // Only create sections if we're already in section mode OR it's an empty assignment
+      const isInSectionMode = sections.length > 0;
+      const isEmptyAssignment = !hasNonEmptyQuestions;
+      const shouldCreateSection = createNewSection && (isInSectionMode || isEmptyAssignment);
+      
+      if (shouldCreateSection) {
+        // Create a new section when clicking in section mode or empty assignment
+        let partTypeText = '';
+        if ('part2' in part && 'part3' in part) {
+          partTypeText = ' (Part 2 & 3)';
+        } else if ('part_type' in part) {
+          switch (part.part_type) {
+            case 'part1':
+              partTypeText = ' (Part 1)';
+              break;
+            case 'part2_only':
+              partTypeText = ' (Part 2)';
+              break;
+            case 'part2_3':
+              partTypeText = ' (Part 2 & 3)';
+              break;
+            case 'part3_only':
+              partTypeText = ' (Part 3)';
+              break;
+            default:
+              partTypeText = '';
+          }
+        }
+        
+        const newSection: SectionTag = {
+          id: `section-${Date.now()}`,
+          name: `${part.title}${partTypeText}`,
+          questionStartIndex: isEmptyAssignment ? 0 : currentQuestionCount
+        };
+        
+        if (isEmptyAssignment) {
+          setSections([newSection]); // Replace sections for empty assignment
+        } else {
+          setSections(prev => [...prev, newSection]); // Add to existing sections
+        }
+      }
+      
+      // Handle question replacement/addition
+      if (createNewSection && !hasNonEmptyQuestions) {
+        // Replace empty questions (normal mode behavior)
+        setQuestionCards(newQuestionCards);
+      } else {
+        // Add to existing questions
+        setQuestionCards(prev => [...prev, ...newQuestionCards]);
+      }
     }
     
     // Show success toast
@@ -962,10 +1320,69 @@ const CreateAssignmentPage: React.FC = () => {
                       />
                     )}
                     
-                    {questionCards.map((card, index) => (
-                      <React.Fragment key={card.id}>
-                        <Draggable draggableId={card.id} index={index}>
-                          {(provided: DraggableProvided) => (
+                    {questionCards.map((card, index) => {
+                      const currentSection = getSectionForQuestionIndex(index);
+                      const isFirstInSection = currentSection && currentSection.questionStartIndex === index;
+                      const isLastInSection = index === questionCards.length - 1 || 
+                        (index + 1 < questionCards.length && getSectionForQuestionIndex(index + 1)?.id !== currentSection?.id);
+                      const sectionIndex = sections.findIndex(s => s.id === currentSection?.id);
+                      
+                      return (
+                        <React.Fragment key={card.id}>
+                          {/* Section Tag */}
+                          {isFirstInSection && currentSection && (
+                            <div className="mb-4">
+                              <div className="px-4 py-3 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-between">
+                                <input
+                                  type="text"
+                                  value={currentSection.name}
+                                  onChange={(e) => {
+                                    setSections(prev => prev.map(s => 
+                                      s.id === currentSection.id ? { ...s, name: e.target.value } : s
+                                    ));
+                                  }}
+                                  className="flex h-10 w-full rounded-md border border-input ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                  placeholder={`Section ${sections.findIndex(s => s.id === currentSection.id) + 1}`}
+                                />
+                                <DropdownMenu open={openSectionMenu === currentSection.id} onOpenChange={(open) => setOpenSectionMenu(open ? currentSection.id : null)}>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-2 h-8 w-8 p-0"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={openMoveModal}>
+                                      <Move className="mr-2 h-4 w-4" />
+                                      Move Section
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => duplicateSection(currentSection.id)}>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Duplicate Section
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setShowDeleteConfirm(currentSection.id);
+                                        setOpenSectionMenu(null);
+                                      }}
+                                      className="text-red-600 focus:text-red-600"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Section
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <Draggable draggableId={card.id} index={index}>
+                            {(provided: DraggableProvided) => (
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
@@ -1262,27 +1679,157 @@ const CreateAssignmentPage: React.FC = () => {
                             onDragOver={(e) => handleDragOver(e, index + 1)}
                             onDrop={(e) => handleDrop(e, index + 1)}
                           />
-                        )}
-                      </React.Fragment>
-                    ))}
+                          )}
+                          
+                          {/* Add Question to Section Button */}
+                          {isLastInSection && currentSection && sectionIndex >= 0 && (
+                            <div className="flex justify-center mt-4 mb-6">
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={() => addQuestionToSection(sectionIndex)}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <Plus className="h-6 w-6" />
+                              </Button>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
 
                     {provided.placeholder}
 
-                    {/* Add Question Button */}
-                    <div className="flex justify-center mt-4">
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        onClick={() => addQuestionCard('normal')}
-                        className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                      >
-                        <Plus className="h-6 w-6" />
-                      </Button>
-                    </div>
+                    {/* Bottom Buttons */}
+                    {sections.length === 0 ? (
+                      /* No sections yet - show both buttons */
+                      <div className="flex justify-center gap-4 mt-6">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={() => addQuestionCard('normal')}
+                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                        >
+                          <Plus className="h-6 w-6" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={createNewSection}
+                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                        >
+                          <FolderPlus className="h-6 w-6" />
+                        </Button>
+                      </div>
+                    ) : (
+                      /* Sections exist - only show add section button */
+                      <div className="flex justify-center mt-6">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={createNewSection}
+                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                        >
+                          <FolderPlus className="h-6 w-6" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </Droppable>
             </DragDropContext>
+            
+            {/* Delete Section Confirmation Modal */}
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-semibold mb-2">Delete Section</h3>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to delete this section? This will permanently delete all questions within this section.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDeleteConfirm(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => deleteSection(showDeleteConfirm)}
+                    >
+                      Delete Section
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Move Section Modal */}
+            {showMoveModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-semibold mb-4">Reorder Sections</h3>
+                  <p className="text-gray-600 mb-4">
+                    Drag and drop to reorder sections. Questions will move with their sections.
+                  </p>
+                  
+                  <DragDropContext onDragEnd={handleMoveModalDragEnd}>
+                    <Droppable droppableId="section-reorder">
+                      {(provided) => (
+                        <div
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className="mb-4 h-[300px] overflow-y-auto p-4"
+                        >
+                          {tempSections.map((section, index) => (
+                            <Draggable key={section.id} draggableId={section.id} index={index}>
+                              {(provided) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className="mb-3 flex items-center gap-3 p-3 bg-gray-50 rounded-md border cursor-move"
+                                >
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex gap-0.5">
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                    </div>
+                                  </div>
+                                  <span className="font-medium">{section.name}</span>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
+                  
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={cancelMoveChanges}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={applyMoveChanges}
+                    >
+                      Apply Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         </div>

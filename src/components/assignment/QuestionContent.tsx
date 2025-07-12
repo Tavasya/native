@@ -52,6 +52,12 @@ interface QuestionContentProps {
   showStartButton?: boolean;
   // Audio-only mode props
   isAudioOnlyMode?: boolean;
+  // Sections props
+  sections?: Array<{
+    id: string;
+    name: string;
+    questionStartIndex: number;
+  }>;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -89,7 +95,9 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   onStartPrepTime,
   showStartButton = false,
   // Audio-only mode props
-  isAudioOnlyMode = false
+  isAudioOnlyMode = false,
+  // Sections props
+  sections
 }) => {
   return (
     <div className={cn(
@@ -113,6 +121,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
         <QuestionProgress
           currentQuestionIndex={currentQuestionIndex}
           totalQuestions={totalQuestions}
+          sections={sections}
         />
         
         {/* Test Mode: Show Start Button Initially */}

@@ -39,6 +39,11 @@ interface PreviewData {
     autoGrade?: boolean;
     isTest?: boolean;
     audioOnlyMode?: boolean;
+    sections?: Array<{
+      id: string;
+      name: string;
+      questionStartIndex: number;
+    }>;
     [key: string]: unknown;
   };
   status?: AssignmentStatus;
@@ -698,6 +703,11 @@ const AssignmentPractice: React.FC<AssignmentPracticeProps> = ({
                     isRecording={isRecording}
                     hasRecorded={hasRecorded}
                     isPlaying={isPlaying}
+                    sections={assignment.metadata?.sections as Array<{
+                      id: string;
+                      name: string;
+                      questionStartIndex: number;
+                    }> | undefined}
                     isLastQuestion={isLastQuestion}
                     toggleRecording={toggleRecording}
                     playRecording={playRecording}

@@ -374,7 +374,9 @@ describe('PartLibrary', () => {
         expect.objectContaining({
           id: '1',
           title: 'Personal Introduction'
-        })
+        }),
+        undefined,
+        true
       );
     });
 
