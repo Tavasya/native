@@ -97,7 +97,9 @@ export interface PracticeState {
     isOpen: boolean;
     sessionId: string | null;
     improvedTranscript: string;
-    userText: string;
+    bulletPoints: { word: string; description: string; isHighlighted: boolean }[];
+    highlights: { word: string; position: number }[];
+    userAddedHighlights: { word: string; position: number }[];
   };
   // Practice feedback data
   feedbackData: PracticeFeedbackData | null;

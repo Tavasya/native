@@ -59,7 +59,9 @@ const initialState: PracticeState = {
     isOpen: false,
     sessionId: null,
     improvedTranscript: '',
-    userText: '',
+    bulletPoints: [],
+    highlights: [],
+    userAddedHighlights: [],
   },
   // Practice feedback data
   feedbackData: null,
@@ -481,12 +483,30 @@ const practiceSlice = createSlice({
       }
     },
     // Part 2 Practice modal actions
-    openPracticePart2Modal: (state, action: PayloadAction<{ sessionId: string; improvedTranscript: string }>) => {
+    openPracticePart2Modal: (state, action: PayloadAction<{ sessionId: string; improvedTranscript: string; highlights: { word: string; position: number }[] }>) => {
+      // Create bullet points from highlights, extracting actual words from transcript
+      const transcriptWords = action.payload.improvedTranscript.split(' ');
+      const highlights = action.payload.highlights || []; // Safe fallback to empty array
+      const bulletPoints = highlights.map(highlight => {
+        // Extract the actual word from the transcript at the given position
+        const actualWord = transcriptWords[highlight.position] || highlight.word;
+        // Clean up punctuation for display
+        const cleanWord = actualWord.replace(/[.,!?;:]$/, '');
+        
+        return {
+          word: cleanWord,
+          description: '',
+          isHighlighted: true
+        };
+      });
+      
       state.practicePart2Modal = {
         isOpen: true,
         sessionId: action.payload.sessionId,
         improvedTranscript: action.payload.improvedTranscript,
-        userText: '',
+        bulletPoints,
+        highlights: highlights,
+        userAddedHighlights: [],
       };
     },
     closePracticePart2Modal: (state) => {
@@ -494,12 +514,82 @@ const practiceSlice = createSlice({
         isOpen: false,
         sessionId: null,
         improvedTranscript: '',
-        userText: '',
+        bulletPoints: [],
+        highlights: [],
+        userAddedHighlights: [],
       };
     },
-    setPracticePart2UserText: (state, action: PayloadAction<string>) => {
-      state.practicePart2Modal.userText = action.payload;
+    setPracticePart2BulletPointDescription: (state, action: PayloadAction<{ index: number; description: string }>) => {
+      const { index, description } = action.payload;
+      if (state.practicePart2Modal.bulletPoints[index]) {
+        state.practicePart2Modal.bulletPoints[index].description = description;
+      }
     },
+    setPracticePart2BulletPointWord: (state, action: PayloadAction<{ index: number; word: string }>) => {
+      const { index, word } = action.payload;
+      if (state.practicePart2Modal.bulletPoints[index]) {
+        state.practicePart2Modal.bulletPoints[index].word = word;
+      }
+    },
+    addPracticePart2BulletPoint: (state, action: PayloadAction<{ word?: string; description?: string }>) => {
+      state.practicePart2Modal.bulletPoints.push({
+        word: action.payload.word || '',
+        description: action.payload.description || '',
+        isHighlighted: false
+      });
+    },
+    removePracticePart2BulletPoint: (state, action: PayloadAction<number>) => {
+      const removedBulletPoint = state.practicePart2Modal.bulletPoints[action.payload];
+      
+      // If this was a user-added bullet point, remove its highlight as well
+      if (removedBulletPoint && !removedBulletPoint.isHighlighted) {
+        state.practicePart2Modal.userAddedHighlights = state.practicePart2Modal.userAddedHighlights.filter(
+          highlight => highlight.word.toLowerCase() !== removedBulletPoint.word.toLowerCase()
+        );
+      }
+      
+      state.practicePart2Modal.bulletPoints.splice(action.payload, 1);
+    },
+    removePracticePart2HighlightFromTranscript: (state, action: PayloadAction<{ word: string; position: number }>) => {
+      const { word, position } = action.payload;
+      
+      // Remove user highlight
+      state.practicePart2Modal.userAddedHighlights = state.practicePart2Modal.userAddedHighlights.filter(
+        h => h.position !== position
+      );
+      
+      // Remove corresponding bullet point if it exists and is user-added
+      const bulletPointIndex = state.practicePart2Modal.bulletPoints.findIndex(
+        bp => bp.word.toLowerCase() === word.toLowerCase() && !bp.isHighlighted
+      );
+      if (bulletPointIndex !== -1) {
+        state.practicePart2Modal.bulletPoints.splice(bulletPointIndex, 1);
+      }
+    },
+    addPracticePart2HighlightFromTranscript: (state, action: PayloadAction<{ word: string; position: number }>) => {
+      const { word, position } = action.payload;
+      
+      // Add user highlight
+      const existingHighlight = state.practicePart2Modal.userAddedHighlights.find(
+        h => h.position === position
+      );
+      if (!existingHighlight) {
+        state.practicePart2Modal.userAddedHighlights.push({ word, position });
+      }
+      
+      // Add bullet point if it doesn't already exist
+      const existingBulletPoint = state.practicePart2Modal.bulletPoints.find(
+        bp => bp.word.toLowerCase() === word.toLowerCase()
+      );
+      if (!existingBulletPoint) {
+        state.practicePart2Modal.bulletPoints.push({
+          word: word.replace(/[.,!?;:]$/, ''), // Clean punctuation
+          description: '',
+          isHighlighted: false // User-added, not from original practice
+        });
+      }
+    },
+
     // Current practice state management actions
     setCurrentSentenceIndex: (state, action: PayloadAction<number>) => {
       state.currentPracticeState.currentSentenceIndex = action.payload;
@@ -808,7 +898,12 @@ export const {
   // Part 2 Practice modal actions
   openPracticePart2Modal,
   closePracticePart2Modal,
-  setPracticePart2UserText,
+  setPracticePart2BulletPointDescription,
+  setPracticePart2BulletPointWord,
+  addPracticePart2BulletPoint,
+  removePracticePart2BulletPoint,
+  addPracticePart2HighlightFromTranscript,
+  removePracticePart2HighlightFromTranscript,
   // New current practice state actions
   setCurrentSentenceIndex,
   setCurrentWordIndex,
@@ -877,5 +972,8 @@ export const selectRecordingMaxDuration = (state: { practice: PracticeState }) =
 // Practice flow tracking selectors
 export const selectHasTriedFullTranscript = (state: { practice: PracticeState }) => state.practice.currentPracticeState.hasTriedFullTranscript;
 export const selectIsReturningToFullTranscript = (state: { practice: PracticeState }) => state.practice.currentPracticeState.isReturningToFullTranscript;
+
+// Highlights selector
+export const selectHighlights = (state: { practice: PracticeState }) => state.practice.highlights;
 
 export default practiceSlice.reducer; 

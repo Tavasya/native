@@ -31,6 +31,7 @@ import {
   selectRecordingMaxDuration,
   selectHasTriedFullTranscript,
   selectIsReturningToFullTranscript,
+  selectHighlights,
   setCurrentSentenceIndex,
   setCurrentWordIndex,
   setPracticeMode,
@@ -93,6 +94,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const isRecordingTimerActive = useSelector(selectIsRecordingTimerActive);
   const recordingTimeElapsed = useSelector(selectRecordingTimeElapsed);
   const recordingMaxDuration = useSelector(selectRecordingMaxDuration);
+  
+  // Highlights state
+  const highlights = useSelector(selectHighlights);
 
   // Define loadSession function
   const loadSession = useCallback(async () => {
@@ -557,9 +561,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   };
 
   const handleStartPart2 = () => {
-    // Open Part 2 modal with improved transcript
+    // Open Part 2 modal with improved transcript and highlights
     const improvedTranscript = session?.improved_transcript || '';
-    dispatch(openPracticePart2Modal({ sessionId, improvedTranscript }));
+    dispatch(openPracticePart2Modal({ sessionId, improvedTranscript, highlights }));
     
     // Close this modal
     onClose();
@@ -857,45 +861,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               {currentText}
             </div>
 
-            {/* Flow explanation */}
-            {practiceMode === 'full-transcript' && !hasTriedFullTranscript && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <div className="text-sm text-blue-800">
-                  <strong>Practice Flow:</strong> We'll start with the full transcript. If you need help, we'll 
-                  {session?.sentences && session.sentences.length === 1 
-                    ? ' break it down into individual words' 
-                    : ' break it down into sentences and individual words'
-                  }, then return to the full transcript.
-                </div>
-              </div>
-            )}
 
-            {practiceMode === 'sentence' && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
-                <div className="text-sm text-orange-800">
-                  <strong>Sentence Practice:</strong> Let's practice this one sentence at a time to build your confidence.
-                </div>
-              </div>
-            )}
-
-            {practiceMode === 'word-by-word' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <div className="text-sm text-yellow-800">
-                  <strong>Word Practice:</strong> Focus on this specific word to improve your pronunciation.
-                  {session?.sentences && session.sentences.length === 1 && (
-                    <span> Once you master the difficult words, we'll return to the full transcript.</span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {practiceMode === 'full-transcript' && hasTriedFullTranscript && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                <div className="text-sm text-green-800">
-                  <strong>Final Challenge:</strong> Now let's try the full transcript again with your improved skills!
-                </div>
-              </div>
-            )}
 
             {/* Show problematic words list when in word-by-word mode */}
             {practiceMode === 'word-by-word' && problematicWords.length > 0 && (
