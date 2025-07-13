@@ -1004,7 +1004,8 @@ const CreateAssignmentPage: React.FC = () => {
           id: 'preview',
           metadata: {
             autoGrade,
-            isTest
+            isTest,
+            ...(sections.length > 0 && { sections })
           }
         }}
         onBack={() => setIsPreviewMode(false)}
@@ -1684,14 +1685,23 @@ const CreateAssignmentPage: React.FC = () => {
                           {/* Add Question to Section Button */}
                           {isLastInSection && currentSection && sectionIndex >= 0 && (
                             <div className="flex justify-center mt-4 mb-6">
-                              <Button
-                                variant="secondary"
-                                size="icon"
-                                onClick={() => addQuestionToSection(sectionIndex)}
-                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                              >
-                                <Plus className="h-6 w-6" />
-                              </Button>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="secondary"
+                                      size="icon"
+                                      onClick={() => addQuestionToSection(sectionIndex)}
+                                      className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                                    >
+                                      <Plus className="h-6 w-6" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Add Question to Section</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           )}
                         </React.Fragment>
@@ -1704,34 +1714,61 @@ const CreateAssignmentPage: React.FC = () => {
                     {sections.length === 0 ? (
                       /* No sections yet - show both buttons */
                       <div className="flex justify-center gap-4 mt-6">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          onClick={() => addQuestionCard('normal')}
-                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                        >
-                          <Plus className="h-6 w-6" />
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          onClick={createNewSection}
-                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                        >
-                          <FolderPlus className="h-6 w-6" />
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={() => addQuestionCard('normal')}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <Plus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Question</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={createNewSection}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <FolderPlus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Section</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     ) : (
                       /* Sections exist - only show add section button */
                       <div className="flex justify-center mt-6">
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          onClick={createNewSection}
-                          className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
-                        >
-                          <FolderPlus className="h-6 w-6" />
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={createNewSection}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <FolderPlus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Section</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     )}
                   </div>
