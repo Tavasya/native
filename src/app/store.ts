@@ -14,12 +14,13 @@ import prepTimeReducer from '@/features/assignments/prepTimeSlice'
 import practiceReducer from '@/features/practice/practiceSlice'
 import libraryReducer from '@/features/library/librarySlice'
 import roadmapReducer from '@/features/roadmap/roadmapSlice'
+import highlightsReducer from '@/features/highlights/highlightsSlice'
 
 // Configure persist options
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['auth'], // Only persist auth state
+  whitelist: ['auth', 'highlights'], // Persist auth and highlights state
 };
 
 // Combine reducers
@@ -36,6 +37,7 @@ const rootReducer = combineReducers({
   practice: practiceReducer,
   library: libraryReducer,
   roadmap: roadmapReducer,
+  highlights: highlightsReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -55,6 +57,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       practice: practiceReducer(undefined, action),
       library: libraryReducer(undefined, action),
       roadmap: roadmapReducer(undefined, action),
+      highlights: highlightsReducer(undefined, action),
     };
   }
   return rootReducer(state, action);

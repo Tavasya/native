@@ -349,20 +349,26 @@ const SubmissionFeedback = () => {
           audioUrl={currentQuestion?.audio_url || ''}
         />
 
-        <QuestionContent
-          questions={selectedSubmission?.section_feedback || []}
-          selectedQuestionIndex={selectedQuestionIndex}
-          onSelectQuestion={handleQuestionSelect}
-          audioRef={audioRef}
-          audioUrl={currentQuestion?.audio_url || ''}
-          transcript={currentQuestion?.transcript || ''}
-          cleanTranscript={currentQuestion?.clean_transcript}
-          currentFeedback={currentFeedback || null}
-          highlightType={activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'}
-          openPopover={openPopover}
-          setOpenPopover={setOpenPopover}
-          assignment={currentAssignment}
-        />
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <QuestionContent
+              questions={selectedSubmission?.section_feedback || []}
+              selectedQuestionIndex={selectedQuestionIndex}
+              onSelectQuestion={handleQuestionSelect}
+              audioRef={audioRef}
+              audioUrl={currentQuestion?.audio_url || ''}
+              transcript={currentQuestion?.transcript || ''}
+              cleanTranscript={currentQuestion?.clean_transcript}
+              currentFeedback={currentFeedback || null}
+              highlightType={activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'}
+              openPopover={openPopover}
+              setOpenPopover={setOpenPopover}
+              assignment={currentAssignment}
+              submissionId={submissionId}
+            />
+          </div>
+          
+        </div>
 
         <Card className="shadow-sm border-0 bg-white">
           <CardContent className="p-4">
@@ -390,9 +396,13 @@ const SubmissionFeedback = () => {
               onToggleGrammar={toggleGrammarOpen}
               onToggleVocabulary={toggleVocabularyOpen}
               onDeleteIssue={handleDeleteIssue}
+              submissionId={submissionId}
+              selectedQuestionIndex={selectedQuestionIndex}
             />
           </CardContent>
         </Card>
+        
+        <HighlightCommentModal />
       </div>
     </div>
   );

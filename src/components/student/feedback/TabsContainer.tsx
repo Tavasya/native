@@ -5,6 +5,7 @@ import FluencyAnalysis from '@/components/student/feedback/analysis/FluencyAnaly
 import PronunciationAnalysis from '@/components/student/feedback/analysis/PronounciationAnalysis';
 import GrammarAnalysis from '@/components/student/feedback/analysis/GrammarAnalysis';
 import VocabularyAnalysis from '@/components/student/feedback/analysis/VocabularyAnalysis';
+import HighlightableAnalysisWrapper from './HighlightableAnalysisWrapper';
 import { EditingState, AverageScores, SectionFeedback, QuestionFeedback } from '@/types/feedback';
 import type { AppDispatch } from '@/app/store';
 
@@ -29,6 +30,8 @@ interface TabsContainerProps {
   onToggleGrammar: (key: string) => void;
   onToggleVocabulary: (key: string) => void;
   onDeleteIssue: (section: 'pronunciation' | 'grammar' | 'lexical', index: number) => void;
+  submissionId?: string;
+  selectedQuestionIndex?: number;
 }
 
 const TabsContainer: React.FC<TabsContainerProps> = ({
@@ -51,6 +54,8 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
   onToggleGrammar,
   onToggleVocabulary,
   onDeleteIssue,
+  submissionId = 'default',
+  selectedQuestionIndex = 0,
 }) => {
   const renderEditButtons = (section: keyof EditingState) => {
     if (!canEdit) return null;
@@ -114,10 +119,17 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
           </div>
           {renderEditButtons('fluency')}
         </div>
-        <FluencyAnalysis
-          currentFeedback={currentFeedback}
-          isEditing={isEditing.fluency}
-        />
+        <HighlightableAnalysisWrapper
+          submissionId={submissionId}
+          questionIndex={selectedQuestionIndex}
+          section="fluency"
+          isActive={activeTab === 'fluency'}
+        >
+          <FluencyAnalysis
+            currentFeedback={currentFeedback}
+            isEditing={isEditing.fluency}
+          />
+        </HighlightableAnalysisWrapper>
       </TabsContent>
 
       <TabsContent value="pronunciation" className="mt-4">
@@ -130,16 +142,23 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
           </div>
           {renderEditButtons('pronunciation')}
         </div>
-        <PronunciationAnalysis
-          currentFeedback={currentFeedback}
-          tempFeedback={tempFeedback}
-          isEditing={isEditing.pronunciation}
-          audioRef={audioRef}
-          ttsAudioCache={ttsAudioCache}
-          ttsLoading={ttsLoading}
-          dispatch={dispatch}
-          onDeleteIssue={onDeleteIssue}
-        />
+        <HighlightableAnalysisWrapper
+          submissionId={submissionId}
+          questionIndex={selectedQuestionIndex}
+          section="pronunciation"
+          isActive={activeTab === 'pronunciation'}
+        >
+          <PronunciationAnalysis
+            currentFeedback={currentFeedback}
+            tempFeedback={tempFeedback}
+            isEditing={isEditing.pronunciation}
+            audioRef={audioRef}
+            ttsAudioCache={ttsAudioCache}
+            ttsLoading={ttsLoading}
+            dispatch={dispatch}
+            onDeleteIssue={onDeleteIssue}
+          />
+        </HighlightableAnalysisWrapper>
       </TabsContent>
 
       <TabsContent value="grammar" className="mt-4">
@@ -152,14 +171,21 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
           </div>
           {renderEditButtons('grammar')}
         </div>
-        <GrammarAnalysis
-          currentFeedback={currentFeedback}
-          tempFeedback={tempFeedback}
-          isEditing={isEditing.grammar}
-          grammarOpen={grammarOpen}
-          onToggleGrammar={onToggleGrammar}
-          onDeleteIssue={onDeleteIssue}
-        />
+        <HighlightableAnalysisWrapper
+          submissionId={submissionId}
+          questionIndex={selectedQuestionIndex}
+          section="grammar"
+          isActive={activeTab === 'grammar'}
+        >
+          <GrammarAnalysis
+            currentFeedback={currentFeedback}
+            tempFeedback={tempFeedback}
+            isEditing={isEditing.grammar}
+            grammarOpen={grammarOpen}
+            onToggleGrammar={onToggleGrammar}
+            onDeleteIssue={onDeleteIssue}
+          />
+        </HighlightableAnalysisWrapper>
       </TabsContent>
 
       <TabsContent value="vocabulary" className="mt-4">
@@ -172,14 +198,21 @@ const TabsContainer: React.FC<TabsContainerProps> = ({
           </div>
           {renderEditButtons('vocabulary')}
         </div>
-        <VocabularyAnalysis
-          currentFeedback={currentFeedback}
-          tempFeedback={tempFeedback}
-          isEditing={isEditing.vocabulary}
-          vocabularyOpen={vocabularyOpen}
-          onToggleVocabulary={onToggleVocabulary}
-          onDeleteIssue={onDeleteIssue}
-        />
+        <HighlightableAnalysisWrapper
+          submissionId={submissionId}
+          questionIndex={selectedQuestionIndex}
+          section="vocabulary"
+          isActive={activeTab === 'vocabulary'}
+        >
+          <VocabularyAnalysis
+            currentFeedback={currentFeedback}
+            tempFeedback={tempFeedback}
+            isEditing={isEditing.vocabulary}
+            vocabularyOpen={vocabularyOpen}
+            onToggleVocabulary={onToggleVocabulary}
+            onDeleteIssue={onDeleteIssue}
+          />
+        </HighlightableAnalysisWrapper>
       </TabsContent>
     </Tabs>
   );

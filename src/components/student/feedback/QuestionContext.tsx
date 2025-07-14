@@ -20,6 +20,7 @@ interface QuestionContentProps {
   openPopover: string | null;
   setOpenPopover: (popover: string | null) => void;
   assignment?: Assignment | null;
+  submissionId?: string;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -35,6 +36,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   openPopover,
   setOpenPopover,
   assignment,
+  submissionId,
 }) => {
   console.log('QuestionContent render:', {
     selectedQuestionIndex,
@@ -83,6 +85,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
           selectedQuestionIndex={selectedQuestionIndex}
           openPopover={openPopover}
           setOpenPopover={setOpenPopover}
+          submissionId={submissionId}
         />
       </CardContent>
     </Card>
