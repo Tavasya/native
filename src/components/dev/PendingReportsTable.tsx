@@ -176,7 +176,13 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         Student
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Student Email
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Assignment
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Teacher
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Submitted
@@ -217,7 +223,17 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900">
+                            {report.student_email || 'No email'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-900">
                             {report.assignment_title || 'Unknown Assignment'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-gray-900">
+                            {report.teacher_name || 'Unknown Teacher'}
                           </div>
                         </td>
                         <td className="px-4 py-3">

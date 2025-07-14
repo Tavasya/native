@@ -419,8 +419,8 @@ export const submissionService = {
         .from("submissions")
         .select(`
           *,
-          assignments!inner(title),
-          users!inner(name)
+          assignments!inner(title, class_id, classes!inner(teacher_id, users!teacher_id(name))),
+          users!student_id(name, email)
         `)
         .eq("status", status)
         .order("submitted_at", { ascending: false });
@@ -430,11 +430,13 @@ export const submissionService = {
         throw new Error(`Failed to fetch submissions: ${error.message}`);
       }
 
-      // Transform the data to include assignment_title and student_name
+      // Transform the data to include assignment_title, student_name, student_email, and teacher_name
       const transformedData = (data || []).map(submission => ({
         ...submission,
         assignment_title: submission.assignments?.title,
-        student_name: submission.users?.name
+        student_name: submission.users?.name,
+        student_email: submission.users?.email,
+        teacher_name: submission.assignments?.classes?.users?.name
       }));
 
       return transformedData;
