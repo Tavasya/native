@@ -21,7 +21,7 @@ export const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: ''
+    category: '' as 'bug_report' | 'feedback' | ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -62,7 +62,11 @@ export const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, 
     setIsSubmitting(true);
     
     try {
-      await dispatch(createSupportTicket(formData)).unwrap();
+      await dispatch(createSupportTicket({
+        title: formData.title,
+        description: formData.description,
+        category: formData.category as 'bug_report' | 'feedback'
+      })).unwrap();
       
       // Reset form and close modal
       setFormData({ title: '', description: '', category: '' });

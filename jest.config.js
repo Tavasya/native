@@ -7,6 +7,14 @@ export default {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '\\.(png|jpg|jpeg|gif|svg)$': 'jest-transform-stub',
   },
+  globals: {
+    'import.meta': {
+      env: {
+        VITE_SUPABASE_URL: 'https://test.supabase.co',
+        VITE_SUPABASE_ANON_KEY: 'test-anon-key'
+      }
+    }
+  },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: './tsconfig.test.json',

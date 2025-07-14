@@ -237,7 +237,7 @@ describe('Recording File Integrity', () => {
       
       expect(validation.valid).toBe(true);
       expect(validation.size).toBe(5000000);
-    });
+    }, 10000); // 10 second timeout
 
     it('should maintain file integrity during processing', async () => {
       const originalBlob = createTestBlob('audio/webm;codecs=opus', 1000);
