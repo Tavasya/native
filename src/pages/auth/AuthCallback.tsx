@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch } from '@/app/hooks';
 import { loadSession } from '@/features/auth/authThunks';
 import { handleGoogleAuthCallback } from '@/integrations/supabase/oauth';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const [error, setError] = useState<string | null>(null);
 
@@ -56,9 +57,10 @@ export default function AuthCallback() {
             console.log('🔍 Redirecting to onboarding');
             navigate('/onboarding');
           } else if (role) {
-            // User has complete profile, redirect to their dashboard
+            // User has complete profile, redirect to their dashboard or original URL
             console.log('🔍 Redirecting to dashboard:', role);
-            navigate(`/${role}/dashboard`);
+            const from = location.state?.from?.pathname || `/${role}/dashboard`;
+            navigate(from, { replace: true });
           } else {
             // Fallback - redirect to login if no role found
             console.log('🔍 No role found, redirecting to login');
@@ -84,7 +86,7 @@ export default function AuthCallback() {
     };
 
     handleCallback();
-  }, [dispatch, navigate]);
+  }, [dispatch, navigate, location.state]);
 
   if (error) {
     return (

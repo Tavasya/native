@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmail } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { clearAuth } from '@/features/auth/authSlice';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import NativeLogo from '@/lib/images/Native Logo.png';
 export default function NewLogin() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading, error: authError, user, profile } = useAppSelector(state => state.auth);
   
   const [email, setEmail] = useState('');
@@ -30,12 +31,14 @@ export default function NewLogin() {
     // ✅ NEW - Check profile completion before redirecting
     if (user && profile?.profile_complete && profile.role) {
       console.log('Redirecting to dashboard:', profile.role);
-      navigate(`/${profile.role}/dashboard`);
+      // Check if there's a 'from' location to redirect back to
+      const from = location.state?.from?.pathname || `/${profile.role}/dashboard`;
+      navigate(from, { replace: true });
     } else if (user && profile && !profile.profile_complete) {
       console.log('Redirecting to onboarding - profile incomplete');
       navigate('/onboarding');
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading, navigate, location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
