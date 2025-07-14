@@ -177,6 +177,9 @@ export interface Submission {
     avg_lexical_score: number;
     avg_pronunciation_score: number;
   };
+  // Added for UI convenience (from backend join/transform)
+  student_email?: string;
+  teacher_name?: string;
 }
 
 export interface CreateSubmissionDto {

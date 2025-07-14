@@ -218,12 +218,14 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900">
-                            {report.student_name || 'Unknown Student'}
+                            {/* Use student_name if available, fallback to student_id */}
+                            {report.student_name || report.student_id || 'Unknown Student'}
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900">
-                            {report.student_email || 'No email'}
+                            {/* Use student_email if available, fallback to 'N/A' */}
+                            {report.student_email || 'N/A'}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -233,6 +235,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-sm text-gray-900">
+                            {/* Use teacher_name if available, fallback to 'Unknown Teacher' */}
                             {report.teacher_name || 'Unknown Teacher'}
                           </div>
                         </td>

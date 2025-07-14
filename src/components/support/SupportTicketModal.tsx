@@ -3,10 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { useAppDispatch } from '@/app/hooks';
 import { createSupportTicket } from '@/features/support/supportThunks';
-import { SuccessToast } from './SuccessToast';
-import { X } from 'lucide-react';
 
 interface SupportTicketModalProps {
   isOpen: boolean;
@@ -16,7 +14,6 @@ interface SupportTicketModalProps {
 
 export const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -24,7 +21,6 @@ export const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, 
     category: '' as 'bug_report' | 'feedback' | ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [errors, setErrors] = useState({
     title: '',
     description: '',
