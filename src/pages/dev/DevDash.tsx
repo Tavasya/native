@@ -27,6 +27,7 @@ import AssignmentListModal from '@/components/dev/AssignmentListModal';
 import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
 import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
 import ReportsProcessor from '@/components/dev/ReportsProcessor';
+import { SupportTicketList } from '@/components/support/SupportTicketList';
 
 // Icon component types
 interface IconProps {
@@ -246,6 +247,7 @@ export default function DashboardPage() {
     // { id: 'overview', name: 'Overview', icon: ChartIcon },
     { id: 'users', name: 'Users', icon: UserIcon },
     { id: 'assignments', name: 'Assignments', icon: BookIcon },
+    { id: 'support', name: 'Support', icon: AlertIcon },
     { id: 'dev', name: 'Dev', icon: DevIcon },
     // { id: 'engagement', name: 'Engagement', icon: ChartIcon },
   ] as const;
@@ -638,6 +640,10 @@ export default function DashboardPage() {
               </>
             )}
           </div>
+        )}
+
+        {activeTab === 'support' && (
+          <SupportTicketList />
         )}
 
         {activeTab === 'dev' && (

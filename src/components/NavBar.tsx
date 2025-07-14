@@ -4,10 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Play, X } from 'lucide-react';
+import { Play, X, MessageCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signOut } from '@/features/auth/authThunks';
 import { roadmapService } from '@/features/roadmap';
+import { SupportTicketModal } from '@/components/support/SupportTicketModal';
+import { SuccessToast } from '@/components/support/SuccessToast';
 import NativeLogo from '@/lib/images/Native Logo.png';
 
 const Navbar: React.FC = () => {
@@ -19,6 +21,8 @@ const Navbar: React.FC = () => {
   /* ------------------------------------------------ local state ---- */
   const [menuOpen, setMenuOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const initials = user?.name
     ?.split(' ')
     .map((n) => n[0])
@@ -34,6 +38,11 @@ const Navbar: React.FC = () => {
 
   const handleHelpClick = () => {
     setIsVideoModalOpen(true);
+    setMenuOpen(false);
+  };
+
+  const handleSupportClick = () => {
+    setIsSupportModalOpen(true);
     setMenuOpen(false);
   };
 
@@ -130,25 +139,36 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* ----------------------------------------------------------------
-             *  RIGHT — avatar + dropdown
+             *  RIGHT — support + avatar + dropdown
              * ---------------------------------------------------------------- */}
           {user && (
-            <div className="relative">
+            <div className="flex items-center space-x-3">
+              {/* Support Button */}
               <button
-                onClick={toggleMenu}
-                className="flex items-center space-x-2 select-none focus:outline-none"
+                onClick={handleSupportClick}
+                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-[#272A69] hover:text-gray-900 transition-colors duration-200 rounded-lg hover:bg-gray-50"
               >
-                <span className="hidden md:block text-sm font-medium text-[#272A69]">
-                  {user.name}
-                </span>
-
-                <Avatar className="h-9 w-9">
-                  {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-                  <AvatarFallback className="bg-[#EF5136] text-white">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <MessageCircle className="h-4 w-4" />
+                <span className="hidden md:block">Support</span>
               </button>
+
+              {/* Avatar Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={toggleMenu}
+                  className="flex items-center space-x-2 select-none focus:outline-none"
+                >
+                  <span className="hidden md:block text-sm font-medium text-[#272A69]">
+                    {user.name}
+                  </span>
+
+                  <Avatar className="h-9 w-9">
+                    {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
+                    <AvatarFallback className="bg-[#EF5136] text-white">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
 
               {menuOpen && (
           
@@ -173,6 +193,7 @@ const Navbar: React.FC = () => {
                   </button>
                 </div>
               )}
+              </div>
             </div>
           )}
         </div>
@@ -206,6 +227,20 @@ const Navbar: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Support Ticket Modal */}
+      <SupportTicketModal 
+        isOpen={isSupportModalOpen} 
+        onClose={() => setIsSupportModalOpen(false)}
+        onSuccess={() => setShowSuccessToast(true)}
+      />
+
+      {/* Success Toast */}
+      <SuccessToast
+        show={showSuccessToast}
+        onClose={() => setShowSuccessToast(false)}
+        message="We'll get back to you as soon as possible."
+      />
     </>
   );
 };
