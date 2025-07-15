@@ -176,11 +176,11 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     <Card className="shadow-sm border border-slate-200 bg-white">
       <CardContent className="p-4">
         <div className="space-y-3">
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex-1 mr-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-900 font-medium leading-relaxed">
-                  {currentQuestion.question || 'No question text available'}
+                  {(currentQuestion.question || 'No question text available').replace(/^[•\-\*]\s*/, '')}
                 </p>
               </div>
             </div>

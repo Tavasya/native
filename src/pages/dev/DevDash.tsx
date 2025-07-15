@@ -241,7 +241,6 @@ export default function DashboardPage() {
   };
 
   // Calculate stats from allLastLogins
-  console.log('Raw allLastLogins data:', allLastLogins);
 
   const tabs = [
     // { id: 'overview', name: 'Overview', icon: ChartIcon },

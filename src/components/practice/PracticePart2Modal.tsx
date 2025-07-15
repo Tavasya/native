@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,13 +29,17 @@ const PracticePart2Modal: React.FC = () => {
   const dispatch = useAppDispatch();
   const { isOpen, sessionId, improvedTranscript, bulletPoints, highlights, userAddedHighlights, removedOriginalHighlights, originalQuestion, currentStep, recordingUrl, isUploading } = useSelector(selectPracticePart2Modal);
 
-  // Debug logging
-  console.log('🔍 Part 2 Modal Debug:', {
-    isOpen,
-    originalQuestion,
-    currentStep,
-    hasOriginalQuestion: !!originalQuestion
-  });
+  // Debug logging - only when modal opens or step changes
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔍 Part 2 Modal Debug:', {
+        isOpen,
+        originalQuestion,
+        currentStep,
+        hasOriginalQuestion: !!originalQuestion
+      });
+    }
+  }, [isOpen, currentStep, originalQuestion]);
 
   const handleClose = () => {
     dispatch(closePracticePart2Modal());

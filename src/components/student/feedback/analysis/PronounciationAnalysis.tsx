@@ -116,7 +116,7 @@ const PronunciationAnalysis: React.FC<PronunciationAnalysisProps> = ({
             <span>Excellent!</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-orange-500">●</span>
+            <span className="text-yellow-400">●</span>
             <span>Good!</span>
           </div>
           <div className="flex items-center gap-2">

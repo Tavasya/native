@@ -14,7 +14,7 @@ export const getScoreColor = (score: number | null, isTest: boolean = false): st
 
 export const getPhonemeColor = (score: number): string => {
   if (score >= 85) return "text-green-500";
-  if (score >= 40) return "text-orange-500";
+  if (score >= 40) return "text-yellow-400";
   return "text-red-500";
 };
 

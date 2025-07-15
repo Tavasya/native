@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import { SupportTicketModal } from '@/components/support/SupportTicketModal';
 import supportReducer from '@/features/support/supportSlice';
@@ -62,7 +63,11 @@ const createMockStore = (initialState = {}) => {
 };
 
 const renderWithProvider = (component: React.ReactElement, store = createMockStore()) => {
-  return render(<Provider store={store}>{component}</Provider>);
+  return render(
+    <MemoryRouter>
+      <Provider store={store}>{component}</Provider>
+    </MemoryRouter>
+  );
 };
 
 describe('SupportTicketModal', () => {
@@ -79,43 +84,37 @@ describe('SupportTicketModal', () => {
   it('renders modal when open', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
     
-    expect(screen.getByText('Contact Support')).toBeInTheDocument();
-    expect(screen.getByText('What can we help you with?')).toBeInTheDocument();
-    expect(screen.getByLabelText('Subject')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toBeInTheDocument();
+    expect(screen.getByText('Liên hệ hỗ trợ')).toBeInTheDocument();
+    expect(screen.getByText('Native sẽ tiếp nhận phản hồi và liên hệ lại qua email trong thời gian sớm nhất')).toBeInTheDocument();
+    expect(screen.getByText('Chọn hạng mục hỗ trợ')).toBeInTheDocument();
+    expect(screen.getByText('Nội dung chi tiết')).toBeInTheDocument();
   });
 
   it('does not render modal when closed', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} isOpen={false} />);
     
-    expect(screen.queryByText('Contact Support')).not.toBeInTheDocument();
+    expect(screen.queryByText('Liên hệ hỗ trợ')).not.toBeInTheDocument();
   });
 
   it('shows validation errors when submitting empty form', async () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
     
-    const submitButton = screen.getByRole('button', { name: /submit ticket/i });
+    const submitButton = screen.getByRole('button', { name: /gửi phản hồi/i });
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Please select a category')).toBeInTheDocument();
-      expect(screen.getByText('Subject is required')).toBeInTheDocument();
-      expect(screen.getByText('Description is required')).toBeInTheDocument();
+      expect(screen.getByText('Vui lòng chọn hạng mục')).toBeInTheDocument();
+      expect(screen.getByText('Vui lòng nhập nội dung')).toBeInTheDocument();
     });
   });
 
   it('allows filling out text fields', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
 
-    // Fill subject
-    const subjectInput = screen.getByPlaceholderText('Brief description of your issue');
-    fireEvent.change(subjectInput, { target: { value: 'Test issue' } });
-
     // Fill description
-    const descriptionInput = screen.getByPlaceholderText('Please provide as much detail as possible...');
+    const descriptionInput = screen.getByPlaceholderText('Cung cấp thông tin cụ thể cho Native nhé!');
     fireEvent.change(descriptionInput, { target: { value: 'This is a test description' } });
 
-    expect(subjectInput).toHaveValue('Test issue');
     expect(descriptionInput).toHaveValue('This is a test description');
   });
 
@@ -123,26 +122,26 @@ describe('SupportTicketModal', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
     
     // Submit empty form to show errors
-    const submitButton = screen.getByRole('button', { name: /submit ticket/i });
+    const submitButton = screen.getByRole('button', { name: /gửi phản hồi/i });
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Subject is required')).toBeInTheDocument();
+      expect(screen.getByText('Vui lòng nhập nội dung')).toBeInTheDocument();
     });
 
-    // Start typing in subject field
-    const subjectInput = screen.getByPlaceholderText('Brief description of your issue');
-    fireEvent.change(subjectInput, { target: { value: 'Test' } });
+    // Start typing in description field
+    const descriptionInput = screen.getByPlaceholderText('Cung cấp thông tin cụ thể cho Native nhé!');
+    fireEvent.change(descriptionInput, { target: { value: 'Test' } });
 
     await waitFor(() => {
-      expect(screen.queryByText('Subject is required')).not.toBeInTheDocument();
+      expect(screen.queryByText('Vui lòng nhập nội dung')).not.toBeInTheDocument();
     });
   });
 
   it('calls onClose when cancel button is clicked', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
     
-    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    const cancelButton = screen.getByRole('button', { name: /huỷ phản hồi/i });
     fireEvent.click(cancelButton);
 
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
@@ -151,10 +150,10 @@ describe('SupportTicketModal', () => {
   it('has proper styling classes for class code pattern', () => {
     renderWithProvider(<SupportTicketModal {...defaultProps} />);
     
-    const subjectInput = screen.getByPlaceholderText('Brief description of your issue');
-    const subjectWrapper = subjectInput.closest('div');
+    const descriptionInput = screen.getByPlaceholderText('Cung cấp thông tin cụ thể cho Native nhé!');
+    const descriptionWrapper = descriptionInput.closest('div');
     
-    expect(subjectWrapper).toHaveClass('bg-gray-50', 'px-4', 'py-3', 'rounded-md');
-    expect(subjectInput).toHaveClass('border-none', 'bg-transparent', 'focus:outline-none');
+    expect(descriptionWrapper).toHaveClass('bg-gray-50', 'px-4', 'py-3', 'rounded-md');
+    expect(descriptionInput).toHaveClass('border-none', 'bg-transparent', 'focus:outline-none');
   });
 });

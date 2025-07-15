@@ -282,9 +282,9 @@ describe('Score Calculation Utilities', () => {
     });
 
     it('should return correct color for making progress phoneme scores (40-84)', () => {
-      expect(getPhonemeColor(65)).toBe('text-orange-500');
-      expect(getPhonemeColor(40)).toBe('text-orange-500');
-      expect(getPhonemeColor(84)).toBe('text-orange-500');
+      expect(getPhonemeColor(65)).toBe('text-yellow-400');
+      expect(getPhonemeColor(40)).toBe('text-yellow-400');
+      expect(getPhonemeColor(84)).toBe('text-yellow-400');
     });
 
     it('should return correct color for getting started phoneme scores (<40)', () => {

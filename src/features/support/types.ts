@@ -3,9 +3,11 @@ export interface SupportTicket {
   user_id: string;
   title: string;
   description: string;
-  category: 'bug_report' | 'feedback';
+  category: 'bug_report' | 'feedback' | 'feature_request';
   priority: 'low' | 'medium' | 'high';
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  current_page?: string;
+  screenshot_url?: string;
   created_at: string;
   updated_at: string;
   user?: {
@@ -18,8 +20,10 @@ export interface SupportTicket {
 export interface CreateSupportTicketRequest {
   title: string;
   description: string;
-  category: 'bug_report' | 'feedback';
+  category: 'bug_report' | 'feedback' | 'feature_request';
   priority?: 'low' | 'medium' | 'high';
+  current_page?: string;
+  screenshot_url?: string;
 }
 
 export interface UpdateSupportTicketRequest {

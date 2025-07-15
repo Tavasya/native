@@ -10,6 +10,8 @@ export const supportService = {
         description: data.description,
         category: data.category,
         priority: data.priority || 'medium',
+        current_page: data.current_page,
+        screenshot_url: data.screenshot_url,
         user_id: (await supabase.auth.getUser()).data.user?.id
       }])
       .select()

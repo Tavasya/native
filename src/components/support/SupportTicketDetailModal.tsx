@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SupportTicket } from '@/features/support/types';
-import { X } from 'lucide-react';
 
 interface SupportTicketDetailModalProps {
   ticket: SupportTicket | null;
@@ -24,8 +23,23 @@ export const SupportTicketDetailModal: React.FC<SupportTicketDetailModalProps> =
         return 'bg-red-100 text-red-800';
       case 'feedback':
         return 'bg-blue-100 text-blue-800';
+      case 'feature_request':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'bug_report':
+        return 'Bug Report';
+      case 'feedback':
+        return 'Feedback';
+      case 'feature_request':
+        return 'Feature Request';
+      default:
+        return category;
     }
   };
 
@@ -48,17 +62,7 @@ export const SupportTicketDetailModal: React.FC<SupportTicketDetailModalProps> =
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl w-full">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Support Ticket Details</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-6 w-6 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
+          <DialogTitle>Support Ticket Details</DialogTitle>
           <DialogDescription>
             View detailed information about this support ticket including user details and description.
           </DialogDescription>
@@ -90,7 +94,7 @@ export const SupportTicketDetailModal: React.FC<SupportTicketDetailModalProps> =
             <div>
               <span className="text-sm font-medium text-gray-700 mr-2">Category:</span>
               <Badge className={getCategoryColor(ticket.category)}>
-                {ticket.category === 'bug_report' ? 'Bug Report' : 'Feedback'}
+                {getCategoryLabel(ticket.category)}
               </Badge>
             </div>
             <div>
@@ -110,6 +114,24 @@ export const SupportTicketDetailModal: React.FC<SupportTicketDetailModalProps> =
               </p>
             </div>
           </div>
+
+          {/* Screenshot */}
+          {ticket.screenshot_url && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Page Screenshot</h4>
+              <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+                <img 
+                  src={ticket.screenshot_url} 
+                  alt="Page screenshot when ticket was created" 
+                  className="w-full rounded shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => window.open(ticket.screenshot_url, '_blank')}
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Click to view full size • Page: {ticket.current_page || 'N/A'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* User Info */}
           <div className="border-t pt-4">

@@ -461,13 +461,15 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
           <CardContent>
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                 a student's name below to remove them from the class. This will remove their access to all assignments and their submission history.
+                 Select a student's name below to remove them from the class. This will remove their access to all assignments and their submission history.
               </p>
               
-              {/* Get unique students from all submissions */}
+              {/* Get unique students from this class's submissions only */}
               {(() => {
                 const uniqueStudents = new Map<string, { name: string, email: string }>();
-                Object.values(submissions).forEach(subs => {
+                // Only look at submissions for assignments in this class
+                assignmentRows.forEach(assignment => {
+                  const subs = submissions[assignment.id] || [];
                   subs.forEach(sub => {
                     if (!uniqueStudents.has(sub.student_id)) {
                       uniqueStudents.set(sub.student_id, {
