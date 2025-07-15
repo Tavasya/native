@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
-import { PracticeSession, PronunciationResult, PracticeMode } from '@/features/practice/practiceTypes';
+import { PracticeSession, PronunciationResult, PracticeMode, PracticeSessionStatus } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
@@ -53,6 +53,10 @@ import {
   updateProblematicWords,
   setSession,
   openPracticePart2Modal,
+  resetRecordingState, // NEW: Import the critical reset action
+  startRecording as startReduxRecording, // Redux recording actions
+  clearRecording,
+  cleanupStuckWebhookSessions, // PHASE 5: Cleanup function
   selectAssignmentContext
 } from '@/features/practice/practiceSlice';
 
@@ -75,6 +79,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   
   // Local state for completion tracking
   const [isCompleted, setIsCompleted] = useState(false);
+  
+  // 🔧 CRITICAL FIX: Track sessionId changes to reset state
+  const prevSessionIdRef = useRef<string | null>(null);
   
   // Use Redux state instead of local state
   const session = useSelector(selectCurrentSession);
@@ -102,6 +109,98 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   
   // Assignment context state
   const assignmentContext = useSelector(selectAssignmentContext);
+  
+  // 🔧 PHASE 2: Get Redux recording state for synchronization
+  const recording = useSelector((state: any) => state.practice.recording);
+
+  // 🔧 PHASE 3: Database state validation functions
+  const validateSessionState = useCallback((session: PracticeSession) => {
+    const issues: string[] = [];
+    
+    // Check for conflicting status fields
+    if (session.status === 'completed' && session.practice_phase !== 'completed') {
+      issues.push(`Status is 'completed' but practice_phase is '${session.practice_phase}'`);
+    }
+    
+    if (session.sentences && session.sentences.length > 0 && session.status === 'transcript_ready') {
+      issues.push(`Has sentences but status is still 'transcript_ready'`);
+    }
+    
+    if (session.status === 'practicing_sentences' && (!session.sentences || session.sentences.length === 0)) {
+      issues.push(`Status is 'practicing_sentences' but no sentences found`);
+    }
+    
+    // Check for invalid sentence index
+    if (session.sentences && session.current_sentence_index >= session.sentences.length) {
+      issues.push(`current_sentence_index (${session.current_sentence_index}) exceeds sentences length (${session.sentences.length})`);
+    }
+    
+    // Check for webhook timeout (sessions stuck with webhook_session_id but wrong status)
+    if (session.webhook_session_id && session.status === 'transcript_ready') {
+      const sessionAge = Date.now() - new Date(session.created_at).getTime();
+      if (sessionAge > 5 * 60 * 1000) { // 5 minutes
+        issues.push(`Session has webhook_session_id but is stuck in 'transcript_ready' for ${Math.round(sessionAge / 60000)} minutes`);
+      }
+    }
+    
+    return {
+      isValid: issues.length === 0,
+      issues
+    };
+  }, []);
+
+  const attemptStateRepair = useCallback(async (session: PracticeSession): Promise<PracticeSession | null> => {
+    try {
+      const updates: Partial<PracticeSession> = {};
+      
+      // Fix status/practice_phase mismatch
+      if (session.status === 'completed' && session.practice_phase !== 'completed') {
+        updates.practice_phase = 'completed';
+      }
+      
+      // Fix sentences/status mismatch
+      if (session.sentences && session.sentences.length > 0 && session.status === 'transcript_ready') {
+        updates.status = 'practicing_sentences';
+      }
+      
+      // Fix invalid sentence index
+      if (session.sentences && session.current_sentence_index >= session.sentences.length) {
+        updates.current_sentence_index = 0;
+        updates.current_word_index = 0;
+      }
+      
+      // Clear stuck webhook sessions
+      if (session.webhook_session_id && session.status === 'transcript_ready') {
+        const sessionAge = Date.now() - new Date(session.created_at).getTime();
+        if (sessionAge > 5 * 60 * 1000) {
+          updates.webhook_session_id = null;
+          updates.status = 'transcript_ready';
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        console.log('🔧 Applying state repairs:', updates);
+        const { error } = await supabase
+          .from('practice_sessions')
+          .update(updates)
+          .eq('id', session.id);
+          
+        if (error) {
+          console.error('Failed to repair session state:', error);
+          return null;
+        }
+        
+        return { ...session, ...updates };
+      }
+      
+      return session;
+    } catch (error) {
+      console.error('Error attempting state repair:', error);
+      return null;
+    }
+  }, []);
+
+  // Move the session ID change effect after hook definition
 
   // Define loadSession function
   const loadSession = useCallback(async () => {
@@ -115,13 +214,30 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
       if (error) throw error;
 
-      const sessionData = data as PracticeSession;
+      let sessionData = data as PracticeSession;
       console.log('📋 Loaded session data:', {
         id: sessionData.id,
         status: sessionData.status,
         sentencesCount: sessionData.sentences?.length || 0,
         hasTranscript: !!sessionData.improved_transcript
       });
+      
+      // 🔧 PHASE 3: Validate database state for inconsistencies
+      const stateValidation = validateSessionState(sessionData);
+      if (!stateValidation.isValid) {
+        console.warn('⚠️ Invalid session state detected:', stateValidation.issues);
+        // Try to fix common issues automatically
+        const fixedSessionData = await attemptStateRepair(sessionData);
+        if (fixedSessionData) {
+          console.log('🔧 Session state repaired automatically');
+          // Use the fixed data
+          sessionData = fixedSessionData;
+        } else {
+          console.error('❌ Could not repair session state');
+          dispatch(setPracticeSessionError('Session state is corrupted. Please try creating a new practice session.'));
+          return;
+        }
+      }
       
       dispatch(setSession(sessionData));
       dispatch(setCurrentSentenceIndex(sessionData.current_sentence_index || 0));
@@ -152,6 +268,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
       if (sessionData.status === 'completed') {
         setIsCompleted(true);
         console.log('✅ Session already completed, showing completion screen');
+      } else {
+        // Ensure completion state is reset for non-completed sessions
+        setIsCompleted(false);
       }
 
       // If session doesn't have sentences yet, start practice to generate them
@@ -171,19 +290,51 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     isProcessing,
     toggleRecording,
     pauseRecording,
-    resumeRecording
+    resumeRecording,
+    resetRecording
   } = useAudioRecording({
     onRecordingComplete: async (blob) => {
+      // 🔧 FIX: Immediately clear recording UI state before analysis
+      console.log('🎙️ Recording completed, clearing UI state before analysis');
+      
       // Stop timer when recording completes
       dispatch(stopRecordingTimer());
+      
+      // Immediately clear the recording state in Redux to update UI
+      dispatch(clearRecording());
+      
+      // Start analysis
       await handlePronunciationAssessment(blob);
     },
     onError: (errorMessage) => {
       // Stop timer on error
       dispatch(stopRecordingTimer());
+      
+      // Clear recording state on error as well
+      dispatch(clearRecording());
+      
       dispatch(setPracticeSessionError(errorMessage));
     }
   });
+
+  // 🔧 CRITICAL FIX: Reset all state when sessionId changes (moved after hook definition)
+  useEffect(() => {
+    if (sessionId && prevSessionIdRef.current !== sessionId) {
+      console.log('🆔 Session ID changed from', prevSessionIdRef.current, 'to', sessionId, '- resetting all state');
+      
+      // Reset recording state first
+      dispatch(resetRecordingState());
+      
+      // Reset local completion state
+      setIsCompleted(false);
+      
+      // Reset audio recording hook state
+      resetRecording();
+      
+      // Update the ref
+      prevSessionIdRef.current = sessionId;
+    }
+  }, [sessionId, dispatch, resetRecording]);
 
   // Timer management effect
   useEffect(() => {
@@ -207,6 +358,22 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     };
   }, [isRecordingTimerActive, isRecording, isPaused, recordingTimeElapsed, recordingMaxDuration, dispatch, toggleRecording]);
 
+  // 🔧 PHASE 2: Synchronize Redux and hook recording states
+  useEffect(() => {
+    // Sync Redux recording state with hook state
+    if (isRecording !== recording.isRecording) {
+      console.log('🔄 Syncing recording state - Hook:', isRecording, 'Redux:', recording.isRecording);
+      if (isRecording) {
+        dispatch(startReduxRecording());
+      } else {
+        // Only clear Redux recording if we don't have completed audio data
+        if (!recording.audioUrl) {
+          dispatch(clearRecording());
+        }
+      }
+    }
+  }, [isRecording, recording.isRecording, recording.audioUrl, dispatch]);
+
   // Start timer when recording starts
   useEffect(() => {
     if (isRecording && !isRecordingTimerActive) {
@@ -216,24 +383,51 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     }
   }, [isRecording, isRecordingTimerActive, practiceMode, dispatch]);
 
-  // Auto-start recording when modal opens and sentence is ready
+  // 🔧 IMPROVED: Auto-start recording when modal opens and sentence is ready
   useEffect(() => {
-    if (isOpen && session?.sentences && session.sentences.length > 0 && !hasStartedRecording && !isRecording) {
+    // More robust conditions for auto-start
+    const shouldAutoStart = 
+      isOpen && 
+      sessionId && 
+      session?.sentences && 
+      session.sentences.length > 0 && 
+      !hasStartedRecording && 
+      !isRecording && 
+      !isProcessing && 
+      !pronunciationResult && // Don't auto-start if we have a previous result
+      !isCompleted && // Don't auto-start if session is completed
+      session.status !== 'completed' && // Double-check database status
+      // 🎯 NEW: Don't auto-start on first full-transcript attempt (let users manually start)
+      !(practiceMode === 'full-transcript' && !hasTriedFullTranscript);
+      
+    if (shouldAutoStart) {
+      console.log('🎬 Auto-starting recording for session:', sessionId, {
+        hasStartedRecording,
+        isRecording,
+        isProcessing,
+        sessionStatus: session.status
+      });
+      
       const timer = setTimeout(() => {
-        dispatch(setHasStartedRecording(true));
-        toggleRecording();
+        // Double-check conditions before actually starting
+        if (!hasStartedRecording && !isRecording) {
+          dispatch(setHasStartedRecording(true));
+          toggleRecording();
+        }
       }, 1000); // Small delay to let user see the sentence first
       
       return () => clearTimeout(timer);
     }
-  }, [isOpen, session?.sentences, hasStartedRecording, isRecording, toggleRecording, dispatch]);
+  }, [isOpen, sessionId, session?.sentences, session?.status, hasStartedRecording, isRecording, isProcessing, pronunciationResult, isCompleted, practiceMode, hasTriedFullTranscript, toggleRecording, dispatch]);
 
-  // Load session data
+  // Load session data and run cleanup
   useEffect(() => {
     if (isOpen && sessionId) {
+      // Run cleanup of stuck webhook sessions when modal opens
+      dispatch(cleanupStuckWebhookSessions());
       loadSession();
     }
-  }, [isOpen, sessionId, loadSession]);
+  }, [isOpen, sessionId, loadSession, dispatch]);
 
   // Real-time subscription for session updates
   useEffect(() => {
@@ -263,6 +457,14 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
       // Also add a manual refresh every 5 seconds as a fallback
       const pollInterval = setInterval(async () => {
+        // 🔧 FIX: Stop polling if session has reached a terminal state
+        const terminalStates: PracticeSessionStatus[] = ['completed', 'failed', 'abandoned'];
+        if (session?.status && terminalStates.includes(session.status)) {
+          console.log('🛑 Session reached terminal state, stopping poll:', session.status);
+          clearInterval(pollInterval);
+          return;
+        }
+
         console.log('🔄 Polling for session updates...');
         try {
           const { data, error } = await supabase
@@ -274,6 +476,15 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
           if (!error && data) {
             const currentSession = data as PracticeSession;
             console.log('🔄 Poll result - Status:', currentSession.status, 'Sentences:', currentSession.sentences?.length || 0);
+            
+            // 🔧 FIX: Stop polling if we reached a terminal state
+            if (terminalStates.includes(currentSession.status)) {
+              console.log('🛑 Session reached terminal state during poll, stopping:', currentSession.status);
+              clearInterval(pollInterval);
+              // Still update the session one last time
+              dispatch(setSession(currentSession));
+              return;
+            }
             
             // Only update if there's actually a change
             if (currentSession.status !== session?.status || 
@@ -1086,6 +1297,26 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                 <div className="flex items-center gap-2 text-[#272A69]">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#272A69]"></div>
                   <span className="text-sm">Assessing pronunciation...</span>
+                </div>
+              )}
+
+              {/* Manual Start Recording Button - Only show for first full-transcript attempt */}
+              {!isRecording && !isProcessing && !isAssessing && !pronunciationResult && 
+               practiceMode === 'full-transcript' && !hasTriedFullTranscript && !hasStartedRecording && (
+                <div className="space-y-4 text-center">
+                  <div className="text-sm text-gray-600 mb-4">
+                    Take your time to read the transcript above, then click when you're ready to start recording.
+                  </div>
+                  <Button
+                    onClick={() => {
+                      dispatch(setHasStartedRecording(true));
+                      toggleRecording();
+                    }}
+                    className="bg-[#272A69] hover:bg-[#272A69]/90 text-white text-lg px-8 py-3 rounded-lg"
+                    size="lg"
+                  >
+                    Start Recording
+                  </Button>
                 </div>
               )}
 

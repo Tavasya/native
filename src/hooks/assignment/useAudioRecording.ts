@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { validateAudioBlob } from '@/utils/webm-diagnostics';
 
 interface UseAudioRecordingProps {
@@ -16,6 +16,32 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   const recordingStartTime = useRef<number>(0);
   const pausedDuration = useRef<number>(0);
   const pauseStartTime = useRef<number>(0);
+
+  // Cleanup effect to ensure proper cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 useAudioRecording hook unmounting, cleaning up...');
+      // Force cleanup on unmount - use direct cleanup instead of resetRecording
+      // to avoid state update issues during unmount
+      if (mediaRecorder.current) {
+        try {
+          if (mediaRecorder.current.state === 'recording' || mediaRecorder.current.state === 'paused') {
+            mediaRecorder.current.stop();
+          }
+        } catch (error) {
+          console.warn('Error stopping media recorder during unmount:', error);
+        }
+      }
+      
+      if (mediaStream.current) {
+        try {
+          mediaStream.current.getTracks().forEach(track => track.stop());
+        } catch (error) {
+          console.warn('Error stopping media tracks during unmount:', error);
+        }
+      }
+    };
+  }, []);
 
 
   // Get the best supported MIME type based on browser capabilities
@@ -209,18 +235,46 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   }, [isRecording, startRecording, stopRecording]);
 
   const resetRecording = useCallback(() => {
-    // Stop any active recording
-    if (isRecording && mediaRecorder.current) {
-      mediaRecorder.current.stop();
+    console.log('🧹 Starting complete audio recording reset...');
+    
+    // Stop any active recording - force stop even if not in recording state
+    if (mediaRecorder.current) {
+      try {
+        if (mediaRecorder.current.state === 'recording' || mediaRecorder.current.state === 'paused') {
+          mediaRecorder.current.stop();
+        }
+      } catch (error) {
+        console.warn('Error stopping media recorder during reset:', error);
+      }
+      mediaRecorder.current = null;
     }
     
-    // Clear media stream
+    // Clear media stream - ensure all tracks are stopped
     if (mediaStream.current) {
-      mediaStream.current.getTracks().forEach(track => track.stop());
+      try {
+        mediaStream.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped track:', track.kind, track.label);
+        });
+      } catch (error) {
+        console.warn('Error stopping media tracks during reset:', error);
+      }
       mediaStream.current = null;
     }
     
-    // Reset state
+    // Clear any pending URLs to prevent memory leaks
+    audioChunks.current.forEach(chunk => {
+      try {
+        if (chunk instanceof Blob) {
+          const url = URL.createObjectURL(chunk);
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        console.warn('Error revoking blob URL during reset:', error);
+      }
+    });
+    
+    // Reset ALL state variables
     setIsRecording(false);
     setIsPaused(false);
     setIsProcessing(false);
@@ -228,10 +282,9 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     recordingStartTime.current = 0;
     pausedDuration.current = 0;
     pauseStartTime.current = 0;
-    mediaRecorder.current = null;
     
-    console.log('🧹 Audio recording state reset');
-  }, [isRecording]);
+    console.log('✅ Complete audio recording state reset finished');
+  }, []); // Remove isRecording dependency to prevent issues during reset
 
   return {
     isRecording,
