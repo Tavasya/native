@@ -149,7 +149,7 @@ const Navbar: React.FC = () => {
                 className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-[#272A69] hover:text-gray-900 transition-colors duration-200 rounded-lg hover:bg-gray-50"
               >
                 <MessageCircle className="h-4 w-4" />
-                <span className="hidden md:block">Support</span>
+                <span className="hidden md:block">Need Help?</span>
               </button>
 
               {/* Avatar Dropdown */}

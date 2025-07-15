@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
 import { Assignment, QuestionCard } from '@/features/assignments/types';
-import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { useAppSelector } from '@/app/hooks';
 
-import { generateTTSAudio } from '@/features/tts/ttsService';
-import { setTTSAudio, setLoading } from "@/features/tts/ttsSlice";
 
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,8 +15,6 @@ interface AssignmentQuestionsProps {
 }
 
 const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, selectedQuestionIndex }) => {
-  const dispatch = useAppDispatch();
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   
   // Get the current submission data to pass transcript info
@@ -53,38 +48,6 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
     );
   }
 
-  const handlePlayQuestion = async () => {
-    try {
-      setIsLoading(true);
-      const cacheKey = `question_${currentQuestion.id}`;
-      
-      // Set loading state in Redux
-      dispatch(setLoading({ key: cacheKey, loading: true }));
-      
-      // Prepare the text to be read
-      let textToRead = currentQuestion.question;
-      
-      // Add bullet points if they exist
-      if (currentQuestion.bulletPoints && currentQuestion.bulletPoints.length > 0) {
-        textToRead += ". You should say: " + currentQuestion.bulletPoints.join(". ");
-      }
-      
-      // Generate audio for the question and bullet points
-      const audioUrl = await generateTTSAudio(textToRead);
-      
-      // Store in Redux
-      dispatch(setTTSAudio({ key: cacheKey, url: audioUrl }));
-      
-      // Play the audio
-      const audio = new Audio(audioUrl);
-      await audio.play();
-    } catch (error) {
-      console.error('Error playing question audio:', error);
-    } finally {
-      setIsLoading(false);
-      dispatch(setLoading({ key: `question_${currentQuestion.id}`, loading: false }));
-    }
-  };
 
 
   const handlePracticeQuestion = async () => {
@@ -206,7 +169,6 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
   console.log('Displaying question:', { 
     selectedQuestionIndex, 
     question: currentQuestion.question,
-    timeLimit: currentQuestion.timeLimit,
     bulletPoints: currentQuestion.bulletPoints 
   });
 
@@ -224,27 +186,13 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               { <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                className="bg-[#272A69] text-white hover:bg-[#272A69]/90"
                 onClick={handlePracticeQuestion}
               >
                 Practice
               </Button> }
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                onClick={handlePlayQuestion}
-                disabled={isLoading}
-                title="Play question audio"
-              >
-                {isLoading ? (
-                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-              </Button>
             </div>
           </div>
           
@@ -258,18 +206,14 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
             </div>
           )}
           
-          <div className="flex gap-4 text-xs text-slate-500 pt-2 border-t border-slate-200">
-            <span className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              Time Limit: {currentQuestion.timeLimit || 'N/A'} minutes
-            </span>
-            {currentQuestion.speakAloud && (
+          {currentQuestion.speakAloud && (
+            <div className="flex gap-4 text-xs text-slate-500 pt-2 border-t border-slate-200">
               <span className="flex items-center gap-1 text-slate-600">
                 <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
                 Speak Aloud
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

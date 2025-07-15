@@ -170,7 +170,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Part Library</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Topics Library</h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -185,7 +185,7 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search parts..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="pl-10"
@@ -224,10 +224,10 @@ const PartLibrary: React.FC<PartLibraryProps> = ({
               
               <Select value={selectedPartType || 'all'} onValueChange={(value) => onPartTypeChange(value === 'all' ? undefined : value as PartType)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All types" />
+                  <SelectValue placeholder="All parts" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="all">All parts</SelectItem>
                   <SelectItem value="part1">Part 1</SelectItem>
                   <SelectItem value="part2_3">Part 2 & 3</SelectItem>
                   <SelectItem value="part2_only">Part 2</SelectItem>
