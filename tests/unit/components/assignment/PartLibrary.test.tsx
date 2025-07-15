@@ -137,15 +137,15 @@ describe('PartLibrary', () => {
       render(<PartLibrary {...defaultProps} isOpen={false} />);
       
       expect(screen.getByTestId('chevron-right')).toBeInTheDocument();
-      expect(screen.queryByText('Part Library')).not.toBeInTheDocument();
+      expect(screen.queryByText('Topics Library')).not.toBeInTheDocument();
     });
 
     it('renders expanded state when open', () => {
       render(<PartLibrary {...defaultProps} />);
       
-      expect(screen.getByText('Part Library')).toBeInTheDocument();
+      expect(screen.getByText('Topics Library')).toBeInTheDocument();
       expect(screen.getByTestId('chevron-left')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Search parts...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
     });
 
     it('renders loading state', () => {
@@ -213,7 +213,7 @@ describe('PartLibrary', () => {
     it('calls onSearchChange when search input changes', () => {
       render(<PartLibrary {...defaultProps} />);
       
-      const searchInput = screen.getByPlaceholderText('Search parts...');
+      const searchInput = screen.getByPlaceholderText('Search...');
       fireEvent.change(searchInput, { target: { value: 'personal' } });
       
       expect(defaultProps.onSearchChange).toHaveBeenCalledWith('personal');

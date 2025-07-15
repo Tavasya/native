@@ -225,7 +225,7 @@ describe('PartLibrary Drag and Drop Integration', () => {
   it('should render both PartLibrary and AssignmentBuilder', () => {
     render(<PartLibraryWithBuilder parts={mockParts} combinations={mockCombinations} />);
     
-    expect(screen.getByText('Part Library')).toBeInTheDocument();
+    expect(screen.getByText('Topics Library')).toBeInTheDocument();
     expect(screen.getByText('Assignment Builder')).toBeInTheDocument();
     expect(screen.getByText('Personal Introduction')).toBeInTheDocument();
     expect(screen.getByText('Work Experience')).toBeInTheDocument();
@@ -331,7 +331,7 @@ describe('PartLibrary Drag and Drop Integration', () => {
     render(<PartLibraryWithBuilder parts={mockParts} combinations={mockCombinations} />);
     
     // Search for specific part
-    const searchInput = screen.getByPlaceholderText('Search parts...');
+    const searchInput = screen.getByPlaceholderText('Search...');
     await user.type(searchInput, 'personal');
     
     // Only Personal Introduction should be visible
@@ -412,7 +412,7 @@ describe('PartLibrary Drag and Drop Integration', () => {
     // Reopen library
     const openButton = screen.getByTestId('chevron-right').closest('button');
     await user.click(openButton!);
-    expect(screen.getByText('Part Library')).toBeInTheDocument();
+    expect(screen.getByText('Topics Library')).toBeInTheDocument();
   });
 
   it('should clear filters and maintain drag functionality', async () => {
@@ -420,7 +420,7 @@ describe('PartLibrary Drag and Drop Integration', () => {
     render(<PartLibraryWithBuilder parts={mockParts} combinations={mockCombinations} />);
     
     // Apply filters
-    const searchInput = screen.getByPlaceholderText('Search parts...');
+    const searchInput = screen.getByPlaceholderText('Search...');
     await user.type(searchInput, 'personal');
     
     // Only one part should be visible
