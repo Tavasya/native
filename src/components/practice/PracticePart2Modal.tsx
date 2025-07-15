@@ -162,7 +162,7 @@ const PracticePart2Modal: React.FC = () => {
         elements.push(
           <span 
             key={index} 
-            className="bg-yellow-200 font-medium py-0.5 px-1 rounded mx-0.5 cursor-pointer hover:bg-yellow-300 transition-colors"
+            className="bg-yellow-200 font-medium py-0.5 px-1 rounded mx-0.5 cursor-pointer hover:bg-yellow-300 transition-colors inline-block break-words"
             onClick={() => handleRemoveHighlight(cleanWord, index)}
           >
             {cleanWord}
@@ -173,7 +173,7 @@ const PracticePart2Modal: React.FC = () => {
         elements.push(
           <span 
             key={index} 
-            className="text-gray-800 hover:bg-gray-100 cursor-pointer py-0.5 px-1 rounded transition-colors mx-0.5"
+            className="text-gray-800 hover:bg-gray-100 cursor-pointer py-0.5 px-1 rounded transition-colors mx-0.5 inline-block break-words"
             onClick={() => handleWordClick(cleanWord, index)}
           >
             {cleanWord}
@@ -190,7 +190,7 @@ const PracticePart2Modal: React.FC = () => {
       }
     });
     
-    return <span className="leading-relaxed">{elements}</span>;
+    return <span className="leading-relaxed inline-block w-full break-words">{elements}</span>;
   };
 
   if (!isOpen || !sessionId) {
@@ -219,9 +219,11 @@ const PracticePart2Modal: React.FC = () => {
         <h3 className="text-lg font-medium text-[#272A69] mb-4">
           Highlight Words
         </h3>
-                  <div className="text-[#272A69] leading-relaxed">
+        <div className="max-h-64 overflow-y-auto overflow-x-hidden pr-2">
+          <div className="text-[#272A69] leading-relaxed break-words whitespace-normal">
             {renderHighlightedText(improvedTranscript, highlights)}
           </div>
+        </div>
         {(highlights.length > 0 || userAddedHighlights.length > 0) && (
           <div className="mt-4 text-sm text-gray-600 space-y-2">
           </div>
@@ -243,7 +245,7 @@ const PracticePart2Modal: React.FC = () => {
           </Button>
         </div>
         
-        <div className="space-y-3">
+        <div className="max-h-80 overflow-y-auto overflow-x-hidden space-y-3 pr-2">
           {bulletPoints.map((bulletPoint, index) => (
             <div key={index} className="flex items-start gap-3 p-3 bg-white border rounded-lg">
               <div className="flex-shrink-0 mt-1">
@@ -261,7 +263,7 @@ const PracticePart2Modal: React.FC = () => {
                       value={bulletPoint.word}
                       onChange={(e) => handleWordChange(index, e.target.value)}
                       placeholder="Enter word..."
-                      className="font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-full"
                     />
                   )}
 
@@ -270,7 +272,7 @@ const PracticePart2Modal: React.FC = () => {
                   placeholder="Write your definition or notes about this word..."
                   value={bulletPoint.description}
                   onChange={(e) => handleDescriptionChange(index, e.target.value)}
-                  className="min-h-[80px] resize-none"
+                  className="min-h-[80px] resize-none w-full max-w-full"
                   rows={3}
                 />
               </div>
@@ -475,7 +477,7 @@ const PracticePart2Modal: React.FC = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-[90vw] sm:max-w-[700px] max-h-[80vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {currentStep === 'transcript' 
