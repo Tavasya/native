@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording, selectAssignmentContext } from '@/features/practice/practiceSlice';
+import { closePracticeModal, startRecording, stopRecording, setRecordingTime, setAudioBlob, setRecordingError, clearRecording, selectAssignmentContext, createStandardizedPracticeSession } from '@/features/practice/practiceSlice';
 import { X, Square, Loader2 } from 'lucide-react';
 import MicIcon from "@/lib/images/mic.svg";
 import AudioVisualizer from './AudioVisualizer';
@@ -79,25 +79,16 @@ const AssignmentPracticeModal: React.FC = () => {
         }
       }
 
-      // Create practice session with improved transcript (or question text as fallback)
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('practice_sessions')
-        .insert({
-          user_id: userSession.user.id,
-          assignment_id: practiceModal.assignmentId,
-          original_transcript: assignmentContext?.questionData?.question || 'No question text available',
-          improved_transcript: improvedTranscript,
-          status: 'transcript_ready', // Ready for practice immediately
-          practice_phase: 'pronunciation'
-        })
-        .select()
-        .single();
+      // 🔧 PHASE 3: Use standardized session creation
+      const result = await dispatch(createStandardizedPracticeSession({
+        improvedTranscript,
+        assignmentId: practiceModal.assignmentId,
+        questionIndex: practiceModal.questionIndex,
+        originalTranscript: assignmentContext?.questionData?.question || 'No question text available',
+        questionData: assignmentContext?.questionData
+      })).unwrap();
 
-      if (sessionError) {
-        throw new Error(`Session creation failed: ${sessionError.message}`);
-      }
-
-      setPracticeSession(sessionData);
+      setPracticeSession(result.session);
       setIsLoadingTranscript(false);
 
     } catch (error) {

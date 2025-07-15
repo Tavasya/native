@@ -251,35 +251,42 @@ export const createPracticeSessionFromFeedback = createAsyncThunk(
       } as PracticeSession & { isExistingSession: boolean; isAlreadyCompleted: boolean; isPart2Completed: boolean };
     }
 
-    // No existing session found, create a new one
-    console.log('🆕 Creating new practice session...');
+    // 🔧 PHASE 3: Use standardized session creation for new sessions
+    console.log('🆕 Creating new standardized practice session...');
+    
+    // Create session using standardized method
+    const sessionData = {
+      user_id: userId,
+      assignment_id: finalAssignmentId || null,
+      submission_id: submissionId || null,
+      question_index: questionIndex !== undefined ? questionIndex : null,
+      original_transcript: null, // Will be set if we have original data
+      improved_transcript: enhancedTranscript,
+      highlights: null, // Don't save highlights until Part 2 is completed
+      status: 'transcript_ready' as const,
+      practice_phase: 'ready' as const,
+      practice_mode: 'full-transcript' as const,
+      has_tried_full_transcript: false,
+      is_returning_to_full_transcript: false,
+      current_sentence_index: 0,
+      current_word_index: 0,
+      problematic_word_index: 0,
+      webhook_session_id: null,
+      error_message: null
+    };
+
     const { data, error } = await supabase
       .from('practice_sessions')
-      .insert({
-        user_id: userId,
-        assignment_id: finalAssignmentId || null,
-        submission_id: submissionId,
-        question_index: questionIndex || null,
-        improved_transcript: enhancedTranscript,
-        highlights: null, // Don't save highlights until Part 2 is completed
-        status: 'transcript_ready',
-        practice_phase: 'ready',
-        practice_mode: 'full-transcript',
-        has_tried_full_transcript: false,
-        is_returning_to_full_transcript: false,
-        current_sentence_index: 0,
-        current_word_index: 0,
-        problematic_word_index: 0,
-      })
+      .insert(sessionData)
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating practice session:', error);
+      console.error('Error creating standardized practice session:', error);
       throw new Error(`Failed to create practice session: ${error.message}`);
     }
 
-    console.log('✅ Created new practice session:', data.id);
+    console.log('✅ Created new standardized practice session:', data.id);
     return {
       ...data,
       isExistingSession: false,
@@ -432,6 +439,75 @@ export const updateProblematicWords = createAsyncThunk(
   }
 );
 
+// 🔧 PHASE 3: Standardized session creation function
+export const createStandardizedPracticeSession = createAsyncThunk(
+  'practice/createStandardizedSession',
+  async ({ 
+    improvedTranscript, 
+    assignmentId, 
+    submissionId, 
+    questionIndex, 
+    originalTranscript,
+    questionData
+  }: { 
+    improvedTranscript: string; 
+    assignmentId?: string; 
+    submissionId?: string; 
+    questionIndex?: number;
+    originalTranscript?: string;
+    questionData?: any;
+  }) => {
+    const { data: { session: userSession } } = await supabase.auth.getSession();
+    if (!userSession?.user?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    const userId = userSession.user.id;
+    
+    // 🔧 Standardized session creation with consistent fields
+    const sessionData = {
+      user_id: userId,
+      assignment_id: assignmentId || null,
+      submission_id: submissionId || null,
+      question_index: questionIndex !== undefined ? questionIndex : null,
+      original_transcript: originalTranscript || null,
+      improved_transcript: improvedTranscript,
+      highlights: null, // Don't save highlights until Part 2 is completed
+      status: 'transcript_ready' as const,
+      practice_phase: 'ready' as const,
+      practice_mode: 'full-transcript' as const,
+      has_tried_full_transcript: false,
+      is_returning_to_full_transcript: false,
+      current_sentence_index: 0,
+      current_word_index: 0,
+      problematic_word_index: 0,
+      webhook_session_id: null,
+      error_message: null
+    };
+
+    console.log('🏭 Creating standardized practice session:', sessionData);
+
+    const { data, error } = await supabase
+      .from('practice_sessions')
+      .insert(sessionData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating standardized practice session:', error);
+      throw new Error(`Failed to create practice session: ${error.message}`);
+    }
+
+    console.log('✅ Created standardized practice session:', data.id);
+    
+    // Return session with assignment context if provided
+    return {
+      session: data as PracticeSession,
+      assignmentContext: questionData && assignmentId ? { assignmentId, questionIndex, questionData } : null
+    };
+  }
+);
+
 // Mark Part 2 as completed and save highlights
 export const markPracticePart2Completed = createAsyncThunk(
   'practice/markPracticePart2Completed',
@@ -453,6 +529,60 @@ export const markPracticePart2Completed = createAsyncThunk(
     if (error) throw error;
     
     return { recordingUrl, sessionId, highlights: allHighlights };
+  }
+);
+
+// 🔧 PHASE 5: Clean up stuck webhook sessions
+export const cleanupStuckWebhookSessions = createAsyncThunk(
+  'practice/cleanupStuckWebhookSessions',
+  async () => {
+    try {
+      // Find sessions stuck with webhook_session_id for more than 10 minutes
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      
+      const { data: stuckSessions, error: fetchError } = await supabase
+        .from('practice_sessions')
+        .select('id, webhook_session_id, status, created_at')
+        .not('webhook_session_id', 'is', null)
+        .in('status', ['transcript_ready', 'transcript_processing'])
+        .lt('created_at', tenMinutesAgo);
+
+      if (fetchError) {
+        console.error('Error fetching stuck sessions:', fetchError);
+        throw fetchError;
+      }
+
+      if (!stuckSessions || stuckSessions.length === 0) {
+        console.log('✅ No stuck webhook sessions found');
+        return { cleanedCount: 0, sessions: [] };
+      }
+
+      console.log(`🧹 Found ${stuckSessions.length} stuck webhook sessions to clean up`);
+
+      // Clean up stuck sessions
+      const { error: updateError } = await supabase
+        .from('practice_sessions')
+        .update({
+          webhook_session_id: null,
+          status: 'transcript_ready',
+          error_message: 'Webhook session timed out and was cleaned up'
+        })
+        .in('id', stuckSessions.map(s => s.id));
+
+      if (updateError) {
+        console.error('Error cleaning up stuck sessions:', updateError);
+        throw updateError;
+      }
+
+      console.log(`✅ Cleaned up ${stuckSessions.length} stuck webhook sessions`);
+      return { 
+        cleanedCount: stuckSessions.length, 
+        sessions: stuckSessions.map(s => ({ id: s.id, webhook_session_id: s.webhook_session_id }))
+      };
+    } catch (error) {
+      console.error('Error in cleanupStuckWebhookSessions:', error);
+      throw error;
+    }
   }
 );
 
@@ -479,8 +609,22 @@ const practiceSlice = createSlice({
       state.highlights = [];
     },
     setSession: (state, action: PayloadAction<PracticeSession>) => {
+      console.log('📝 Setting new session, resetting recording state:', action.payload.id);
       state.currentSession = action.payload;
       state.sessionError = null;
+      
+      // 🔧 CRITICAL FIX: Reset recording state when setting any session
+      state.currentPracticeState.hasStartedRecording = false;
+      state.currentPracticeState.isAssessing = false;
+      state.currentPracticeState.pronunciationResult = null;
+      state.recording = {
+        isRecording: false,
+        audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
+        recordingError: null,
+        hasRecording: false,
+      };
     },
     setSessionError: (state, action: PayloadAction<string>) => {
       state.sessionError = action.payload;
@@ -572,6 +716,26 @@ const practiceSlice = createSlice({
         sessionId: action.payload,
         loading: false,
         error: null,
+      };
+      
+      // 🔧 FIX: Clear previous practice state when opening modal to prevent UI bugs
+      console.log('🧹 Clearing previous practice state when opening modal');
+      state.currentPracticeState.hasStartedRecording = false;
+      state.currentPracticeState.isAssessing = false;
+      state.currentPracticeState.pronunciationResult = null;
+      state.currentPracticeState.recordingTimer = {
+        isActive: false,
+        timeElapsed: 0,
+        maxDuration: state.currentPracticeState.recordingTimer.maxDuration,
+      };
+      // Also clear recording state
+      state.recording = {
+        isRecording: false,
+        audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
+        recordingError: null,
+        hasRecording: false,
       };
     },
     closePracticeSessionModal: (state) => {
@@ -798,6 +962,7 @@ const practiceSlice = createSlice({
       state.currentPracticeState.isPlaying = action.payload;
     },
     resetCurrentPracticeState: (state) => {
+      console.log('🔄 Resetting current practice state completely');
       state.currentPracticeState = {
         currentSentenceIndex: 0,
         currentWordIndex: 0,
@@ -816,6 +981,27 @@ const practiceSlice = createSlice({
           timeElapsed: 0,
           maxDuration: 60, // Default to full transcript mode (60 seconds)
         },
+      };
+    },
+    // NEW: Critical action to reset hasStartedRecording when sessions change
+    resetRecordingState: (state) => {
+      console.log('🎙️ Resetting recording state for new session');
+      state.currentPracticeState.hasStartedRecording = false;
+      state.currentPracticeState.isAssessing = false;
+      state.currentPracticeState.pronunciationResult = null;
+      state.currentPracticeState.recordingTimer = {
+        isActive: false,
+        timeElapsed: 0,
+        maxDuration: state.currentPracticeState.recordingTimer.maxDuration,
+      };
+      // Also clear recording state in the recording section
+      state.recording = {
+        isRecording: false,
+        audioUrl: null,
+        audioBlob: null,
+        recordingTime: 0,
+        recordingError: null,
+        hasRecording: false,
       };
     },
     updateProgressIndexes: (state, action: PayloadAction<{ sentenceIndex: number; wordIndex: number }>) => {
@@ -909,6 +1095,20 @@ const practiceSlice = createSlice({
         state.sessionLoading = false;
         state.currentSession = action.payload;
         state.sessionError = null;
+        
+        // 🔧 CRITICAL FIX: Reset recording state when loading any session
+        console.log('🔄 Session loaded, resetting recording state to prevent conflicts');
+        state.currentPracticeState.hasStartedRecording = false;
+        state.currentPracticeState.isAssessing = false;
+        state.currentPracticeState.pronunciationResult = null;
+        state.recording = {
+          isRecording: false,
+          audioUrl: null,
+          audioBlob: null,
+          recordingTime: 0,
+          recordingError: null,
+          hasRecording: false,
+        };
       })
       .addCase(loadPracticeSession.rejected, (state, action) => {
         state.sessionLoading = false;
@@ -1081,6 +1281,34 @@ const practiceSlice = createSlice({
       .addCase(markPracticePart2Completed.rejected, (state, action) => {
         state.practiceSessionModal.loading = false;
         state.practiceSessionModal.error = action.error.message || 'Failed to mark Part 2 completed';
+      })
+      // 🔧 PHASE 3: Standardized session creation reducers
+      .addCase(createStandardizedPracticeSession.pending, (state) => {
+        state.sessionLoading = true;
+        state.sessionError = null;
+      })
+      .addCase(createStandardizedPracticeSession.fulfilled, (state, action) => {
+        state.sessionLoading = false;
+        state.currentSession = action.payload.session;
+        if (action.payload.assignmentContext && action.payload.assignmentContext.assignmentId) {
+          state.assignmentContext = action.payload.assignmentContext as AssignmentContext;
+        }
+        state.sessionError = null;
+        console.log('✅ Standardized session created and stored in Redux');
+      })
+      .addCase(createStandardizedPracticeSession.rejected, (state, action) => {
+        state.sessionLoading = false;
+        state.sessionError = action.error.message || 'Failed to create standardized practice session';
+      })
+      // 🔧 PHASE 5: Cleanup stuck webhook sessions reducers
+      .addCase(cleanupStuckWebhookSessions.pending, () => {
+        console.log('🧹 Starting cleanup of stuck webhook sessions...');
+      })
+      .addCase(cleanupStuckWebhookSessions.fulfilled, (_, action) => {
+        console.log(`✅ Cleanup completed: ${action.payload.cleanedCount} sessions cleaned`);
+      })
+      .addCase(cleanupStuckWebhookSessions.rejected, (_, action) => {
+        console.error('❌ Cleanup failed:', action.error.message);
       });
   },
 });
@@ -1135,6 +1363,7 @@ export const {
   setHasStartedRecording,
   setIsPlaying,
   resetCurrentPracticeState,
+  resetRecordingState, // NEW: Critical action for session changes
   updateProgressIndexes,
   // Problematic words actions
   setProblematicWords,

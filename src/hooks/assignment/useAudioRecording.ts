@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { validateAudioBlob } from '@/utils/webm-diagnostics';
 
 interface UseAudioRecordingProps {
@@ -8,11 +8,40 @@ interface UseAudioRecordingProps {
 
 export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioRecordingProps) => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaStream = useRef<MediaStream | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const recordingStartTime = useRef<number>(0);
+  const pausedDuration = useRef<number>(0);
+  const pauseStartTime = useRef<number>(0);
+
+  // Cleanup effect to ensure proper cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 useAudioRecording hook unmounting, cleaning up...');
+      // Force cleanup on unmount - use direct cleanup instead of resetRecording
+      // to avoid state update issues during unmount
+      if (mediaRecorder.current) {
+        try {
+          if (mediaRecorder.current.state === 'recording' || mediaRecorder.current.state === 'paused') {
+            mediaRecorder.current.stop();
+          }
+        } catch (error) {
+          console.warn('Error stopping media recorder during unmount:', error);
+        }
+      }
+      
+      if (mediaStream.current) {
+        try {
+          mediaStream.current.getTracks().forEach(track => track.stop());
+        } catch (error) {
+          console.warn('Error stopping media tracks during unmount:', error);
+        }
+      }
+    };
+  }, []);
 
 
   // Get the best supported MIME type based on browser capabilities
@@ -105,6 +134,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       mediaRecorder.current = new MediaRecorder(stream, options);
       audioChunks.current = [];
       recordingStartTime.current = Date.now();
+      pausedDuration.current = 0;
 
       mediaRecorder.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -128,10 +158,11 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
           return;
         }
 
-        // Check minimum recording duration (1 second)
-        const recordingDuration = Date.now() - recordingStartTime.current;
-        if (recordingDuration < 1000) {
-          console.error('Recording too short:', recordingDuration);
+        // Check minimum recording duration (1 second) - account for paused time
+        const totalRecordingTime = Date.now() - recordingStartTime.current;
+        const actualRecordingTime = totalRecordingTime - pausedDuration.current;
+        if (actualRecordingTime < 1000) {
+          console.error('Recording too short:', actualRecordingTime);
           onError('Recording must be at least 1 second long');
           setIsProcessing(false);
           return;
@@ -149,6 +180,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       // Record in smaller chunks for better streaming
       mediaRecorder.current.start(1000); // 1 second chunks
       setIsRecording(true);
+      setIsPaused(false);
       
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -156,10 +188,35 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     }
   }, [onRecordingComplete, onError]);
 
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorder.current && isRecording && !isPaused && mediaRecorder.current.state === 'recording') {
+      mediaRecorder.current.pause();
+      setIsPaused(true);
+      pauseStartTime.current = Date.now();
+      console.log('🔸 Recording paused');
+    }
+  }, [isRecording, isPaused]);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorder.current && isRecording && isPaused && mediaRecorder.current.state === 'paused') {
+      mediaRecorder.current.resume();
+      setIsPaused(false);
+      // Add the paused time to total paused duration
+      pausedDuration.current += Date.now() - pauseStartTime.current;
+      console.log('▶️ Recording resumed');
+    }
+  }, [isRecording, isPaused]);
+
   const stopRecording = useCallback(() => {
     if (mediaRecorder.current && isRecording) {
+      // If paused, account for the current pause duration
+      if (isPaused) {
+        pausedDuration.current += Date.now() - pauseStartTime.current;
+      }
+      
       mediaRecorder.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
 
       if (mediaStream.current) {
         mediaStream.current.getTracks().forEach(track => track.stop());
@@ -167,7 +224,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       }
     }
     
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {
@@ -178,32 +235,65 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
   }, [isRecording, startRecording, stopRecording]);
 
   const resetRecording = useCallback(() => {
-    // Stop any active recording
-    if (isRecording && mediaRecorder.current) {
-      mediaRecorder.current.stop();
+    console.log('🧹 Starting complete audio recording reset...');
+    
+    // Stop any active recording - force stop even if not in recording state
+    if (mediaRecorder.current) {
+      try {
+        if (mediaRecorder.current.state === 'recording' || mediaRecorder.current.state === 'paused') {
+          mediaRecorder.current.stop();
+        }
+      } catch (error) {
+        console.warn('Error stopping media recorder during reset:', error);
+      }
+      mediaRecorder.current = null;
     }
     
-    // Clear media stream
+    // Clear media stream - ensure all tracks are stopped
     if (mediaStream.current) {
-      mediaStream.current.getTracks().forEach(track => track.stop());
+      try {
+        mediaStream.current.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped track:', track.kind, track.label);
+        });
+      } catch (error) {
+        console.warn('Error stopping media tracks during reset:', error);
+      }
       mediaStream.current = null;
     }
     
-    // Reset state
+    // Clear any pending URLs to prevent memory leaks
+    audioChunks.current.forEach(chunk => {
+      try {
+        if (chunk instanceof Blob) {
+          const url = URL.createObjectURL(chunk);
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        console.warn('Error revoking blob URL during reset:', error);
+      }
+    });
+    
+    // Reset ALL state variables
     setIsRecording(false);
+    setIsPaused(false);
     setIsProcessing(false);
     audioChunks.current = [];
     recordingStartTime.current = 0;
-    mediaRecorder.current = null;
+    pausedDuration.current = 0;
+    pauseStartTime.current = 0;
     
-    console.log('🧹 Audio recording state reset');
-  }, [isRecording]);
+    console.log('✅ Complete audio recording state reset finished');
+  }, []); // Remove isRecording dependency to prevent issues during reset
 
   return {
     isRecording,
+    isPaused,
     isProcessing,
     mediaStream: mediaStream.current,
     toggleRecording,
+    pauseRecording,
+    resumeRecording,
     resetRecording
   };
 };
