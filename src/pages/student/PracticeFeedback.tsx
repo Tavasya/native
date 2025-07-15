@@ -366,11 +366,10 @@ const PracticeFeedback: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-medium text-[#272A69]">Practice Transcripts</h3>
         
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-3">
-            <h4 className="font-medium text-[#272A69]">Your Original Response</h4>
+            <h4 className="font-medium text-[#272A69]">Original Response</h4>
             <div className="p-4 bg-gray-50 rounded-lg border">
               <p className="text-sm whitespace-pre-wrap">
                 {feedbackData.original}
@@ -428,9 +427,6 @@ const PracticeFeedback: React.FC = () => {
         )}
         
         <div className="pt-4 border-t">
-          <p className="text-sm text-gray-600 mb-4">
-            The enhanced version shows improved vocabulary, better grammar, and more sophisticated language patterns based on your original response.
-          </p>
           
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
@@ -456,7 +452,7 @@ const PracticeFeedback: React.FC = () => {
               ) : (
                 <>
                   <Volume2 className="h-5 w-5 mr-2" />
-                  Start Pronunciation Practice
+                  Start Practicing
                 </>
               )}
             </Button>
@@ -522,8 +518,7 @@ const PracticeFeedback: React.FC = () => {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[#272A69]">Practice Feedback</h1>
-            <p className="text-gray-600">Compare your original response with the enhanced version</p>
+            <h1 className="text-2xl font-bold text-[#272A69]">Practice</h1>
           </div>
         </div>
 

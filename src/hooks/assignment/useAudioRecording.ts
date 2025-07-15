@@ -8,11 +8,14 @@ interface UseAudioRecordingProps {
 
 export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioRecordingProps) => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaStream = useRef<MediaStream | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
   const recordingStartTime = useRef<number>(0);
+  const pausedDuration = useRef<number>(0);
+  const pauseStartTime = useRef<number>(0);
 
 
   // Get the best supported MIME type based on browser capabilities
@@ -105,6 +108,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       mediaRecorder.current = new MediaRecorder(stream, options);
       audioChunks.current = [];
       recordingStartTime.current = Date.now();
+      pausedDuration.current = 0;
 
       mediaRecorder.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -128,10 +132,11 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
           return;
         }
 
-        // Check minimum recording duration (1 second)
-        const recordingDuration = Date.now() - recordingStartTime.current;
-        if (recordingDuration < 1000) {
-          console.error('Recording too short:', recordingDuration);
+        // Check minimum recording duration (1 second) - account for paused time
+        const totalRecordingTime = Date.now() - recordingStartTime.current;
+        const actualRecordingTime = totalRecordingTime - pausedDuration.current;
+        if (actualRecordingTime < 1000) {
+          console.error('Recording too short:', actualRecordingTime);
           onError('Recording must be at least 1 second long');
           setIsProcessing(false);
           return;
@@ -149,6 +154,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       // Record in smaller chunks for better streaming
       mediaRecorder.current.start(1000); // 1 second chunks
       setIsRecording(true);
+      setIsPaused(false);
       
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -156,10 +162,35 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     }
   }, [onRecordingComplete, onError]);
 
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorder.current && isRecording && !isPaused && mediaRecorder.current.state === 'recording') {
+      mediaRecorder.current.pause();
+      setIsPaused(true);
+      pauseStartTime.current = Date.now();
+      console.log('🔸 Recording paused');
+    }
+  }, [isRecording, isPaused]);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorder.current && isRecording && isPaused && mediaRecorder.current.state === 'paused') {
+      mediaRecorder.current.resume();
+      setIsPaused(false);
+      // Add the paused time to total paused duration
+      pausedDuration.current += Date.now() - pauseStartTime.current;
+      console.log('▶️ Recording resumed');
+    }
+  }, [isRecording, isPaused]);
+
   const stopRecording = useCallback(() => {
     if (mediaRecorder.current && isRecording) {
+      // If paused, account for the current pause duration
+      if (isPaused) {
+        pausedDuration.current += Date.now() - pauseStartTime.current;
+      }
+      
       mediaRecorder.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
 
       if (mediaStream.current) {
         mediaStream.current.getTracks().forEach(track => track.stop());
@@ -167,7 +198,7 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
       }
     }
     
-  }, [isRecording]);
+  }, [isRecording, isPaused]);
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {
@@ -191,9 +222,12 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
     
     // Reset state
     setIsRecording(false);
+    setIsPaused(false);
     setIsProcessing(false);
     audioChunks.current = [];
     recordingStartTime.current = 0;
+    pausedDuration.current = 0;
+    pauseStartTime.current = 0;
     mediaRecorder.current = null;
     
     console.log('🧹 Audio recording state reset');
@@ -201,9 +235,12 @@ export const useAudioRecording = ({ onRecordingComplete, onError }: UseAudioReco
 
   return {
     isRecording,
+    isPaused,
     isProcessing,
     mediaStream: mediaStream.current,
     toggleRecording,
+    pauseRecording,
+    resumeRecording,
     resetRecording
   };
 };

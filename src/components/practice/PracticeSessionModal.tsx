@@ -167,8 +167,11 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
   const {
     isRecording,
+    isPaused,
     isProcessing,
-    toggleRecording
+    toggleRecording,
+    pauseRecording,
+    resumeRecording
   } = useAudioRecording({
     onRecordingComplete: async (blob) => {
       // Stop timer when recording completes
@@ -186,7 +189,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   useEffect(() => {
     let timerInterval: NodeJS.Timeout;
     
-    if (isRecordingTimerActive && isRecording) {
+    if (isRecordingTimerActive && isRecording && !isPaused) {
       timerInterval = setInterval(() => {
         dispatch(tickRecordingTimer());
         
@@ -202,7 +205,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         clearInterval(timerInterval);
       }
     };
-  }, [isRecordingTimerActive, isRecording, recordingTimeElapsed, recordingMaxDuration, dispatch, toggleRecording]);
+  }, [isRecordingTimerActive, isRecording, isPaused, recordingTimeElapsed, recordingMaxDuration, dispatch, toggleRecording]);
 
   // Start timer when recording starts
   useEffect(() => {
@@ -975,7 +978,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={isPlaying ? stopPlaying : playCurrentText}
-                  disabled={isRecording}
+                  disabled={isRecording && !isPaused}
                 >
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   {isPlaying ? 'Stop' : 'Listen'}
@@ -1005,12 +1008,16 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             <div className="flex flex-col items-center space-y-4">
               {isRecording && (
                 <div className="space-y-3 w-full">
-                  <div className="flex items-center gap-2 text-red-600">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Recording... Speak now!</span>
-                    <span className="text-xs text-gray-500">
-                      ({Math.max(0, recordingMaxDuration - recordingTimeElapsed)}s left)
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`}></div>
+                    <span className={`text-sm font-medium ${isPaused ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {isPaused ? 'Recording paused' : 'Recording... Speak now!'}
                     </span>
+                    {!isPaused && (
+                      <span className="text-xs text-gray-500">
+                        ({Math.max(0, recordingMaxDuration - recordingTimeElapsed)}s left)
+                      </span>
+                    )}
                   </div>
                   
                   {/* Recording Progress Bar */}
@@ -1021,7 +1028,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
-                        className="bg-red-500 h-2 rounded-full transition-all duration-1000 ease-linear"
+                        className={`h-2 rounded-full transition-all duration-1000 ease-linear ${
+                          isPaused ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
                         style={{ 
                           width: `${Math.min(100, (recordingTimeElapsed / recordingMaxDuration) * 100)}%` 
                         }}
@@ -1029,15 +1038,40 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                     </div>
                   </div>
                   
-                  <Button
-                    variant="destructive"
-                    size="lg"
-                    onClick={toggleRecording}
-                    className="flex items-center gap-2"
-                  >
-                    <Square className="h-5 w-5" />
-                    Stop Recording
-                  </Button>
+                  {/* Recording Control Buttons */}
+                  <div className="flex gap-3 justify-center">
+                    {isPaused ? (
+                      <Button
+                        variant="default"
+                        size="lg"
+                        onClick={resumeRecording}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Play className="h-5 w-5" />
+                        Resume
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={pauseRecording}
+                        className="flex items-center gap-2 border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                      >
+                        <Pause className="h-5 w-5" />
+                        Pause
+                      </Button>
+                    )}
+                    
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      onClick={toggleRecording}
+                      className="flex items-center gap-2"
+                    >
+                      <Square className="h-5 w-5" />
+                      Stop & Analyze
+                    </Button>
+                  </div>
                 </div>
               )}
 
