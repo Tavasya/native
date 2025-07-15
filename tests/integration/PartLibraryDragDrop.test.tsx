@@ -400,7 +400,7 @@ describe('PartLibrary Drag and Drop Integration', () => {
     await user.click(closeButton!);
     
     // Library should be closed but drag indicator should still be visible
-    expect(screen.queryByText('Part Library')).not.toBeInTheDocument();
+    expect(screen.queryByText('Topics Library')).not.toBeInTheDocument();
     expect(screen.getByTestId('drag-indicator')).toBeInTheDocument();
     
     // End drag - call handleDragEnd directly since partCard is no longer available
