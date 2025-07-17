@@ -476,15 +476,13 @@ export default function DashboardPage() {
               <ErrorMessage message={errorLastLogins} />
             ) : (
               <DataTable<LastLogin>
-                headers={['Name', 'Email', 'Role', 'Teacher', 'Status', 'Last Login', 'Actions']}
+                headers={['User', 'Role', 'Teacher', 'Status', 'Last Login', 'Actions']}
                 data={filteredUsers}
                 renderRow={(user) => (
                   <tr key={user.user_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{user.name || 'Unnamed User'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-600">{user.email}</div>
+                      <div className="text-sm text-gray-600">{user.email}</div>
                     </td>
                     <td className="px-6 py-4">
                       <RoleBadge role={user.role as 'teacher' | 'student' | 'admin'} />
