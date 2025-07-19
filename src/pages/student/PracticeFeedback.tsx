@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, Lightbulb, Play, Highlighter, ChevronDown } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { 
   loadPracticeFeedbackFromSubmission, 
@@ -35,6 +35,7 @@ const PracticeFeedback: React.FC = () => {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [questionIndex, setQuestionIndex] = useState<number>(0);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
+  const [showOriginalTranscript, setShowOriginalTranscript] = useState(false);
   
   const feedbackData = useAppSelector(selectPracticeFeedbackData);
   const feedbackError = useAppSelector(selectPracticeFeedbackError);
@@ -219,7 +220,7 @@ const PracticeFeedback: React.FC = () => {
     });
     
     return (
-      <p className="text-sm whitespace-pre-wrap">
+      <p className="text-lg leading-relaxed whitespace-pre-wrap">
         {wordsWithPositions.map((item) => {
           if (item.type === 'whitespace') {
             // This is whitespace, return as-is
@@ -233,12 +234,12 @@ const PracticeFeedback: React.FC = () => {
               <span
                 key={item.segmentIndex}
                 onClick={!isTranscriptCompleted ? () => handleWordClick(item.segment.trim(), currentPosition) : undefined}
-                className={`transition-colors ${
+                className={`transition-all duration-200 ${
                   isHighlighted 
-                    ? 'bg-yellow-200 border border-yellow-400 rounded px-1' 
+                    ? 'bg-yellow-300 border-2 border-yellow-500 rounded-md px-1 py-0.5 font-medium' 
                     : isTranscriptCompleted 
                       ? ''
-                      : 'cursor-pointer hover:bg-yellow-100 hover:rounded hover:px-1'
+                      : 'cursor-pointer hover:bg-yellow-100 hover:border hover:border-yellow-300 hover:rounded-md hover:px-1 hover:py-0.5'
                 }`}
                 title={isTranscriptCompleted ? "Previously highlighted word" : "Click to highlight for practice focus"}
               >
@@ -333,7 +334,7 @@ const PracticeFeedback: React.FC = () => {
     }));
   };
 
-  const renderContent = () => {
+  const renderWizardStep = () => {
     if (feedbackError) {
       return (
         <div className="text-center py-8">
@@ -364,43 +365,124 @@ const PracticeFeedback: React.FC = () => {
       );
     }
 
-    return (
-      <div className="space-y-6">
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <h4 className="font-medium text-[#272A69]">Original Response</h4>
-            <div className="p-4 bg-gray-50 rounded-lg border">
-              <p className="text-sm whitespace-pre-wrap">
-                {feedbackData.original}
-              </p>
+    // Step 1: Show enhanced transcript and guide user to highlight words
+    if (!isTranscriptCompleted) {
+      return (
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <Highlighter className="h-6 w-6 text-orange-600" />
+              </div>
             </div>
+            <h2 className="text-2xl font-bold text-[#272A69] mb-2">Step 1: Highlight Key Words</h2>
+            <p className="text-gray-600 max-w-md mx-auto">
+              Click on words that you want to focus on during your pronunciation practice. 
+              These will be emphasized in your practice session.
+            </p>
           </div>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-green-700">Enhanced Version</h4>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {assignment?.questions[questionIndex]?.question || 'Question not available'}
+                </h3>
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Enhanced Response</span>
+              </div>
               {highlights.length > 0 && (
-                <span className="text-xs text-gray-500">
+                <span className="text-sm text-blue-600 font-medium">
                   {highlights.length} word{highlights.length !== 1 ? 's' : ''} highlighted
                 </span>
               )}
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="bg-gray-50 rounded-lg p-6">
               {renderClickableTranscript(feedbackData.enhanced)}
-              <div className="mt-3 text-xs text-gray-600">
-                {isTranscriptCompleted 
-                  ? "✅ Practice completed!"
-                  : "Click on words that you want to remember"
-                }
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => setShowOriginalTranscript(!showOriginalTranscript)}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <ChevronDown 
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    showOriginalTranscript ? 'rotate-180' : ''
+                  }`} 
+                />
+                {showOriginalTranscript ? 'Hide' : 'Show'} Original Response
+              </button>
+              
+              <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                showOriginalTranscript ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'
+              }`}>
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Original Response</h4>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">
+                    {feedbackData.original}
+                  </p>
+                </div>
               </div>
             </div>
+          </div>
+
+          <div className="text-center">
+            <Button
+              onClick={handleStartPronunciationPractice}
+              disabled={practiceSessionLoading || !feedbackData?.enhanced}
+              className="px-8 py-3 text-lg font-medium bg-[#272A69] hover:bg-[#272A69]/90 text-white"
+              size="lg"
+            >
+              {practiceSessionLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Starting Practice...
+                </>
+              ) : (
+                <>
+                  <Play className="h-5 w-5 mr-2" />
+                  Start Pronunciation Practice
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 2: Show completion status and Part 2 option
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Practice Completed!</h2>
+          <p className="text-gray-600">
+            Great job! You've completed the pronunciation practice. 
+            {feedbackData?.completedSessionId && !isPart2Completed && (
+              <span> Ready for the next step?</span>
+            )}
+          </p>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              {assignment?.questions[questionIndex]?.question || 'Question not available'}
+            </h3>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Enhanced Response</span>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-6">
+            {renderClickableTranscript(feedbackData.enhanced)}
           </div>
         </div>
 
         {feedbackData.audioUrl && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-[#272A69]">Your Recording</h4>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Your Original Recording</h3>
             <audio controls className="w-full">
               <source src={feedbackData.audioUrl} type="audio/webm" />
               <source src={feedbackData.audioUrl} type="audio/mp3" />
@@ -410,8 +492,8 @@ const PracticeFeedback: React.FC = () => {
         )}
         
         {isPart2Completed && feedbackData.part2RecordingUrl && (
-          <div className="space-y-3">
-            <h4 className="font-medium text-[#272A69]">Part 2 Practice Recording</h4>
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Part 2 Practice Recording</h3>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CheckCircle className="h-5 w-5 text-green-600" />
@@ -425,81 +507,33 @@ const PracticeFeedback: React.FC = () => {
             </div>
           </div>
         )}
-        
-        <div className="pt-4 border-t">
-          
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+
+        {feedbackData?.completedSessionId && !isPart2Completed && (
+          <div className="text-center">
             <Button
-              onClick={handleStartPronunciationPractice}
-              disabled={practiceSessionLoading || !feedbackData?.enhanced || isTranscriptCompleted}
-                              className={`px-6 py-3 text-lg font-medium ${
-                isTranscriptCompleted 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                  : 'bg-[#272A69] hover:bg-[#272A69]/90 text-white'
-              }`}
+              onClick={handleStartPart2}
+              disabled={loadingAssignment || !assignment}
+              className="px-8 py-3 text-lg font-medium bg-orange-500 hover:bg-orange-600 text-white"
               size="lg"
             >
-              {practiceSessionLoading ? (
+              {loadingAssignment ? (
                 <>
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Starting Practice...
+                  Loading...
                 </>
-              ) : isTranscriptCompleted ? (
+              ) : !assignment ? (
                 <>
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Practice Completed
+                  Loading Assignment...
                 </>
               ) : (
                 <>
-                  <Volume2 className="h-5 w-5 mr-2" />
-                  Start Practicing
+                  <Lightbulb className="h-5 w-5 mr-2" />
+                  Start Part 2: Highlight & Practice
                 </>
               )}
             </Button>
-            
-            {isTranscriptCompleted && feedbackData?.completedSessionId && (
-              <Button
-                onClick={handleStartPart2}
-                disabled={isPart2Completed || loadingAssignment || !assignment}
-                className={`px-6 py-3 text-lg font-medium ${
-                  isPart2Completed 
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : loadingAssignment || !assignment
-                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                      : 'bg-orange-500 hover:bg-orange-600 text-white'
-                }`}
-                size="lg"
-              >
-                {isPart2Completed ? (
-                  <>
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Part 2 Completed
-                  </>
-                ) : loadingAssignment ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : !assignment ? (
-                  <>
-                    Loading Assignment...
-                  </>
-                ) : (
-                  <>
-                    Highlight & Practice
-                  </>
-                )}
-              </Button>
-            )}
           </div>
-          
-          {sessionError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{sessionError}</p>
-            </div>
-          )}
-          
-        </div>
+        )}
       </div>
     );
   };
@@ -522,7 +556,13 @@ const PracticeFeedback: React.FC = () => {
           </div>
         </div>
 
-        {renderContent()}
+        {renderWizardStep()}
+        
+        {sessionError && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{sessionError}</p>
+          </div>
+        )}
       </div>
     </div>
   );

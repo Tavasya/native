@@ -180,7 +180,7 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
             <div className="flex-1 mr-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-900 font-medium leading-relaxed">
-                  {(currentQuestion.question || 'No question text available').replace(/^[•\-\*]\s*/, '')}
+                  {(currentQuestion.question || 'No question text available').replace(/^[•\-*]\s*/, '')}
                 </p>
               </div>
             </div>
@@ -188,7 +188,7 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
               { <Button
                 variant="default"
                 size="sm"
-                className="bg-[#272A69] text-white hover:bg-[#272A69]/90"
+                className="bg-orange-500 text-white hover:bg-orange-600"
                 onClick={handlePracticeQuestion}
               >
                 Practice
