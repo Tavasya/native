@@ -197,6 +197,22 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
+  const handleWordDoubleClick = (word: string, event: React.MouseEvent) => {
+    // Prevent the single-click handler from firing
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Let the browser's default double-click behavior work for dictionary extensions
+    // This allows extensions like "Dictionary" or "Google Dictionary" to work
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      const range = document.createRange();
+      range.selectNodeContents(event.currentTarget);
+      selection.addRange(range);
+    }
+  };
+
   const renderClickableTranscript = (text: string) => {
     if (!text) return null;
     
@@ -230,22 +246,23 @@ const PracticeFeedback: React.FC = () => {
             const currentPosition = 'wordPosition' in item ? item.wordPosition : 0;
             const isHighlighted = highlights.some(h => h.position === currentPosition);
             
-            return (
-              <span
-                key={item.segmentIndex}
-                onClick={!isTranscriptCompleted ? () => handleWordClick(item.segment.trim(), currentPosition) : undefined}
-                className={`transition-all duration-200 ${
-                  isHighlighted 
-                    ? 'bg-yellow-300 border-2 border-yellow-500 rounded-md px-1 py-0.5 font-medium' 
-                    : isTranscriptCompleted 
-                      ? ''
-                      : 'cursor-pointer hover:bg-yellow-100 hover:border hover:border-yellow-300 hover:rounded-md hover:px-1 hover:py-0.5'
-                }`}
-                title={isTranscriptCompleted ? "Previously highlighted word" : "Click to highlight for practice focus"}
-              >
-                {item.segment}
-              </span>
-            );
+                          return (
+                <span
+                  key={item.segmentIndex}
+                  onClick={!isTranscriptCompleted ? () => handleWordClick(item.segment.trim(), currentPosition) : undefined}
+                  onDoubleClick={!isTranscriptCompleted ? (e) => handleWordDoubleClick(item.segment.trim(), e) : undefined}
+                  className={`transition-all duration-200 inline-block ${
+                    isHighlighted 
+                      ? 'bg-yellow-300 border-2 border-yellow-500 rounded-md px-1 py-0.5 font-medium' 
+                      : isTranscriptCompleted 
+                        ? ''
+                        : 'cursor-pointer hover:bg-yellow-100 hover:border hover:border-yellow-300 hover:rounded-md hover:px-1 hover:py-0.5'
+                  }`}
+                  title={isTranscriptCompleted ? "Previously highlighted word" : "Click to highlight for practice focus, double-click for dictionary"}
+                >
+                  {item.segment}
+                </span>
+              );
           }
         })}
       </p>
@@ -377,8 +394,8 @@ const PracticeFeedback: React.FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-[#272A69] mb-2">Step 1: Highlight Key Words</h2>
             <p className="text-gray-600 max-w-md mx-auto">
-              Click on words that you want to focus on during your pronunciation practice. 
-              These will be emphasized in your practice session.
+              Click on words that you have trouble with and want to remember. 
+              You will be able to write notes about these words later.
             </p>
           </div>
 
