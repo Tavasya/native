@@ -220,8 +220,12 @@ export const fetchSubmissionTrends = createAsyncThunk<
   { rejectValue: string }
 >('metrics/fetchSubmissionTrends', async (_, { rejectWithValue }) => {
   try {
-    return await service.getSubmissionTrends();
+    console.log('Redux thunk - fetchSubmissionTrends started');
+    const result = await service.getSubmissionTrends();
+    console.log('Redux thunk - fetchSubmissionTrends completed, result length:', result.length);
+    return result;
   } catch (err: any) {
+    console.error('Redux thunk - fetchSubmissionTrends error:', err);
     return rejectWithValue(err.message);
   }
 });

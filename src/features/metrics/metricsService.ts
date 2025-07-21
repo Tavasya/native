@@ -297,34 +297,137 @@ export async function getUserCreationData(): Promise<{
  * Fetches submission trends data for analytics.
  */
 export async function getSubmissionTrends(): Promise<SubmissionTrend[]> {
-  const { data, error } = await supabase
+  // First, let's check all submissions to debug
+  const { data: allSubmissions, error: allError } = await supabase
     .from('submissions')
-    .select(`
-      id,
-      assignment_id,
-      student_id,
-      status,
-      submitted_at,
-      assignments (
-        title
-      ),
-      users (
-        name
-      )
-    `)
-    .in('status', ['graded', 'awaiting_review'])
-    .not('submitted_at', 'is', null)
-    .order('submitted_at', { ascending: false });
+    .select('status, submitted_at')
+    .limit(100);
+    
+  if (!allError && allSubmissions) {
+    console.log('Debug - All submission statuses:', {
+      total: allSubmissions.length,
+      statuses: allSubmissions.reduce((acc, sub) => {
+        acc[sub.status] = (acc[sub.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      withSubmittedAt: allSubmissions.filter(s => s.submitted_at).length,
+      nullSubmittedAt: allSubmissions.filter(s => !s.submitted_at).length,
+      sampleSubmissions: allSubmissions.slice(0, 5).map(s => ({
+        status: s.status,
+        submitted_at: s.submitted_at
+      }))
+    });
+  }
 
-  if (error) throw error;
+  // Let's get ALL submissions - need to handle Supabase's 1000 row limit
+  let allData: any[] = [];
+  let hasMore = true;
+  let offset = 0;
+  const limit = 1000;
+
+  while (hasMore) {
+    const { data: batch, error: batchError } = await supabase
+      .from('submissions')
+      .select(`
+        id,
+        assignment_id,
+        student_id,
+        status,
+        submitted_at,
+        assignments (
+          title
+        ),
+        users (
+          name
+        )
+      `)
+      .range(offset, offset + limit - 1);
+
+    if (batchError) {
+      console.error('Error fetching submissions batch:', batchError);
+      throw batchError;
+    }
+
+    if (batch) {
+      allData = [...allData, ...batch];
+      hasMore = batch.length === limit;
+      offset += limit;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  console.log(`Fetched ${allData.length} total submissions in ${Math.ceil(offset / limit)} batches`);
+
+  console.log('All submissions data:', {
+    totalFound: allData.length,
+    statusBreakdown: allData.reduce((acc, sub) => {
+      acc[sub.status] = (acc[sub.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+    submittedAtBreakdown: {
+      withSubmittedAt: allData.filter(s => s.submitted_at !== null).length,
+      nullSubmittedAt: allData.filter(s => s.submitted_at === null).length
+    },
+    targetStatusesCount: allData.filter(s => 
+      ['graded', 'awaiting_review', 'pending', 'rejected'].includes(s.status)
+    ).length,
+    sampleSubmissions: allData.slice(0, 10).map(s => ({
+      id: s.id,
+      status: s.status,
+      submitted_at: s.submitted_at,
+      assignment_title: (s.assignments as any)?.title,
+      student_name: (s.users as any)?.name
+    }))
+  });
+
+  // Now filter for the statuses we want
+  const statusFiltered = allData.filter(submission => 
+    ['graded', 'awaiting_review', 'pending'].includes(submission.status)
+  );
+
+  const filteredData = statusFiltered.filter(submission => 
+    submission.submitted_at !== null
+  );
+
+  console.log('Detailed filtering breakdown:', {
+    totalSubmissions: allData.length,
+    afterStatusFilter: statusFiltered.length,
+    afterNullFilter: filteredData.length,
+    filteredOutByStatus: allData.length - statusFiltered.length,
+    filteredOutByNullSubmittedAt: statusFiltered.length - filteredData.length,
+    statusesFilteredOut: allData
+      .filter(s => !['graded', 'awaiting_review', 'pending'].includes(s.status))
+      .reduce((acc, sub) => {
+        acc[sub.status] = (acc[sub.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    finalBreakdown: {
+      graded: filteredData.filter(s => s.status === 'graded').length,
+      awaitingReview: filteredData.filter(s => s.status === 'awaiting_review').length,
+      pending: filteredData.filter(s => s.status === 'pending').length
+    }
+  });
   
-  return data.map(submission => ({
+  const result = filteredData.map(submission => ({
     submission_id: submission.id,
     assignment_id: submission.assignment_id,
     student_id: submission.student_id,
     student_name: (submission.users as any)?.name || 'Unknown Student',
-    status: submission.status as 'graded' | 'awaiting_review',
+    status: submission.status as 'graded' | 'awaiting_review' | 'pending',
     submitted_at: submission.submitted_at,
     assignment_title: (submission.assignments as any)?.title
   }));
+
+  console.log('getSubmissionTrends returning:', {
+    totalRecords: result.length,
+    byStatus: {
+      graded: result.filter(r => r.status === 'graded').length,
+      awaiting_review: result.filter(r => r.status === 'awaiting_review').length,
+      pending: result.filter(r => r.status === 'pending').length
+    },
+    sampleRecords: result.slice(0, 5)
+  });
+
+  return result;
 }

@@ -9,8 +9,9 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { useSelector } from 'react-redux';
-import type { RootState } from '@/app/store';
+import { useSelector, useDispatch } from 'react-redux';
+import type { RootState, AppDispatch } from '@/app/store';
+import { fetchSubmissionTrends } from '@/features/metrics/metricsSlice';
 
 type TimelineOption = 'daily' | 'weekly' | 'monthly';
 
@@ -18,11 +19,21 @@ interface SubmissionTrendsData {
   period: string;
   Graded: number;
   'Awaiting Review': number;
+  Pending: number;
 }
 
 const SubmissionTrendsGraph: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const submissionTrends = useSelector((state: RootState) => state.metrics.submissionTrends);
+  const loadingSubmissionTrends = useSelector((state: RootState) => state.metrics.loadingSubmissionTrends);
   const [timeline, setTimeline] = useState<TimelineOption>('weekly');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await dispatch(fetchSubmissionTrends());
+    setIsRefreshing(false);
+  };
 
   // Transform data for the graph based on selected timeline
   const transformedData = useMemo(() => {
@@ -62,13 +73,15 @@ const SubmissionTrendsGraph: React.FC = () => {
     // Separate submissions by status
     const gradedSubmissions = submissionTrends.filter(submission => submission.status === 'graded');
     const awaitingReviewSubmissions = submissionTrends.filter(submission => submission.status === 'awaiting_review');
+    const pendingSubmissions = submissionTrends.filter(submission => submission.status === 'pending');
     
     // Create trend data using cumulative submissions count
     const transformed = periods.map((period, periodIndex) => {
       const periodData: SubmissionTrendsData = { 
         period: '',
         Graded: 0,
-        'Awaiting Review': 0
+        'Awaiting Review': 0,
+        Pending: 0
       };
 
       let periodEnd: Date;
@@ -117,6 +130,17 @@ const SubmissionTrendsGraph: React.FC = () => {
       });
       periodData['Awaiting Review'] = awaitingCount;
 
+      // Count pending submissions up to this period
+      let pendingCount = 0;
+      pendingSubmissions.forEach(submission => {
+        const submissionDate = new Date(submission.submitted_at);
+        if (submissionDate < periodEnd) {
+          pendingCount++;
+        }
+      });
+      periodData.Pending = pendingCount;
+
+
       return periodData;
     });
 
@@ -126,6 +150,7 @@ const SubmissionTrendsGraph: React.FC = () => {
   // Calculate current totals
   const totalGraded = submissionTrends.filter(submission => submission.status === 'graded').length;
   const totalAwaitingReview = submissionTrends.filter(submission => submission.status === 'awaiting_review').length;
+  const totalPending = submissionTrends.filter(submission => submission.status === 'pending').length;
 
   // Calculate recent submissions based on timeline
   const getRecentSubmissions = () => {
@@ -157,10 +182,15 @@ const SubmissionTrendsGraph: React.FC = () => {
       new Date(submission.submitted_at) >= startDate
     ).length;
 
-    return { recentGraded, recentAwaitingReview };
+    const recentPending = submissionTrends.filter(submission => 
+      submission.status === 'pending' && 
+      new Date(submission.submitted_at) >= startDate
+    ).length;
+
+    return { recentGraded, recentAwaitingReview, recentPending };
   };
 
-  const { recentGraded, recentAwaitingReview } = getRecentSubmissions();
+  const { recentGraded, recentAwaitingReview, recentPending } = getRecentSubmissions();
 
   const getTimelineLabel = () => {
     switch (timeline) {
@@ -175,6 +205,18 @@ const SubmissionTrendsGraph: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Submission Trends</h3>
         <div className="flex items-center space-x-4">
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing || loadingSubmissionTrends}
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+              isRefreshing || loadingSubmissionTrends
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            }`}
+          >
+            {isRefreshing || loadingSubmissionTrends ? 'Refreshing...' : 'Refresh Data'}
+          </button>
           {/* Timeline Selector */}
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Timeline:</span>
@@ -204,6 +246,10 @@ const SubmissionTrendsGraph: React.FC = () => {
             <div className="flex items-center">
               <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
               <span>Awaiting Review ({totalAwaitingReview})</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+              <span>Pending ({totalPending})</span>
             </div>
           </div>
         </div>
@@ -253,27 +299,35 @@ const SubmissionTrendsGraph: React.FC = () => {
               activeDot={{ r: 7 }}
               name="Awaiting Review"
             />
+            <Line
+              type="monotone"
+              dataKey="Pending"
+              stroke="#3b82f6"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+              name="Pending"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* Summary stats */}
-      <div className="mt-6 grid grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-3 gap-4">
         <div className="bg-green-50 rounded-lg p-4">
           <h4 className="text-sm font-medium text-green-800">Total Graded</h4>
           <p className="text-2xl font-bold text-green-900">{totalGraded}</p>
+          <p className="text-xs text-green-600">+{recentGraded} ({getTimelineLabel()})</p>
         </div>
         <div className="bg-orange-50 rounded-lg p-4">
           <h4 className="text-sm font-medium text-orange-800">Total Awaiting Review</h4>
           <p className="text-2xl font-bold text-orange-900">{totalAwaitingReview}</p>
+          <p className="text-xs text-orange-600">+{recentAwaitingReview} ({getTimelineLabel()})</p>
         </div>
-        <div className="bg-green-100 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-green-800">New Graded ({getTimelineLabel()})</h4>
-          <p className="text-2xl font-bold text-green-900">{recentGraded}</p>
-        </div>
-        <div className="bg-orange-100 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-orange-800">New Awaiting Review ({getTimelineLabel()})</h4>
-          <p className="text-2xl font-bold text-orange-900">{recentAwaitingReview}</p>
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-800">Total Pending</h4>
+          <p className="text-2xl font-bold text-blue-900">{totalPending}</p>
+          <p className="text-xs text-blue-600">+{recentPending} ({getTimelineLabel()})</p>
         </div>
       </div>
     </div>

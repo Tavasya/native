@@ -53,7 +53,7 @@ export interface LastLogin {
     assignment_id: string;
     student_id: string;
     student_name: string;
-    status: 'graded' | 'awaiting_review';
+    status: 'graded' | 'awaiting_review' | 'pending';
     submitted_at: string;
     assignment_title?: string;
   }
