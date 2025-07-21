@@ -339,15 +339,17 @@ const PracticeFeedback: React.FC = () => {
       questionIndex,
       loadingAssignment,
       originalQuestion: assignment?.questions[questionIndex]?.question,
-      questions: assignment?.questions
+      questions: assignment?.questions,
+      highlights: highlights,
+      highlightsCount: highlights.length
     });
 
-    // Open Part 2 modal with the completed session ID and enhanced transcript
+    // Open Part 2 modal - the Redux action will handle loading highlights if needed
     dispatch(openPracticePart2Modal({
-      sessionId: feedbackData.completedSessionId,
+      sessionId: feedbackData.completedSessionId!,
       improvedTranscript: feedbackData.enhanced,
-      highlights: highlights,
-      originalQuestion: assignment?.questions[questionIndex]?.question // Pass the original question
+      highlights: highlights, // Pass current highlights, action will fall back to global state if empty
+      originalQuestion: assignment?.questions[questionIndex]?.question
     }));
   };
 
@@ -483,6 +485,40 @@ const PracticeFeedback: React.FC = () => {
               <span> Ready for the next step?</span>
             )}
           </p>
+          
+          {/* Progress Bar */}
+          {feedbackData?.completedSessionId && (
+            <div className="mt-6 max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Practice Progress</span>
+                <span className="text-sm text-gray-500">
+                  {isPart2Completed ? '2/2' : '1/2'}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    isPart2Completed ? 'bg-green-500' : 'bg-[#272A69]'
+                  }`}
+                  style={{ width: isPart2Completed ? '100%' : '50%' }}
+                ></div>
+              </div>
+              <div className="flex justify-between mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-gray-600">Part 1: Pronunciation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${
+                    isPart2Completed ? 'bg-green-500' : 'bg-gray-300'
+                  }`}></div>
+                  <span className={`text-xs ${
+                    isPart2Completed ? 'text-gray-600' : 'text-gray-400'
+                  }`}>Part 2: Highlight & Practice</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
