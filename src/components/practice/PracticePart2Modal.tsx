@@ -577,7 +577,9 @@ const PracticePart2Modal: React.FC = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full max-w-[90vw] sm:max-w-[700px] max-h-[80vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent
+        className={`w-full max-w-[90vw] ${improvedTranscript && improvedTranscript.length > 400 ? 'sm:max-w-[1100px]' : 'sm:max-w-[700px]'} max-h-[80vh] overflow-y-auto overflow-x-hidden`}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {currentStep === 'transcript' 

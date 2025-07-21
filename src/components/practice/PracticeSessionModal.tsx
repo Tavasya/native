@@ -1516,7 +1516,16 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                       </div>
                       
                       <div className={`text-[#272A69] leading-relaxed mb-4 ${activeTab === 'word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
-                        {activeTab === 'word' ? `"${currentTab.content}"` : currentTab.content}
+                        {activeTab === 'word'
+                          ? (currentTab.content && currentTab.content.length > 200
+                              ? `"${currentTab.content.slice(0, 200)}..."`
+                              : `"${currentTab.content}"`)
+                          : activeTab === 'sentence'
+                            ? currentTab.content
+                            : (currentTab.content && currentTab.content.length > 200
+                                ? currentTab.content.slice(0, 200) + '...'
+                                : currentTab.content)
+                        }
                       </div>
 
                       {/* Problematic Words List - only for word tab */}
@@ -1935,6 +1944,39 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               >
                 Skip to Full Transcript
               </Button>
+            )}
+
+            {/* Add Next/Finish buttons for step progression */}
+            {!isRecording && !isProcessing && !isAssessing && (
+              <>
+                {practiceMode === 'sentence' && (
+                  <Button
+                    variant="default"
+                    onClick={handleNextSentence}
+                    className="bg-[#272A69] hover:bg-[#272A69]/90 text-white ml-2"
+                  >
+                    Next
+                  </Button>
+                )}
+                {practiceMode === 'word-by-word' && (
+                  <Button
+                    variant="default"
+                    onClick={handleNextWord}
+                    className="bg-[#272A69] hover:bg-[#272A69]/90 text-white ml-2"
+                  >
+                    Next
+                  </Button>
+                )}
+                {practiceMode === 'full-transcript' && hasTriedFullTranscript && (
+                  <Button
+                    variant="default"
+                    onClick={completePracticeSession}
+                    className="bg-green-600 hover:bg-green-700 text-white ml-2"
+                  >
+                    Finish
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
