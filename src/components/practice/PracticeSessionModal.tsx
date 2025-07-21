@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback, useState, useRef } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, CheckCircle, XCircle, Square } from 'lucide-react';
-import { PracticeSession, PronunciationResult, PracticeMode, PracticeSessionStatus } from '@/features/practice/practiceTypes';
+import { PracticeSession, PronunciationResult, PracticeMode, PracticeSessionStatus, RecordingState } from '@/features/practice/practiceTypes';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAssignmentById } from '@/features/assignments/assignmentThunks';
@@ -79,9 +79,22 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   
   // Local state for completion tracking
   const [isCompleted, setIsCompleted] = useState(false);
+  const [hasSeenIntroduction, setHasSeenIntroduction] = useState(false);
+  const [activeTab, setActiveTab] = useState<'full' | 'sentence' | 'word'>('full');
+  
+  // Optimized tab switching handler
+  const handleTabChange = useCallback((tab: 'full' | 'sentence' | 'word') => {
+    setActiveTab(tab);
+  }, []);
   
   // 🔧 CRITICAL FIX: Track sessionId changes to reset state
   const prevSessionIdRef = useRef<string | null>(null);
+  
+  // Smart chunking state for longer transcripts
+  const [sentenceChunks, setSentenceChunks] = useState<number[][]>([]);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
+  const [successfulChunks, setSuccessfulChunks] = useState<number[]>([]);
+  const [canSkipToFinal, setCanSkipToFinal] = useState(false);
   
   // Use Redux state instead of local state
   const session = useSelector(selectCurrentSession);
@@ -111,7 +124,149 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   const assignmentContext = useSelector(selectAssignmentContext);
   
   // 🔧 PHASE 2: Get Redux recording state for synchronization
-  const recording = useSelector((state: any) => state.practice.recording);
+  const recording = useSelector((state: { practice: { recording: RecordingState } }) => state.practice.recording);
+  
+  // Memoized tab content to prevent re-rendering - now includes activeTab dependency
+  const memoizedTabContent = useMemo(() => {
+    if (!session?.sentences) return null;
+    
+    const isLongTranscript = session.sentences.length > 3;
+    const hasMultipleSentences = session.sentences.length > 1;
+    
+    return {
+      full: {
+        progressText: "Full Transcript Practice",
+        stepText: `Step 1 of ${hasMultipleSentences ? '4' : '3'}`,
+        progressValue: hasMultipleSentences ? 25 : 33,
+        title: "Read the entire transcript aloud:",
+        content: session.sentences.map(s => s.text).join(' '),
+        failureText: "You'll practice sentences individually (or words if it's a short transcript)"
+      },
+      sentence: hasMultipleSentences ? {
+        progressText: isLongTranscript ? "Chunk 1 of 2-3 sentences" : `Sentence 1 of ${session.sentences.length}`,
+        stepText: "Step 2 of 4",
+        progressValue: 50,
+        title: isLongTranscript ? "Read this chunk of sentences aloud:" : "Read this sentence aloud:",
+        content: isLongTranscript 
+          ? `${session.sentences[0]?.text || ""} ${session.sentences[1]?.text || ""} ${session.sentences[2]?.text || ""}`
+          : session.sentences[0]?.text || "Practice this sentence individually...",
+        failureText: isLongTranscript 
+          ? "You'll practice difficult words within each sentence"
+          : "You'll practice difficult words individually"
+      } : null,
+      word: {
+        progressText: "Problematic Word 1 of 3",
+        stepText: "Step 3 of 4",
+        progressValue: 75,
+        title: "Practice this problematic word:",
+        content: "difficult",
+        failureText: "You'll move to the next word, then to the next sentence"
+      }
+    };
+  }, [session?.sentences]);
+
+  // Optimized tab buttons with useCallback handlers
+  const memoizedTabButtons = useMemo(() => {
+    if (!session?.sentences) return null;
+    
+    return (
+      <div className="flex space-x-1 mb-6">
+        <button
+          onClick={() => handleTabChange('full')}
+          className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+            activeTab === 'full'
+              ? 'bg-[#272A69] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Full Transcript
+        </button>
+        {session.sentences.length > 1 && (
+          <button
+            onClick={() => handleTabChange('sentence')}
+            className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+              activeTab === 'sentence'
+                ? 'bg-[#272A69] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Sentence Practice
+          </button>
+        )}
+        <button
+          onClick={() => handleTabChange('word')}
+          className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+            activeTab === 'word'
+              ? 'bg-[#272A69] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Word Practice
+        </button>
+      </div>
+    );
+  }, [session?.sentences, activeTab, handleTabChange]);
+
+  // Smart chunking helper functions
+  const createSentenceChunks = useCallback((sentences: { text: string }[]) => {
+    if (sentences.length <= 3) {
+      // For short transcripts, each sentence is its own chunk
+      return sentences.map((_, index) => [index]);
+    }
+    
+    // For longer transcripts, group 2-3 sentences together
+    const chunks: number[][] = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      const chunk = [i];
+      if (i + 1 < sentences.length) {
+        chunk.push(i + 1);
+      }
+      chunks.push(chunk);
+    }
+    return chunks;
+  }, []);
+
+  const getCurrentChunkText = useCallback(() => {
+    if (!session?.sentences || sentenceChunks.length === 0) return '';
+    
+    const currentChunk = sentenceChunks[currentChunkIndex];
+    if (!currentChunk) return '';
+    
+    return currentChunk
+      .map(sentenceIndex => session.sentences![sentenceIndex]?.text || '')
+      .join(' ');
+  }, [session?.sentences, sentenceChunks, currentChunkIndex]);
+
+  const checkCanSkipToFinal = useCallback(() => {
+    if (!session?.sentences) return false;
+    
+    // Can skip to final if:
+    // 1. We have more than 3 sentences (long transcript)
+    // 2. We've successfully practiced at least 3 sentences
+    // 3. Success rate is above 70%
+    const totalSentences = session.sentences.length;
+    const successfulCount = successfulChunks.length;
+    const successRate = successfulCount / totalSentences;
+    
+    return totalSentences > 3 && successfulCount >= 3 && successRate >= 0.7;
+  }, [session?.sentences, successfulChunks]);
+
+  // Initialize smart chunking when session loads
+  useEffect(() => {
+    if (session?.sentences && session.sentences.length > 0) {
+      const chunks = createSentenceChunks(session.sentences);
+      setSentenceChunks(chunks);
+      setCurrentChunkIndex(0);
+      setSuccessfulChunks([]);
+      setCanSkipToFinal(false);
+    }
+  }, [session?.sentences, createSentenceChunks]);
+
+  // Update skip to final availability
+  useEffect(() => {
+    const canSkip = checkCanSkipToFinal();
+    setCanSkipToFinal(canSkip);
+  }, [successfulChunks, checkCanSkipToFinal]);
 
   // 🔧 PHASE 3: Database state validation functions
   const validateSessionState = useCallback((session: PracticeSession) => {
@@ -376,12 +531,20 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
   // Start timer when recording starts
   useEffect(() => {
+    const chunkSize = practiceMode === 'sentence' && sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length
+      ? sentenceChunks[currentChunkIndex].length
+      : undefined;
+
     if (isRecording && !isRecordingTimerActive) {
-      dispatch(startRecordingTimer(practiceMode));
+      dispatch(startRecordingTimer(
+        practiceMode === 'sentence'
+          ? { mode: practiceMode, chunkSize }
+          : practiceMode
+      ));
     } else if (!isRecording && isRecordingTimerActive) {
       dispatch(stopRecordingTimer());
     }
-  }, [isRecording, isRecordingTimerActive, practiceMode, dispatch]);
+  }, [isRecording, isRecordingTimerActive, practiceMode, dispatch, sentenceChunks, currentChunkIndex]);
 
   // 🔧 IMPROVED: Auto-start recording when modal opens and sentence is ready
   useEffect(() => {
@@ -514,7 +677,13 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     try {
       let referenceText = '';
       if (practiceMode === 'sentence') {
-        referenceText = session.sentences[currentSentenceIndex]?.text || '';
+        // Use smart chunking for sentence mode
+        if (sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length) {
+          referenceText = getCurrentChunkText();
+        } else {
+          // Fallback to individual sentence
+          referenceText = session.sentences[currentSentenceIndex]?.text || '';
+        }
       } else if (practiceMode === 'word-by-word') {
         // Word-by-word mode - use problematic word if available
         if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
@@ -568,8 +737,46 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         completePracticeSession();
       }
     } else if (practiceMode === 'sentence') {
-      // Move to next sentence
-      handleNextSentence();
+      // Smart chunking: track successful chunks and move to next chunk
+      if (sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length) {
+        // Mark current chunk as successful
+        const currentChunk = sentenceChunks[currentChunkIndex];
+        if (currentChunk) {
+          setSuccessfulChunks(prev => [...prev, ...currentChunk]);
+        }
+        
+        // Move to next chunk
+        if (currentChunkIndex < sentenceChunks.length - 1) {
+          const nextChunkIndex = currentChunkIndex + 1;
+          setCurrentChunkIndex(nextChunkIndex);
+          
+          // Update Redux state to reflect the first sentence of the new chunk
+          const nextChunk = sentenceChunks[nextChunkIndex];
+          if (nextChunk && nextChunk.length > 0) {
+            dispatch(setCurrentSentenceIndex(nextChunk[0]));
+            dispatch(setCurrentWordIndex(0));
+            dispatch(clearProblematicWords());
+            
+            // Persist state to database
+            dispatch(updateSessionProgress({ 
+              sessionId, 
+              sentenceIndex: nextChunk[0], 
+              wordIndex: 0,
+              practiceMode: 'sentence',
+              hasTriedFullTranscript,
+              isReturningToFullTranscript,
+              problematicWordIndex: 0
+            }));
+          }
+          resetForNextAttempt();
+        } else {
+          // All chunks completed - return to full transcript mode
+          returnToFullTranscriptPractice();
+        }
+      } else {
+        // Fallback to original sentence-by-sentence logic
+        handleNextSentence();
+      }
     } else if (practiceMode === 'word-by-word') {
       // Move to next word or back to sentence mode
       handleNextWord();
@@ -637,22 +844,50 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
             problematicWordIndex: 0
           }));
         } else {
-          // Multiple sentences - go to sentence-by-sentence mode
-          dispatch(setPracticeMode('sentence'));
-          dispatch(setCurrentSentenceIndex(0));
-          dispatch(setCurrentWordIndex(0));
-          dispatch(clearProblematicWords());
-          
-          // Persist state to database
-          dispatch(updateSessionProgress({ 
-            sessionId, 
-            sentenceIndex: 0, 
-            wordIndex: 0,
-            practiceMode: 'sentence',
-            hasTriedFullTranscript: true,
-            isReturningToFullTranscript,
-            problematicWordIndex: 0
-          }));
+          // Multiple sentences - use smart chunking for longer transcripts
+          if (session?.sentences && session.sentences.length > 3) {
+            // For longer transcripts, use sentence chunks
+            dispatch(setPracticeMode('sentence'));
+            setCurrentChunkIndex(0);
+            setSuccessfulChunks([]);
+            setCanSkipToFinal(false);
+            
+            // Start with first chunk
+            const firstChunk = sentenceChunks[0];
+            if (firstChunk && firstChunk.length > 0) {
+              dispatch(setCurrentSentenceIndex(firstChunk[0]));
+              dispatch(setCurrentWordIndex(0));
+              dispatch(clearProblematicWords());
+              
+              // Persist state to database
+              dispatch(updateSessionProgress({ 
+                sessionId, 
+                sentenceIndex: firstChunk[0], 
+                wordIndex: 0,
+                practiceMode: 'sentence',
+                hasTriedFullTranscript: true,
+                isReturningToFullTranscript,
+                problematicWordIndex: 0
+              }));
+            }
+          } else {
+            // For shorter transcripts, use original sentence-by-sentence mode
+            dispatch(setPracticeMode('sentence'));
+            dispatch(setCurrentSentenceIndex(0));
+            dispatch(setCurrentWordIndex(0));
+            dispatch(clearProblematicWords());
+            
+            // Persist state to database
+            dispatch(updateSessionProgress({ 
+              sessionId, 
+              sentenceIndex: 0, 
+              wordIndex: 0,
+              practiceMode: 'sentence',
+              hasTriedFullTranscript: true,
+              isReturningToFullTranscript,
+              problematicWordIndex: 0
+            }));
+          }
         }
       } else {
         // This is a return attempt that failed - just try again
@@ -663,72 +898,216 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         return;
       }
     } else if (practiceMode === 'sentence') {
-      // Identify problematic words from pronunciation assessment
-      const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
-      const words = sentence.split(' ');
-      
-      // Get weak words that actually exist in the sentence
-      const problematicWordsInSentence = result.weakWords.filter(weakWord => 
-        words.some(word => 
-          word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
-        )
-      );
-      
-      // If no weak words detected from assessment, use words with low scores
-      if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
-        const lowScoringWords = result.wordScores
-          .filter(ws => ws.score < 75) // Words scoring below 75% (increased from 60%)
-          .map(ws => ws.word);
-        problematicWordsInSentence.push(...lowScoringWords);
-      }
-      
-      // Remove duplicates from current assessment (case-insensitive)
-      const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
-        array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
-      );
-      
-      // Store problematic words in Redux state (replace existing, don't accumulate)
-      dispatch(setProblematicWords(uniqueProblematicWords));
-      
-      // Update database with problematic words
-      if (uniqueProblematicWords.length > 0 && sessionId) {
-        dispatch(updateProblematicWords({
-          sessionId,
-          problematicWords: uniqueProblematicWords,
-          sentenceContext: sentence
+      // Smart chunking: handle chunk failure
+      if (sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length) {
+        const currentChunk = sentenceChunks[currentChunkIndex];
+        if (currentChunk && currentChunk.length > 1) {
+          // NEW: For multi-sentence chunks, go directly to word-by-word for all problematic words in the chunk
+          // Collect all problematic words from all sentences in the chunk
+          const allProblematicWords: string[] = [];
+          if (session && session.sentences) {
+            currentChunk.forEach(sentenceIdx => {
+              const sentence = session.sentences![sentenceIdx]?.text || '';
+              const words = sentence.split(' ');
+              // Get weak words that actually exist in the sentence
+              const problematicWordsInSentence = result.weakWords.filter(weakWord =>
+                words.some(word => word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase())
+              );
+              // If no weak words detected from assessment, use words with low scores
+              if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+                const lowScoringWords = result.wordScores
+                  .filter(ws => ws.score < 75 && words.some(word => word.toLowerCase().replace(/[^\w]/g, '') === ws.word.toLowerCase()))
+                  .map(ws => ws.word);
+                problematicWordsInSentence.push(...lowScoringWords);
+              }
+              // Remove duplicates and add to allProblematicWords
+              problematicWordsInSentence.forEach(word => {
+                if (!allProblematicWords.some(w => w.toLowerCase() === word.toLowerCase())) {
+                  allProblematicWords.push(word);
+                }
+              });
+            });
+          }
+          // Store problematic words in Redux state
+          dispatch(setProblematicWords(allProblematicWords));
+          // Update database with problematic words
+          if (allProblematicWords.length > 0 && sessionId) {
+            dispatch(updateProblematicWords({
+              sessionId,
+              problematicWords: allProblematicWords,
+              sentenceContext: undefined // Could be improved to store context per word
+            }));
+          }
+          // Switch to word-by-word mode
+          dispatch(setPracticeMode('word-by-word'));
+          dispatch(setProblematicWordIndex(0));
+          // Set currentSentenceIndex and currentWordIndex to the first problematic word in the chunk
+          let found = false;
+          let firstProblematicSentenceIdx = 0;
+          let firstProblematicWordIdx = 0;
+          if (session && session.sentences) {
+            for (let i = 0; i < currentChunk.length && !found; i++) {
+              const sentenceIdx = currentChunk[i];
+              const sentence = session.sentences[sentenceIdx]?.text || '';
+              const words = sentence.split(' ');
+              const firstProblematicWord = allProblematicWords[0];
+              const wordIndex = words.findIndex(word => word.toLowerCase().replace(/[^\w]/g, '') === firstProblematicWord?.toLowerCase());
+              if (wordIndex !== -1) {
+                dispatch(setCurrentSentenceIndex(sentenceIdx));
+                dispatch(setCurrentWordIndex(wordIndex));
+                firstProblematicSentenceIdx = sentenceIdx;
+                firstProblematicWordIdx = wordIndex;
+                found = true;
+              }
+            }
+          }
+          // Persist state to database
+          dispatch(updateSessionProgress({
+            sessionId,
+            sentenceIndex: firstProblematicSentenceIdx,
+            wordIndex: firstProblematicWordIdx,
+            practiceMode: 'word-by-word',
+            hasTriedFullTranscript,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
+        } else {
+          // Single sentence chunk failed - go to word-by-word mode (existing logic)
+          const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
+          const words = sentence.split(' ');
+          
+          // Get weak words that actually exist in the sentence
+          const problematicWordsInSentence = result.weakWords.filter(weakWord => 
+            words.some(word => 
+              word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
+            )
+          );
+          
+          // If no weak words detected from assessment, use words with low scores
+          if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+            const lowScoringWords = result.wordScores
+              .filter(ws => ws.score < 75) // Words scoring below 75%
+              .map(ws => ws.word);
+            problematicWordsInSentence.push(...lowScoringWords);
+          }
+          
+          // Remove duplicates from current assessment (case-insensitive)
+          const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
+            array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
+          );
+          
+          // Store problematic words in Redux state
+          dispatch(setProblematicWords(uniqueProblematicWords));
+          
+          // Update database with problematic words
+          if (uniqueProblematicWords.length > 0 && sessionId) {
+            dispatch(updateProblematicWords({
+              sessionId,
+              problematicWords: uniqueProblematicWords,
+              sentenceContext: sentence
+            }));
+          }
+          
+          // Switch to word-by-word mode
+          dispatch(setPracticeMode('word-by-word'));
+          dispatch(setProblematicWordIndex(0));
+          
+          // Set currentWordIndex to the position of the first problematic word in the sentence
+          let finalWordIndex = 0;
+          if (uniqueProblematicWords.length > 0) {
+            const firstProblematicWordIndex = words.findIndex(word => 
+              word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
+            );
+            if (firstProblematicWordIndex !== -1) {
+              dispatch(setCurrentWordIndex(firstProblematicWordIndex));
+              finalWordIndex = firstProblematicWordIndex;
+            } else {
+              // Fallback to first word if we can't find the problematic word
+              dispatch(setCurrentWordIndex(0));
+              finalWordIndex = 0;
+            }
+          }
+          
+          // Persist state to database
+          dispatch(updateSessionProgress({ 
+            sessionId, 
+            sentenceIndex: currentSentenceIndex, 
+            wordIndex: finalWordIndex,
+            practiceMode: 'word-by-word',
+            hasTriedFullTranscript,
+            isReturningToFullTranscript,
+            problematicWordIndex: 0
+          }));
+        }
+      } else {
+        // Fallback to original sentence logic
+        // Identify problematic words from pronunciation assessment
+        const sentence = session?.sentences?.[currentSentenceIndex]?.text || '';
+        const words = sentence.split(' ');
+        
+        // Get weak words that actually exist in the sentence
+        const problematicWordsInSentence = result.weakWords.filter(weakWord => 
+          words.some(word => 
+            word.toLowerCase().replace(/[^\w]/g, '') === weakWord.toLowerCase()
+          )
+        );
+        
+        // If no weak words detected from assessment, use words with low scores
+        if (problematicWordsInSentence.length === 0 && result.wordScores.length > 0) {
+          const lowScoringWords = result.wordScores
+            .filter(ws => ws.score < 75) // Words scoring below 75% (increased from 60%)
+            .map(ws => ws.word);
+          problematicWordsInSentence.push(...lowScoringWords);
+        }
+        
+        // Remove duplicates from current assessment (case-insensitive)
+        const uniqueProblematicWords = problematicWordsInSentence.filter((word, index, array) => 
+          array.findIndex(w => w.toLowerCase().replace(/[^\w]/g, '') === word.toLowerCase().replace(/[^\w]/g, '')) === index
+        );
+        
+        // Store problematic words in Redux state (replace existing, don't accumulate)
+        dispatch(setProblematicWords(uniqueProblematicWords));
+        
+        // Update database with problematic words
+        if (uniqueProblematicWords.length > 0 && sessionId) {
+          dispatch(updateProblematicWords({
+            sessionId,
+            problematicWords: uniqueProblematicWords,
+            sentenceContext: sentence
+          }));
+        }
+        
+        // Switch to word-by-word mode
+        dispatch(setPracticeMode('word-by-word'));
+        dispatch(setProblematicWordIndex(0)); // Start with first problematic word
+        
+        // Set currentWordIndex to the position of the first problematic word in the sentence
+        let finalWordIndex = 0;
+        if (uniqueProblematicWords.length > 0) {
+          const firstProblematicWordIndex = words.findIndex(word => 
+            word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
+          );
+          if (firstProblematicWordIndex !== -1) {
+            dispatch(setCurrentWordIndex(firstProblematicWordIndex));
+            finalWordIndex = firstProblematicWordIndex;
+          } else {
+            // Fallback to first word if we can't find the problematic word
+            dispatch(setCurrentWordIndex(0));
+            finalWordIndex = 0;
+          }
+        }
+        
+        // Persist state to database
+        dispatch(updateSessionProgress({ 
+          sessionId, 
+          sentenceIndex: currentSentenceIndex, 
+          wordIndex: finalWordIndex,
+          practiceMode: 'word-by-word',
+          hasTriedFullTranscript,
+          isReturningToFullTranscript,
+          problematicWordIndex: 0
         }));
       }
-      
-      // Switch to word-by-word mode
-      dispatch(setPracticeMode('word-by-word'));
-      dispatch(setProblematicWordIndex(0)); // Start with first problematic word
-      
-      // Set currentWordIndex to the position of the first problematic word in the sentence
-      let finalWordIndex = 0;
-      if (uniqueProblematicWords.length > 0) {
-        const firstProblematicWordIndex = words.findIndex(word => 
-          word.toLowerCase().replace(/[^\w]/g, '') === uniqueProblematicWords[0].toLowerCase()
-        );
-        if (firstProblematicWordIndex !== -1) {
-          dispatch(setCurrentWordIndex(firstProblematicWordIndex));
-          finalWordIndex = firstProblematicWordIndex;
-        } else {
-          // Fallback to first word if we can't find the problematic word
-          dispatch(setCurrentWordIndex(0));
-          finalWordIndex = 0;
-        }
-      }
-      
-      // Persist state to database
-      dispatch(updateSessionProgress({ 
-        sessionId, 
-        sentenceIndex: currentSentenceIndex, 
-        wordIndex: finalWordIndex,
-        practiceMode: 'word-by-word',
-        hasTriedFullTranscript,
-        isReturningToFullTranscript,
-        problematicWordIndex: 0
-      }));
     }
     // In word-by-word mode, just try again (no mode change needed)
     
@@ -827,7 +1206,29 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
         }));
         resetForNextAttempt();
       } else {
-        // Finished all problematic words - return to full transcript mode
+        // Finished all problematic words - return to the same chunk in sentence mode
+        if (practiceMode === 'word-by-word' && sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length) {
+          const currentChunk = sentenceChunks[currentChunkIndex];
+          if (currentChunk && currentChunk.length > 0) {
+            dispatch(setPracticeMode('sentence'));
+            dispatch(setCurrentSentenceIndex(currentChunk[0]));
+            dispatch(setCurrentWordIndex(0));
+            dispatch(clearProblematicWords());
+            // Persist state to database
+            dispatch(updateSessionProgress({
+              sessionId,
+              sentenceIndex: currentChunk[0],
+              wordIndex: 0,
+              practiceMode: 'sentence',
+              hasTriedFullTranscript,
+              isReturningToFullTranscript,
+              problematicWordIndex: 0
+            }));
+            resetForNextAttempt();
+            return;
+          }
+        }
+        // Fallback: if no chunk info, go to full transcript mode
         returnToFullTranscriptPractice();
       }
     } else {
@@ -952,7 +1353,13 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     if (!session?.sentences) return '';
     
     if (practiceMode === 'sentence') {
-      return session.sentences[currentSentenceIndex]?.text || '';
+      // Use smart chunking for sentence mode
+      if (sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length) {
+        return getCurrentChunkText();
+      } else {
+        // Fallback to individual sentence
+        return session.sentences[currentSentenceIndex]?.text || '';
+      }
     } else if (practiceMode === 'word-by-word') {
       // Use problematic words if available, otherwise fall back to current word in sentence
       if (problematicWords.length > 0 && problematicWordIndex < problematicWords.length) {
@@ -1060,6 +1467,164 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
     );
   }
 
+  // Show introduction step for first-time users
+  if (!hasSeenIntroduction && session?.sentences && session.sentences.length > 0) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-[90vw] max-h-[95vh]">
+          <DialogHeader>
+            <DialogTitle className="text-[#272A69]">Pronunciation Practice</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Click the tabs to see each practice mode:</h3>
+              <p className="text-sm text-gray-600">The practice automatically adapts to your performance</p>
+            </div>
+            
+            {/* Tabs */}
+            {memoizedTabButtons}
+            
+            {/* Tab Content */}
+            <div className="space-y-6">
+              {(() => {
+                const currentTab = memoizedTabContent?.[activeTab as keyof typeof memoizedTabContent];
+                if (!currentTab) return null;
+                
+                return (
+                  <div>
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm text-[#272A69]">
+                        <span>{currentTab.progressText}</span>
+                        <span>{currentTab.stepText}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-[#272A69] h-2 rounded-full" style={{ width: `${currentTab.progressValue}%` }}></div>
+                      </div>
+                    </div>
+
+                    {/* Current Text */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-[#272A69]">{currentTab.title}</h3>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" disabled>
+                            <Play className="h-4 w-4" />
+                            Listen
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className={`text-[#272A69] leading-relaxed mb-4 ${activeTab === 'word' ? 'text-2xl text-center font-bold' : 'text-lg'}`}>
+                        {activeTab === 'word'
+                          ? (currentTab.content && currentTab.content.length > 200
+                              ? `"${currentTab.content.slice(0, 200)}..."`
+                              : `"${currentTab.content}"`)
+                          : activeTab === 'sentence'
+                            ? currentTab.content
+                            : (currentTab.content && currentTab.content.length > 200
+                                ? currentTab.content.slice(0, 200) + '...'
+                                : currentTab.content)
+                        }
+                      </div>
+
+                      {/* Problematic Words List - only for word tab */}
+                      {activeTab === 'word' && (
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                          <div className="text-sm text-orange-800">
+                            <strong>Words to practice:</strong> difficult, challenging, pronunciation
+                          </div>
+                          <div className="text-xs text-orange-600 mt-1">
+                            These words need improvement based on your pronunciation
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="text-center">
+                        <Button disabled className="bg-[#272A69] hover:bg-[#272A69]/90 text-white text-lg px-8 py-3 rounded-lg">
+                          Start Recording
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                        <strong>If you {activeTab === 'word' ? 'succeed' : 'fail'}:</strong> {currentTab.failureText}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            
+            <div className="space-y-4 text-sm text-gray-600">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-[#272A69] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-white">1</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">Start with the full transcript</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-[#272A69] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-white">2</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">
+                    {session.sentences.length > 3 
+                      ? "If you fail, practice in smaller chunks (2-3 sentences each)"
+                      : "If you fail, practice sentences individually"
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-[#272A69] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-white">3</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">
+                    {session.sentences.length > 3
+                      ? "If chunks fail, practice difficult words within each sentence"
+                      : "If you fail sentences, practice difficult words"
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-[#272A69] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs font-medium text-white">4</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">
+                    {session.sentences.length > 3
+                      ? "After completing all chunks, return to full transcript"
+                      : "After completing all sentences, return to full transcript"
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={() => setHasSeenIntroduction(true)}
+                className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-8 py-3"
+                size="lg"
+              >
+                Got it, let's start!
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   // Show completion state with Part 2 button
   if (isCompleted) {
     return (
@@ -1102,7 +1667,13 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+      <DialogContent
+        className={
+          practiceMode === 'full-transcript'
+            ? 'max-w-[90vw] max-h-[95vh] p-6'
+            : 'sm:max-w-[700px] max-h-[80vh] overflow-y-auto'
+        }
+      >
         <DialogHeader>
           <DialogTitle>
             {practiceMode === 'full-transcript' 
@@ -1126,7 +1697,11 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                     ? 'Full Transcript Practice'
                     : 'Final Challenge: Full Transcript'
                   : practiceMode === 'sentence' 
-                    ? `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
+                    ? sentenceChunks.length > 0 && currentChunkIndex < sentenceChunks.length
+                      ? `Chunk ${currentChunkIndex + 1} of ${sentenceChunks.length} (${sentenceChunks[currentChunkIndex]?.length || 0} sentences)`
+                      : session.sentences.length > 3
+                        ? `Chunk ${currentChunkIndex + 1} of ${Math.ceil(session.sentences.length / 2)}`
+                        : `Sentence ${currentSentenceIndex + 1} of ${session.sentences.length}`
                     : practiceMode === 'word-by-word'
                       ? problematicWords.length > 0 
                         ? `Problematic Word ${problematicWordIndex + 1} of ${problematicWords.length}`
@@ -1176,7 +1751,9 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                     ? 'Read the entire transcript aloud:' 
                     : 'Final challenge - read the full transcript:'
                   : practiceMode === 'sentence' 
-                    ? 'Read this sentence aloud:' 
+                    ? session.sentences.length > 3
+                      ? 'Read this chunk of sentences aloud:'
+                      : 'Read this sentence aloud:' 
                     : practiceMode === 'word-by-word'
                       ? problematicWords.length > 0 
                         ? 'Practice this problematic word:'
@@ -1334,6 +1911,19 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               Exit Practice
             </Button>
             
+            {/* Show skip to final button for longer transcripts */}
+            {practiceMode === 'sentence' && canSkipToFinal && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  returnToFullTranscriptPractice();
+                }}
+                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+              >
+                Skip to Final Attempt
+              </Button>
+            )}
+            
             {practiceMode === 'word-by-word' && (
               <Button
                 variant="outline"
@@ -1345,7 +1935,7 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
               </Button>
             )}
             
-            {practiceMode === 'sentence' && (
+            {practiceMode === 'sentence' && !canSkipToFinal && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1355,6 +1945,39 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
                 Skip to Full Transcript
               </Button>
             )}
+
+            {/* Add Next/Finish buttons for step progression */}
+            {!isRecording && !isProcessing && !isAssessing && (
+              <>
+                {practiceMode === 'sentence' && (
+                  <Button
+                    variant="default"
+                    onClick={handleNextSentence}
+                    className="bg-[#272A69] hover:bg-[#272A69]/90 text-white ml-2"
+                  >
+                    Next
+                  </Button>
+                )}
+                {practiceMode === 'word-by-word' && (
+                  <Button
+                    variant="default"
+                    onClick={handleNextWord}
+                    className="bg-[#272A69] hover:bg-[#272A69]/90 text-white ml-2"
+                  >
+                    Next
+                  </Button>
+                )}
+                {practiceMode === 'full-transcript' && hasTriedFullTranscript && (
+                  <Button
+                    variant="default"
+                    onClick={completePracticeSession}
+                    className="bg-green-600 hover:bg-green-700 text-white ml-2"
+                  >
+                    Finish
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
@@ -1362,4 +1985,4 @@ const PracticeSessionModal: React.FC<PracticeSessionModalProps> = ({
   );
 };
 
-export default PracticeSessionModal; 
+export default PracticeSessionModal;

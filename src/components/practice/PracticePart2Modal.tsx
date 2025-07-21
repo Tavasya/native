@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch } from '@/app/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Mic, Square, ArrowLeft } from 'lucide-react';
+import { X, Mic, Square, ArrowLeft, Highlighter, BookOpen, Mic2 } from 'lucide-react';
 import { useAudioRecording } from '@/hooks/assignment/useAudioRecording';
 import { 
   selectPracticePart2Modal,
@@ -29,6 +29,10 @@ const PracticePart2Modal: React.FC = () => {
   const dispatch = useAppDispatch();
   const { isOpen, sessionId, improvedTranscript, bulletPoints, highlights, userAddedHighlights, removedOriginalHighlights, originalQuestion, currentStep, recordingUrl, isUploading } = useSelector(selectPracticePart2Modal);
 
+  // Local state for introduction
+  const [hasSeenIntroduction, setHasSeenIntroduction] = useState(false);
+  const [activeTab, setActiveTab] = useState<'highlight' | 'notes' | 'record'>('highlight');
+
   // Debug logging - only when modal opens or step changes
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +44,13 @@ const PracticePart2Modal: React.FC = () => {
       });
     }
   }, [isOpen, currentStep, originalQuestion]);
+
+  // Show introduction for first-time users
+  useEffect(() => {
+    if (isOpen && !hasSeenIntroduction) {
+      setHasSeenIntroduction(false);
+    }
+  }, [isOpen, hasSeenIntroduction]);
 
   const handleClose = () => {
     dispatch(closePracticePart2Modal());
@@ -195,6 +206,95 @@ const PracticePart2Modal: React.FC = () => {
 
   if (!isOpen || !sessionId) {
     return null;
+  }
+
+  // Show introduction step for first-time users
+  if (!hasSeenIntroduction) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-[#272A69]">Part 2: Highlight & Practice</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="text-center mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Three simple steps:</h3>
+            </div>
+            
+            {/* Tabs */}
+            <div className="flex space-x-1 mb-6">
+              <button
+                onClick={() => setActiveTab('highlight')}
+                className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+                  activeTab === 'highlight'
+                    ? 'bg-[#272A69] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Highlight
+              </button>
+              <button
+                onClick={() => setActiveTab('notes')}
+                className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+                  activeTab === 'notes'
+                    ? 'bg-[#272A69] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Notes
+              </button>
+              <button
+                onClick={() => setActiveTab('record')}
+                className={`flex-1 py-2 px-4 rounded-t-lg text-sm font-medium transition-colors ${
+                  activeTab === 'record'
+                    ? 'bg-[#272A69] text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Record
+              </button>
+            </div>
+            
+            {/* Tab Content */}
+            <div className="space-y-4">
+              {activeTab === 'highlight' && (
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <Highlighter className="h-12 w-12 text-[#272A69] mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-[#272A69] mb-2">Click words to highlight</h4>
+                  <p className="text-sm text-gray-600">Select words you want to remember</p>
+                </div>
+              )}
+              
+              {activeTab === 'notes' && (
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <BookOpen className="h-12 w-12 text-[#272A69] mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-[#272A69] mb-2">Add definitions</h4>
+                  <p className="text-sm text-gray-600">Write notes for each word</p>
+                </div>
+              )}
+              
+              {activeTab === 'record' && (
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <Mic2 className="h-12 w-12 text-[#272A69] mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-[#272A69] mb-2">Answer the question again</h4>
+                  <p className="text-sm text-gray-600">Use your notes to help you remember</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={() => setHasSeenIntroduction(true)}
+                className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-8 py-3"
+                size="lg"
+              >
+                Start
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   const renderTranscriptStep = () => (
@@ -477,7 +577,9 @@ const PracticePart2Modal: React.FC = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full max-w-[90vw] sm:max-w-[700px] max-h-[80vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent
+        className={`w-full max-w-[90vw] ${improvedTranscript && improvedTranscript.length > 400 ? 'sm:max-w-[1100px]' : 'sm:max-w-[700px]'} max-h-[80vh] overflow-y-auto overflow-x-hidden`}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {currentStep === 'transcript' 

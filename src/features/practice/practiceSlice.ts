@@ -455,7 +455,15 @@ export const createStandardizedPracticeSession = createAsyncThunk(
     submissionId?: string; 
     questionIndex?: number;
     originalTranscript?: string;
-    questionData?: any;
+    questionData?: {
+      id: string;
+      type: string;
+      question: string;
+      speakAloud: boolean;
+      timeLimit: string;
+      prepTime?: string;
+      bulletPoints?: string[];
+    };
   }) => {
     const { data: { session: userSession } } = await supabase.auth.getSession();
     if (!userSession?.user?.id) {
@@ -779,15 +787,18 @@ const practiceSlice = createSlice({
     openPracticePart2Modal: (state, action: PayloadAction<{ 
       sessionId: string; 
       improvedTranscript: string; 
-      highlights: { word: string; position: number }[];
+      highlights?: { word: string; position: number }[];
       originalQuestion?: string;
     }>) => {
+      // Use provided highlights or fall back to global highlights state
+      const highlights: { word: string; position: number }[] = action.payload.highlights ? action.payload.highlights : state.highlights;
+      
       state.practicePart2Modal = {
         isOpen: true,
         sessionId: action.payload.sessionId,
         improvedTranscript: action.payload.improvedTranscript,
-        bulletPoints: action.payload.highlights.map(h => ({ word: h.word, description: '', isHighlighted: true })),
-        highlights: action.payload.highlights,
+        bulletPoints: highlights.map(h => ({ word: h.word, description: '', isHighlighted: true })),
+        highlights: highlights,
         userAddedHighlights: [],
         removedOriginalHighlights: [],
         originalQuestion: action.payload.originalQuestion || null,
@@ -1027,16 +1038,33 @@ const practiceSlice = createSlice({
       state.currentPracticeState.isReturningToFullTranscript = action.payload;
     },
     // Recording timer actions
-    startRecordingTimer: (state, action: PayloadAction<PracticeMode>) => {
-      const practiceMode = action.payload;
-      let maxDuration = 15; // Default for sentence mode
-      
+    startRecordingTimer: (state, action: PayloadAction<PracticeMode | { mode: PracticeMode; chunkSize?: number }>) => {
+      let practiceMode: PracticeMode;
+      let chunkSize: number | undefined;
+      if (typeof action.payload === 'string') {
+        practiceMode = action.payload;
+      } else {
+        practiceMode = action.payload.mode;
+        chunkSize = action.payload.chunkSize;
+      }
+      let maxDuration = 15; // Default fallback
+
+      // Get assignment time limit (in minutes, convert to seconds)
+      const assignmentTimeLimitStr = state.assignmentContext?.questionData?.timeLimit;
+      // If timeLimit is not set, default to 1 minute (60 seconds)
+      const assignmentTimeLimitMinutes = assignmentTimeLimitStr ? parseFloat(assignmentTimeLimitStr) : 1;
+      const assignmentTimeLimit = Math.round(assignmentTimeLimitMinutes * 60); // convert to seconds
+
       if (practiceMode === 'word-by-word') {
         maxDuration = 3; // 3 seconds for individual words
       } else if (practiceMode === 'full-transcript') {
-        maxDuration = 60; // 1 minute for full transcript
+        maxDuration = assignmentTimeLimit; // Use assignment's time limit (in seconds)
+      } else if (practiceMode === 'sentence') {
+        // Use chunkSize if provided, otherwise default to 1
+        const numSentencesInChunk = chunkSize || 1;
+        maxDuration = 15 * numSentencesInChunk;
       }
-      
+
       state.currentPracticeState.recordingTimer = {
         isActive: true,
         timeElapsed: 0,
