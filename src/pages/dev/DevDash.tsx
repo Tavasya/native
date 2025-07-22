@@ -27,6 +27,7 @@ import AssignmentListModal from '@/components/dev/AssignmentListModal';
 import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
 import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
 import ReportsProcessor from '@/components/dev/ReportsProcessor';
+import RedoV2 from '@/components/dev/RedoV2';
 import { SupportTicketList } from '@/components/support/SupportTicketList';
 
 // Icon component types
@@ -326,19 +327,32 @@ export default function DashboardPage() {
 
         setDevMessage(`Successfully called localhost API for submission ${submissionId.trim()}. API will handle status changes.`);
       } else {
-        // Trigger Mode: Change to in_progress first, then to pending after 1 second
-        await submissionService.updateSubmission(submissionId.trim(), { status: 'in_progress' });
+        // Trigger Mode: Call staging API with same schema as localhost
+        if (!submission.recordings || submission.recordings.length === 0) {
+          throw new Error('No recordings found for this submission');
+        }
+
+        // Format recordings to match the required format
+        const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
+
+        const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            audio_urls: audioUrls,
+            submission_url: submissionId.trim()
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to reprocess submission');
+        }
         
-        // Wait 1 second then change to pending
-        setTimeout(async () => {
-          try {
-            await submissionService.updateSubmission(submissionId.trim(), { status: 'pending' });
-          } catch (error) {
-            console.error('Error setting status to pending:', error);
-          }
-        }, 1000);
-        
-        setDevMessage(`Successfully triggered reprocessing for submission ${submissionId.trim()}. Status changed to in_progress → pending - Supabase trigger will handle processing.`);
+        setDevMessage(`Successfully called staging API for submission ${submissionId.trim()}.`);
       }
 
       // setSubmissionId(''); // Keep ID for potential "View Report" use
@@ -758,10 +772,10 @@ export default function DashboardPage() {
                     <div>
                       <strong className="text-green-700">Trigger Mode:</strong>
                       <ul className="ml-4 mt-1 space-y-1">
-                        <li>• Simply changes submission status to "pending"</li>
-                        <li>• Supabase trigger automatically handles processing</li>
-                        <li>• Perfect for non-developers or when API isn't available</li>
-                        <li>• Useful for helping students get their reports finished</li>
+                        <li>• Fetches submission recordings and extracts audio URLs</li>
+                        <li>• Calls staging API with audio URLs</li>
+                        <li>• Perfect for non-developers or when localhost isn't available</li>
+                        <li>• Uses production-ready staging environment</li>
                       </ul>
                     </div>
                     
@@ -771,6 +785,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* RedoV2 Section */}
+            <div>
+              <RedoV2 />
             </div>
           </div>
         )}
