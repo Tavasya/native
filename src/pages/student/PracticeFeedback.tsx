@@ -197,7 +197,7 @@ const PracticeFeedback: React.FC = () => {
     }
   };
 
-  const handleWordDoubleClick = (word: string, event: React.MouseEvent) => {
+  const handleWordDoubleClick = (event: React.MouseEvent) => {
     // Prevent the single-click handler from firing
     event.preventDefault();
     event.stopPropagation();
@@ -250,7 +250,7 @@ const PracticeFeedback: React.FC = () => {
                 <span
                   key={item.segmentIndex}
                   onClick={!isTranscriptCompleted ? () => handleWordClick(item.segment.trim(), currentPosition) : undefined}
-                  onDoubleClick={!isTranscriptCompleted ? (e) => handleWordDoubleClick(item.segment.trim(), e) : undefined}
+                  onDoubleClick={!isTranscriptCompleted ? (e) => handleWordDoubleClick(e) : undefined}
                   className={`transition-all duration-200 inline-block ${
                     isHighlighted 
                       ? 'bg-yellow-300 border-2 border-yellow-500 rounded-md px-1 py-0.5 font-medium' 
