@@ -171,8 +171,11 @@ describe('QuestionDisplay - Audio URL Feature', () => {
       isRecording: false
     });
 
-    const playButton = screen.getByRole('button');
-    await user.click(playButton);
+    // Get the play button specifically (the one that's not the "Show Text" button)
+    const buttons = screen.getAllByRole('button');
+    const playButton = buttons.find(button => button.textContent !== 'Show Text');
+    expect(playButton).toBeInTheDocument();
+    await user.click(playButton!);
 
     await waitFor(() => {
       expect(generateTTSAudio).toHaveBeenCalledWith('What is your favorite food?');
@@ -192,8 +195,11 @@ describe('QuestionDisplay - Audio URL Feature', () => {
       isRecording: false
     });
 
-    const playButton = screen.getByRole('button');
-    await user.click(playButton);
+    // Get the play button specifically (the one that's not the "Show Text" button)
+    const buttons = screen.getAllByRole('button');
+    const playButton = buttons.find(button => button.textContent !== 'Show Text');
+    expect(playButton).toBeInTheDocument();
+    await user.click(playButton!);
 
     expect(screen.getByText('Loading question audio...')).toBeInTheDocument();
   });
@@ -234,5 +240,51 @@ describe('QuestionDisplay - Audio URL Feature', () => {
     expect(screen.getByText('Describe your hobbies')).toBeInTheDocument();
     expect(screen.getByText('Reading')).toBeInTheDocument();
     expect(screen.getByText('Swimming')).toBeInTheDocument();
+  });
+
+  it('shows "Show Text" button in audio-only mode and reveals text when clicked', async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders({
+      currentQuestion: mockQuestion,
+      isTestMode: false,
+      isAudioOnlyMode: true,
+      isRecording: false
+    });
+
+    // Initially, text should be hidden
+    expect(screen.queryByText('What is your favorite food?')).not.toBeInTheDocument();
+    
+    // "Show Text" button should be visible
+    const showTextButton = screen.getByRole('button', { name: /show text/i });
+    expect(showTextButton).toBeInTheDocument();
+
+    // Click "Show Text" button
+    await user.click(showTextButton);
+
+    // Text should now be visible
+    expect(screen.getByText('What is your favorite food?')).toBeInTheDocument();
+    
+    // "Hide Text" button should now be visible
+    const hideTextButton = screen.getByRole('button', { name: /hide text/i });
+    expect(hideTextButton).toBeInTheDocument();
+
+    // Click "Hide Text" button
+    await user.click(hideTextButton);
+
+    // Text should be hidden again
+    expect(screen.queryByText('What is your favorite food?')).not.toBeInTheDocument();
+  });
+
+  it('does not show "Show Text" button in test mode', () => {
+    renderWithProviders({
+      currentQuestion: mockQuestion,
+      isTestMode: true,
+      isAudioOnlyMode: true,
+      isRecording: false
+    });
+
+    // "Show Text" button should not be visible in test mode
+    expect(screen.queryByRole('button', { name: /show text/i })).not.toBeInTheDocument();
   });
 });
