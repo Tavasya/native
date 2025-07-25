@@ -25,6 +25,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasAutoPlayed, setHasAutoPlayed] = useState(false);
+  const [showText, setShowText] = useState(false);
   const isGeneratingAudio = useRef(false);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
 
@@ -84,7 +85,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   }, [currentQuestion.id, currentQuestion.question, currentQuestion.bulletPoints, dispatch, isPlaying]);
 
   // Helper function to determine if question text should be hidden
-  const shouldHideQuestionText = (isTestMode || isAudioOnlyMode) && currentQuestion.type === 'normal';
+  const shouldHideQuestionText = (isTestMode || (isAudioOnlyMode && !showText)) && currentQuestion.type === 'normal';
 
   // Auto-play audio for Part 1/3 questions in test mode only
   useEffect(() => {
@@ -100,6 +101,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
   // Reset auto-play flag when question changes
   useEffect(() => {
     setHasAutoPlayed(false);
+    setShowText(false); // Reset show text state for new questions
   }, [currentQuestion.id]);
 
   // Cleanup audio when question changes or component unmounts
@@ -173,7 +175,20 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
         <div>
           {shouldHideQuestionText ? (
             // Audio-only layout with centered play button
-            <div className="text-center py-8">
+            <div className="text-center py-8 relative">
+              {/* Show Text Button - Top Right */}
+              {isAudioOnlyMode && !isTestMode && (
+                <div className="absolute top-0 right-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-3 py-1 h-8"
+                    onClick={() => setShowText(true)}
+                  >
+                    Show Text
+                  </Button>
+                </div>
+              )}
               <div className="text-gray-500 mb-4">
                 <Button
                   variant="outline"
@@ -201,19 +216,32 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-medium">Question</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                  onClick={handlePlayQuestion}
-                  disabled={isLoading || isPlaying}
-                >
-                  {isLoading || isPlaying ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Play className="h-3 w-3" />
+                <div className="flex items-center gap-2">
+                  {/* Hide Text Button - Only show when audio-only mode is enabled and text is currently shown */}
+                  {isAudioOnlyMode && !isTestMode && showText && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs px-3 py-1 h-8"
+                      onClick={() => setShowText(false)}
+                    >
+                      Hide Text
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    onClick={handlePlayQuestion}
+                    disabled={isLoading || isPlaying}
+                  >
+                    {isLoading || isPlaying ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Play className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
               </div>
               <p className="text-gray-800">{currentQuestion.question}</p>
               

@@ -80,7 +80,7 @@ const CreateAssignmentPage: React.FC = () => {
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
   const [autoGrade, setAutoGrade] = useState(true);
   const [isTest, setIsTest] = useState(false);
-  const [audioOnlyMode, setAudioOnlyMode] = useState(false);
+  const [audioOnlyMode, setAudioOnlyMode] = useState(true);
   
   // Sections state
   const [sections, setSections] = useState<SectionTag[]>([]);
