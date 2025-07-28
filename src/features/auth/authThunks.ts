@@ -125,31 +125,6 @@ export const signUpWithEmail = createAsyncThunk<
   'auth/signUpWithEmail',
   async (creds, { rejectWithValue }) => {
     try {
-      // First check if user exists and is verified
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', creds.email)
-        .single();
-
-      if (existingUser) {
-        if (existingUser.email_verified) {
-          return rejectWithValue('This email is already registered and verified. Please try logging in instead.');
-        } else {
-          // If user exists but isn't verified, resend verification email
-          const { error: resendError } = await supabase.auth.resend({
-            type: 'signup',
-            email: creds.email
-          });
-
-          if (resendError) {
-            return rejectWithValue('Failed to resend verification email. Please try again.');
-          }
-
-          return rejectWithValue('This email is already registered but not verified. We have resent the verification email. Please check your inbox.');
-        }
-      }
-
       // Create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: creds.email,
@@ -159,30 +134,56 @@ export const signUpWithEmail = createAsyncThunk<
             name: creds.name || creds.email.split('@')[0],
             role: creds.role
           },
-          emailRedirectTo: `https://native-devserver.vercel.app/auth/verify`
+          emailRedirectTo: `${window.location.origin}/auth/verify`
         }
       });
 
+      console.log('Signup response:', { authData, authError });
+
       if (authError) {
+        // Handle specific error cases
+        if (authError.message?.includes('User already registered')) {
+          return rejectWithValue('This email is already registered. Please try logging in instead.');
+        }
         return rejectWithValue(authError.message || 'Signup failed');
       }
-
+      
+      // Check if Supabase returned a user but with identities = [] (existing email)
+      if (authData.user) {
+        console.log('User identities:', authData.user.identities);
+        if (!authData.user.identities || authData.user.identities.length === 0) {
+          return rejectWithValue('This email is already registered. Please check your email for a verification link or try logging in.');
+        }
+      }
+      
       if (!authData.user) {
         return rejectWithValue('No user data returned from signup');
       }
 
-      // Check if user record already exists with this ID
-      const { data: existingUserById } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
+      // Wait a moment for the auth trigger to create the user record
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (existingUserById) {
-        // If user exists, update their information
-        const { error: updateError } = await supabase
+      // First try to update the user record (in case trigger created it)
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          email: creds.email,
+          name: creds.name || authData.user.user_metadata?.name,
+          role: creds.role,
+          email_verified: false,
+          agreed_to_terms: creds.agreed_to_terms || false,
+          ...(creds.phone_number && { phone_number: creds.phone_number }),
+          ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
+        })
+        .eq('id', authData.user.id);
+
+      // If update failed (record doesn't exist), try to insert
+      if (updateError && updateError.code === 'PGRST116') {
+        console.log('User record not found, attempting to create it');
+        const { error: insertError } = await supabase
           .from('users')
-          .update({ 
+          .insert({ 
+            id: authData.user.id,
             email: creds.email,
             name: creds.name || authData.user.user_metadata?.name,
             role: creds.role,
@@ -190,29 +191,11 @@ export const signUpWithEmail = createAsyncThunk<
             agreed_to_terms: creds.agreed_to_terms || false,
             ...(creds.phone_number && { phone_number: creds.phone_number }),
             ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
-          })
-          .eq('id', authData.user.id);
-
-        if (updateError) {
-          return rejectWithValue(`Failed to update user: ${updateError.message}`);
-        }
-      } else {
-        // Create new user record
-        const { error: userError } = await supabase
-          .from('users')
-          .insert({ 
-            id: authData.user.id,
-            email: authData.user.email,
-            name: creds.name || authData.user.user_metadata?.name,
-            role: creds.role,
-            email_verified: false,
-            agreed_to_terms: creds.agreed_to_terms || false,
-            ...(creds.phone_number && { phone_number: creds.phone_number }),
-            ...(creds.date_of_birth && { date_of_birth: creds.date_of_birth })
           });
-
-        if (userError) {
-          return rejectWithValue(`User creation failed: ${userError.message}`);
+        
+        if (insertError) {
+          console.error('Failed to create user profile:', insertError);
+          return rejectWithValue(`Database error: ${insertError.message}`);
         }
       }
 
@@ -521,17 +504,6 @@ export const signUpSimple = createAsyncThunk<
   'auth/signUpSimple',
   async (creds, { rejectWithValue }) => {
     try {
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', creds.email)
-        .single();
-
-      if (existingUser?.email_verified) {
-        return rejectWithValue('Email already registered. Please log in.');
-      }
-
       // Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: creds.email,
@@ -542,25 +514,66 @@ export const signUpSimple = createAsyncThunk<
         }
       });
 
-      if (authError || !authData.user) {
-        return rejectWithValue(authError?.message || 'Signup failed');
+      console.log('Signup response:', { authData, authError });
+
+      if (authError) {
+        console.error('Signup error:', authError);
+        // Handle specific error cases
+        if (authError.message?.includes('User already registered')) {
+          return rejectWithValue('This email is already registered. Please try logging in instead.');
+        }
+        if (authError.status === 500) {
+          return rejectWithValue('Server error. This might be due to rate limiting or email configuration. Please try again in a moment.');
+        }
+        return rejectWithValue(authError.message || 'Signup failed');
+      }
+      
+      // Check if Supabase returned a user but with identities = [] (existing email)
+      if (authData.user) {
+        console.log('User identities:', authData.user.identities);
+        if (!authData.user.identities || authData.user.identities.length === 0) {
+          return rejectWithValue('This email is already registered. Please check your email for a verification link or try logging in.');
+        }
+      }
+      
+      if (!authData.user) {
+        return rejectWithValue('No user data returned from signup');
       }
 
-      // Create minimal user profile
-      const { error: userError } = await supabase
+      // Wait a moment for the auth trigger to create the user record
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // First try to update the user record (in case trigger created it)
+      const { error: updateError } = await supabase
         .from('users')
-        .upsert({
-          id: authData.user.id,
-          email: authData.user.email,
+        .update({
           name: creds.name,
           email_verified: false,
           profile_complete: false,
           auth_provider: 'email',
           agreed_to_terms: false
-        });
+        })
+        .eq('id', authData.user.id);
 
-      if (userError) {
-        return rejectWithValue(`Profile creation failed: ${userError.message}`);
+      // If update failed (record doesn't exist), try to insert
+      if (updateError && updateError.code === 'PGRST116') {
+        console.log('User record not found, attempting to create it');
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: authData.user.email,
+            name: creds.name,
+            email_verified: false,
+            profile_complete: false,
+            auth_provider: 'email',
+            agreed_to_terms: false
+          });
+        
+        if (insertError) {
+          console.error('Failed to create user profile:', insertError);
+          return rejectWithValue(`Database error: ${insertError.message}`);
+        }
       }
 
       const authUser: AuthUser = {
