@@ -67,3 +67,15 @@ export const joinClass = createAsyncThunk(
     }
 );
 
+export const removeStudentFromClass = createAsyncThunk(
+    'class/removeStudentFromClass',
+    async ({studentId, classId}: { studentId: string, classId: string }, { rejectWithValue }) => {
+        try {
+            await classService.removeStudentFromClass(studentId, classId);
+            return { studentId, classId };
+        } catch (error) {
+            return rejectWithValue((error as Error).message);
+        }
+    }
+);
+

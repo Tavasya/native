@@ -7,7 +7,7 @@ export const OPTIMAL_RECORDER_OPTIONS = {
 };
 
 /**
- * Validates a WebM audio file for proper structure
+ * Validates an audio file for proper structure based on its MIME type
  */
 export async function validateAudioBlob(blob: Blob): Promise<{ 
   valid: boolean; 
@@ -21,17 +21,27 @@ export async function validateAudioBlob(blob: Blob): Promise<{
       return { 
         valid: false, 
         error: 'Empty audio file',
-        size: 0,
-        type: blob.type
+        size: blob?.size || 0,
+        type: blob?.type || 'unknown'
       };
     }
 
-    // Check MIME type
-    const validTypes = ['audio/webm', 'audio/webm;codecs=opus'];
-    if (!validTypes.includes(blob.type)) {
+    // Check MIME type - support multiple audio formats
+    const validTypes = [
+      'audio/webm', 'audio/webm;codecs=opus',
+      'audio/mp4', 'audio/mp4;codecs=mp4a.40.2',
+      'audio/mpeg', 'audio/wav', 'audio/ogg'
+    ];
+    
+    const baseType = blob.type.split(';')[0].toLowerCase();
+    const isValidType = validTypes.some(type => 
+      blob.type === type || blob.type.startsWith(type + ';') || baseType === type.split(';')[0]
+    );
+    
+    if (!isValidType) {
       return {
         valid: false,
-        error: `Invalid MIME type: ${blob.type}`,
+        error: `Unsupported MIME type: ${blob.type}. Supported: WebM, MP4, MPEG, WAV, OGG`,
         size: blob.size,
         type: blob.type
       };
@@ -47,33 +57,48 @@ export async function validateAudioBlob(blob: Blob): Promise<{
       };
     }
 
-    // Create an array buffer from the blob for deeper analysis
+    // Format-specific header validation
     const buffer = await blob.arrayBuffer();
     const dataView = new DataView(buffer);
 
-    // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
-    if (buffer.byteLength >= 4) {
-      const byte1 = dataView.getUint8(0);
-      const byte2 = dataView.getUint8(1);
-      const byte3 = dataView.getUint8(2);
-      const byte4 = dataView.getUint8(3);
+    if (baseType === 'audio/webm') {
+      // WebM files start with 0x1A 0x45 0xDF 0xA3 (EBML header)
+      if (buffer.byteLength >= 4) {
+        const byte1 = dataView.getUint8(0);
+        const byte2 = dataView.getUint8(1);
+        const byte3 = dataView.getUint8(2);
+        const byte4 = dataView.getUint8(3);
 
-      if (byte1 !== 0x1A || byte2 !== 0x45 || byte3 !== 0xDF || byte4 !== 0xA3) {
-        return {
-          valid: false,
-          error: 'Invalid WebM header signature',
-          size: blob.size,
-          type: blob.type
-        };
+        if (byte1 !== 0x1A || byte2 !== 0x45 || byte3 !== 0xDF || byte4 !== 0xA3) {
+          return {
+            valid: false,
+            error: 'Invalid WebM header signature',
+            size: blob.size,
+            type: blob.type
+          };
+        }
       }
-    } else {
-      return {
-        valid: false,
-        error: 'File too small to contain valid WebM header',
-        size: blob.size,
-        type: blob.type
-      };
+    } else if (baseType === 'audio/mp4') {
+      // MP4 files should have an ftyp box near the beginning
+      if (buffer.byteLength >= 8) {
+        const ftypFound = Array.from(new Uint8Array(buffer.slice(0, Math.min(100, buffer.byteLength))))
+          .some((_, i, arr) => {
+            if (i + 3 < arr.length) {
+              return arr[i] === 0x66 && arr[i+1] === 0x74 && arr[i+2] === 0x79 && arr[i+3] === 0x70; // 'ftyp'
+            }
+            return false;
+          });
+        
+        if (!ftypFound) {
+          // Only warn in development, not during tests
+          if (process.env.NODE_ENV !== 'test') {
+            console.warn('MP4 file missing ftyp box - may still be valid');
+          }
+          // Don't fail for MP4 files missing ftyp, as some recorders create valid MP4s without it
+        }
+      }
     }
+    // Note: We could add more format-specific validations for WAV, OGG, etc., but basic checks are often sufficient
 
     return { 
       valid: true,
@@ -84,8 +109,8 @@ export async function validateAudioBlob(blob: Blob): Promise<{
     return { 
       valid: false, 
       error: `Validation error: ${error instanceof Error ? error.message : String(error)}`,
-      size: blob.size,
-      type: blob.type
+      size: blob?.size || 0,
+      type: blob?.type || 'unknown'
     };
   }
 }

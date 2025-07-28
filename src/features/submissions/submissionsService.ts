@@ -12,6 +12,7 @@ interface AudioAnalysisResponse {
   data?: {
     transcription?: string;
     analysis?: any;
+    status: string;
   };
   error?: string;
 }
@@ -264,7 +265,11 @@ export const submissionService = {
 
       const { data, error } = await supabase
         .from("submissions")
-        .select('*')
+        .select(`
+          *,
+          assignments!inner(title),
+          users!inner(name)
+        `)
         .eq("id", id)
         .single();
 
@@ -280,7 +285,14 @@ export const submissionService = {
         throw new Error('Submission not found');
       }
 
-      return data;
+      // Transform the data to include assignment_title and student_name
+      const transformedData = {
+        ...data,
+        assignment_title: data.assignments?.title,
+        student_name: data.users?.name
+      };
+
+      return transformedData;
     } catch (error) {
       console.error("Error in getSubmissionById:", error);
       throw error;
@@ -289,7 +301,7 @@ export const submissionService = {
 
   
   //Update Submission
-  async updateSubmission(id: string, updates: UpdateSubmissionDto): Promise<Submission> {
+  async updateSubmission(id: string, updates: Omit<UpdateSubmissionDto, 'id'>): Promise<Submission> {
     try {
       validateUUID(id, 'Submission ID');
 
@@ -348,13 +360,13 @@ export const submissionService = {
       console.log('Submission ID:', submission_id);
       console.log('Number of audio URLs:', urls.length);
       console.log('Audio URLs:', urls);
-      console.log('Sending to /analyze endpoint:', {
+      
+      console.log('Sending to /submit endpoint:', {
         audio_urls: urls,
         submission_url: submission_id
       });
-      const response = await fetch("", {
       
-      // const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -368,20 +380,27 @@ export const submissionService = {
 
       console.log('Analysis response status:', response.status);
       console.log('Analysis response headers:', Object.fromEntries(response.headers.entries()));
-      const data = await response.json();
-      console.log('Analysis response data:', data);
-
+      
       if (!response.ok) {
+        const errorData = await response.json();
         console.error('Analysis request failed:', {
           status: response.status,
           statusText: response.statusText,
-          data
+          data: errorData
         });
-        throw new Error(data.error || 'Failed to analyze audio');
+        throw new Error(errorData.error || 'Failed to analyze audio');
       }
 
+      const data = await response.json();
+      console.log('Analysis response data:', data);
+      
       console.log('=== AUDIO ANALYSIS DEBUG END ===');
-      return data;
+      return {
+        success: true,
+        data: {
+          status: 'pending'
+        }
+      };
     } catch (error) {
       console.error('=== AUDIO ANALYSIS ERROR ===');
       console.error('Error in analyzeAudio:', error);
@@ -389,6 +408,40 @@ export const submissionService = {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
+      throw error;
+    }
+  },
+
+  // Fetch submissions by status
+  async getSubmissionsByStatus(status: string): Promise<Submission[]> {
+    try {
+      const { data, error } = await supabase
+        .from("submissions")
+        .select(`
+          *,
+          assignments!inner(title, class_id, classes!inner(teacher_id, users!teacher_id(name))),
+          users!student_id(name, email)
+        `)
+        .eq("status", status)
+        .order("submitted_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching submissions by status:", error);
+        throw new Error(`Failed to fetch submissions: ${error.message}`);
+      }
+
+      // Transform the data to include assignment_title, student_name, student_email, and teacher_name
+      const transformedData = (data || []).map(submission => ({
+        ...submission,
+        assignment_title: submission.assignments?.title,
+        student_name: submission.users?.name,
+        student_email: submission.users?.email,
+        teacher_name: submission.assignments?.classes?.users?.name
+      }));
+
+      return transformedData;
+    } catch (error) {
+      console.error("Error in getSubmissionsByStatus:", error);
       throw error;
     }
   },

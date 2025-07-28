@@ -3,12 +3,15 @@ import { AssignmentState } from "./types";
 import {
   createAssignment,
   fetchAssignmentByClass,
+  fetchAssignmentById,
   deleteAssignment,
+  updateAssignment,
   updateAssignmentStatus,
   fetchLatestSubmissionsByAssignment,
   fetchClassStatistics,
   fetchAssignmentCompletionStats,
-  fetchClassDetailView
+  fetchClassDetailView,
+  fetchAssignmentsByTeacher
 } from "./assignmentThunks";
 
 const initialState: AssignmentState = {
@@ -20,7 +23,10 @@ const initialState: AssignmentState = {
   submissions: {},
   loadingSubmissions: false,
   classStats: undefined,
-  practiceProgress: {}
+  practiceProgress: {},
+  testMode: {
+    hasGloballyStarted: {}
+  }
 };
 
 const assignmentSlice = createSlice({
@@ -33,6 +39,25 @@ const assignmentSlice = createSlice({
         currentQuestionIndex,
         completedQuestions
       };
+    },
+    startTestGlobally: (state, action) => {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = true;
+    },
+    resetTestState: (state, action) => {
+      const { assignmentId } = action.payload;
+      state.testMode.hasGloballyStarted[assignmentId] = false;
+    },
+    updateSubmissionInAssignment: (state, action) => {
+      const { assignmentId, submissionUpdate } = action.payload;
+      const submissions = state.submissions[assignmentId];
+      if (submissions) {
+        const idx = submissions.findIndex(s => s.id === submissionUpdate.id);
+        if (idx !== -1) {
+          // Update the existing submission with new data
+          submissions[idx] = { ...submissions[idx], ...submissionUpdate };
+        }
+      }
     }
   },
   extraReducers: (builder) => {
@@ -61,6 +86,44 @@ const assignmentSlice = createSlice({
         s.assignments = a.payload;
       })
       .addCase(fetchAssignmentByClass.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchAssignmentById
+      .addCase(fetchAssignmentById.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchAssignmentById.fulfilled, (s, a) => {
+        s.loading = false;
+        // Add or update the assignment in the assignments array
+        const existingIndex = s.assignments.findIndex(assignment => assignment.id === a.payload.id);
+        if (existingIndex >= 0) {
+          s.assignments[existingIndex] = a.payload;
+        } else {
+          s.assignments.push(a.payload);
+        }
+      })
+      .addCase(fetchAssignmentById.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // updateAssignment
+      .addCase(updateAssignment.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(updateAssignment.fulfilled, (s, a) => {
+        s.loading = false;
+        const updatedAssignment = a.payload;
+        const existingIndex = s.assignments.findIndex(assignment => assignment.id === updatedAssignment.id);
+        if (existingIndex >= 0) {
+          s.assignments[existingIndex] = updatedAssignment;
+        }
+      })
+      .addCase(updateAssignment.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload as string;
       })
@@ -137,14 +200,27 @@ const assignmentSlice = createSlice({
       })
       .addCase(fetchClassDetailView.fulfilled, (s) => {
         s.loading = false;
-        // handle mapping of detail‑view data to state if needed
       })
       .addCase(fetchClassDetailView.rejected, (s, a) => {
+        s.loading = false;
+        s.error = a.payload as string;
+      })
+
+      // fetchAssignmentsByTeacher
+      .addCase(fetchAssignmentsByTeacher.pending, (s) => {
+        s.loading = true;
+        s.error = null;
+      })
+      .addCase(fetchAssignmentsByTeacher.fulfilled, (s, a) => {
+        s.loading = false;
+        s.assignments = a.payload;
+      })
+      .addCase(fetchAssignmentsByTeacher.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload as string;
       });
   }
 });
 
-export const { updatePracticeProgress } = assignmentSlice.actions;
+export const { updatePracticeProgress, startTestGlobally, resetTestState, updateSubmissionInAssignment } = assignmentSlice.actions;
 export default assignmentSlice.reducer;

@@ -31,27 +31,20 @@ export const classService = {
   },
 
   async getClassesByStudent(studentId: string): Promise<Class[]> {
-    console.log('Fetching classes for student:', studentId);
-    
     const { data, error } = await supabase
       .from('students_classes')
       .select('class_id, classes(*)')
       .eq('student_id', studentId);
 
     if (error) {
-      console.error('Error fetching student classes:', error);
       throw new Error(error.message);
     }
 
-    console.log('Raw student classes data:', data);
-
     // The data comes in the format: [{ class_id: string, classes: Class }]
     const classes = data.map((row: any) => {
-      console.log('Processing row:', row);
       return row.classes;
     });
 
-    console.log('Processed classes:', classes);
     return classes;
   },
 
@@ -135,5 +128,17 @@ export const classService = {
     }
 
     return classData;
+  },
+
+  async removeStudentFromClass(studentId: string, classId: string): Promise<void> {
+    const { error } = await supabase
+      .from('students_classes')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('class_id', classId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
   },
 }

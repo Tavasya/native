@@ -95,7 +95,16 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
         {isUnread && <span className="absolute top-3 right-3 h-3 w-3 bg-[#272A69] rounded-full" />}
         <h3 className="text-lg font-medium text-gray-800 mb-3">{title}</h3>
         <p className="text-sm text-gray-600 mb-2">{description}</p>
-        <p className="text-xs font-medium text-gray-500 mb-4">Due: {dueDate}</p>
+        <p className="text-xs font-medium text-gray-500 mb-4">
+          Due: {new Date(dueDate).toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })}
+        </p>
         
         <div className="mt-auto">
           <Button 

@@ -1,301 +1,401 @@
-import React, { useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useAppSelector, useAppDispatch } from '@/app/hooks';
-import { fetchSubmissionById } from '@/features/submissions/submissionThunks';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Play, Pause, ArrowLeft } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { useRef, useCallback, useEffect } from "react";
+import { useParams } from 'react-router-dom';
+import { Card, CardContent } from "@/components/ui/card";
+import posthog from 'posthog-js';
 
-const SubmissionFeedback: React.FC = () => {
+// Import our new components
+import FeedbackHeader from '@/components/student/feedback/FeedbackHeader';
+import SubmissionInfo from '@/components/student/feedback/SubmissionInfo';
+import QuestionContent from '@/components/student/feedback/QuestionContext';
+import TabsContainer from '@/components/student/feedback/TabsContainer';
+import PendingSubmission from '@/components/student/PendingSubmission';
+
+// Import custom hooks
+import { useSubmissionState } from '@/hooks/feedback/useStateSubmission';
+import { useSubmissionHandlers } from '@/hooks/feedback/useStateHandlers';
+import { useRedoSubmission } from '@/hooks/feedback/useRedoSubmission';
+
+const SubmissionFeedback = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const dispatch = useAppDispatch();
-  const { selectedSubmission, loading, error } = useAppSelector(state => state.submissions);
-  const [playingAudio, setPlayingAudio] = React.useState<string | null>(null);
-  const audioRefs = React.useRef<{ [key: string]: HTMLAudioElement }>({});
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  useEffect(() => {
-    if (submissionId) {
-      console.log('SubmissionFeedback - Fetching submission:', submissionId);
-      console.log('SubmissionFeedback - Navigation state:', location.state);
-      dispatch(fetchSubmissionById(submissionId));
+  // Get all state from custom hook
+  const {
+    tempScores,
+    tempFeedback,
+    teacherComment,
+    isEditing,
+    selectedQuestionIndex,
+    openPopover,
+    activeTab,
+    grammarOpen,
+    vocabularyOpen,
+    // Actions
+    setTempScores,
+    setTempFeedback,
+    setTeacherComment,
+    startEditing,
+    stopEditing,
+    setSelectedQuestionIndex,
+    syncFeedbackForCurrentQuestion,
+    setActiveTab,
+    setOpenPopover,
+    setGrammarOpen,
+    setVocabularyOpen,
+    discardChanges,
+    selectedSubmission,
+    currentAssignment,
+    loading,
+    error,
+    ttsAudioCache,
+    ttsLoading,
+    currentQuestion,
+    currentFeedback,
+    isAwaitingReview,
+    canEdit,
+    role,
+    dispatch,
+  } = useSubmissionState(submissionId);
+
+  // Get all handlers from custom hook
+  const {
+    handleBack,
+    handleSubmitAndSend,
+    handleSaveOverallScores,
+    handleSaveTeacherComment,
+    handleSaveSectionFeedback,
+    handleDeleteIssue,
+  } = useSubmissionHandlers({
+    selectedSubmission: selectedSubmission || null,
+    tempScores,
+    tempFeedback,
+    teacherComment,
+    currentFeedback: currentFeedback || null,
+    selectedQuestionIndex,
+    dispatch,
+  });
+
+  // Redo submission hook
+  const { isProcessing: isRedoProcessing, handleRedo } = useRedoSubmission();
+
+  const onRedo = () => {
+    if (!selectedSubmission?.assignment_id || !selectedSubmission?.student_id) {
+      console.error('Missing assignment or student ID for redo');
+      return;
     }
-  }, [submissionId, dispatch, location.state]);
+    if (!isRedoProcessing) {
+      handleRedo(selectedSubmission.assignment_id, selectedSubmission.student_id);
+    }
+  };
 
+  // PostHog tracking for report page visits
   useEffect(() => {
-    console.log('SubmissionFeedback - Selected submission:', selectedSubmission);
-  }, [selectedSubmission]);
+    if (selectedSubmission && currentAssignment && posthog.__loaded) {
+      try {
+        // Track report page visit
+        posthog.capture('report_page_viewed', {
+          submission_id: submissionId,
+          assignment_id: selectedSubmission.assignment_id,
+          assignment_title: currentAssignment.title,
+          student_role: role,
+          submission_status: selectedSubmission.status,
+          has_feedback: selectedSubmission.overall_assignment_score !== null,
+          question_count: currentAssignment.questions?.length || 0,
+          visit_timestamp: new Date().toISOString(),
+          is_return_visit: localStorage.getItem(`visited_${submissionId}`) ? true : false
+        });
 
-  const handlePlayPause = (audioKey: string) => {
-    const audioElement = audioRefs.current[audioKey];
-    if (!audioElement) return;
+        // Mark this submission as visited for return visit tracking
+        localStorage.setItem(`visited_${submissionId}`, 'true');
 
-    if (playingAudio === audioKey) {
-      audioElement.pause();
-      setPlayingAudio(null);
-    } else {
-      // Stop any currently playing audio
-      if (playingAudio && audioRefs.current[playingAudio]) {
-        audioRefs.current[playingAudio].pause();
+        // Track time spent on page
+        const startTime = Date.now();
+        return () => {
+          const timeSpent = Date.now() - startTime;
+          if (posthog.__loaded) {
+            try {
+              posthog.capture('report_page_time_spent', {
+                submission_id: submissionId,
+                time_spent_ms: timeSpent,
+                time_spent_seconds: Math.round(timeSpent / 1000),
+                exit_timestamp: new Date().toISOString()
+              });
+            } catch (error) {
+              // Silently fail
+            }
+          }
+        };
+      } catch (error) {
+        // Silently fail if PostHog has issues
       }
-      audioElement.play();
-      setPlayingAudio(audioKey);
+    }
+  }, [selectedSubmission, currentAssignment, submissionId, role]);
+
+  // Enhanced tab change handler with PostHog tracking
+  const handleTabChange = useCallback((tabValue: string) => {
+    setActiveTab(tabValue);
+    
+    // Track tab switching
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_tab_switched', {
+          submission_id: submissionId,
+          from_tab: activeTab,
+          to_tab: tabValue,
+          user_role: role,
+          question_index: selectedQuestionIndex,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
+  }, [setActiveTab, submissionId, activeTab, role, selectedQuestionIndex]);
+
+  // Toggle functions for collapsibles
+  const toggleGrammarOpen = (key: string) => {
+    setGrammarOpen({ ...grammarOpen, [key]: !grammarOpen[key] });
+    
+    // Track grammar section toggle
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_grammar_section_toggled', {
+          submission_id: submissionId,
+          section_key: key,
+          is_opening: !grammarOpen[key],
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
     }
   };
 
-  const handleBack = () => {
-    console.log('SubmissionFeedback - Handling back navigation');
-    console.log('SubmissionFeedback - Current location state:', location.state);
-    if (location.state?.fromClassDetail) {
-      console.log('SubmissionFeedback - Going back to ClassDetail');
-      navigate(-1);
-    } else {
-      console.log('SubmissionFeedback - Going to dashboard');
-      navigate('/student/dashboard');
+  const toggleVocabularyOpen = (key: string) => {
+    setVocabularyOpen({ ...vocabularyOpen, [key]: !vocabularyOpen[key] });
+    
+    // Track vocabulary section toggle
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_vocabulary_section_toggled', {
+          submission_id: submissionId,
+          section_key: key,
+          is_opening: !vocabularyOpen[key],
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
     }
   };
 
+  // Handle question navigation - only sync feedback when needed for feedback viewing
+  const handleQuestionSelect = useCallback((index: number) => {
+    setSelectedQuestionIndex(index);
+    // Only sync feedback if we're viewing feedback content (not just navigating)
+    if (canEdit || role === 'teacher') {
+      syncFeedbackForCurrentQuestion();
+    }
+    
+    // Track question navigation
+    if (posthog.__loaded) {
+      try {
+        posthog.capture('report_question_selected', {
+          submission_id: submissionId,
+          question_index: index,
+          question_number: index + 1,
+          total_questions: currentAssignment?.questions?.length || 0,
+          user_role: role,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Silently fail
+      }
+    }
+  }, [setSelectedQuestionIndex, syncFeedbackForCurrentQuestion, canEdit, role, submissionId, currentAssignment]);
+
+  // Loading state
   if (loading) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="flex items-center justify-center h-64">
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
           <div className="text-lg text-gray-600">Loading submission...</div>
         </div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Submission</h2>
-          <p className="text-red-600">{error}</p>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Submission</h2>
+            <p className="text-red-600">{error}</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // No submission found
   if (!selectedSubmission) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h2 className="text-lg font-semibold text-yellow-800 mb-2">Submission Not Found</h2>
-          <p className="text-yellow-600">The requested submission could not be found.</p>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-yellow-800 mb-2">Submission Not Found</h2>
+            <p className="text-yellow-600">The requested submission could not be found.</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const renderFeedbackSection = (title: string, data: any) => {
-    console.log(`Rendering ${title}:`, data);
-    if (!data) return null;
-    
-    const grade = data.grade ?? 0;
-    const issues = data.issues || [];
-
+  // Show pending submission for students, and for teachers only when no feedback is available yet
+  if (['pending', 'awaiting_review'].includes(selectedSubmission?.status || '') && 
+      (role === 'student' || !currentQuestion)) {
     return (
-      <Card className="mb-4">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg">{title}</CardTitle>
-            <span className="text-2xl font-bold">{grade}%</span>
-          </div>
-          <Progress value={grade} className="h-2" />
-        </CardHeader>
-        <CardContent>
-          {issues.length > 0 ? (
-            <ul className="space-y-2">
-              {issues.map((issue: any, index: number) => {
-                if (typeof issue === 'string') {
-                  return (
-                    <li key={index} className="text-sm text-gray-600">
-                      {issue}
-                    </li>
-                  );
-                } else if (issue.type === 'word_scores') {
-                  return (
-                    <div key={index} className="mt-2">
-                      <h4 className="text-sm font-medium mb-2">Word-by-Word Analysis</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {issue.words.map((word: any, wordIndex: number) => (
-                          <div
-                            key={wordIndex}
-                            className="px-2 py-1 bg-gray-100 rounded text-sm"
-                            title={`Score: ${word.score}%`}
-                          >
-                            {word.word}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                } else if (issue.type === 'suggestion' || issue.type === 'prosody' || issue.type === 'fluency') {
-                  return (
-                    <li key={index} className="text-sm text-gray-600">
-                      {issue.message}
-                    </li>
-                  );
-                }
-                return null;
-              })}
-            </ul>
-          ) : (
-            <p className="text-sm text-green-600">No issues found. Great job!</p>
-          )}
-        </CardContent>
-      </Card>
+      <PendingSubmission 
+        submission={selectedSubmission}
+        onBack={handleBack}
+      />
     );
-  };
+  }
 
-  const renderRecordings = () => {
-    if (!selectedSubmission.recordings) {
-      console.log('No recordings found in submission:', selectedSubmission);
-      return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-600">No recordings available for this submission.</p>
-        </div>
-      );
-    }
-
-    let recordings;
-    try {
-      recordings = Array.isArray(selectedSubmission.recordings) 
-        ? selectedSubmission.recordings 
-        : JSON.parse(selectedSubmission.recordings);
-    } catch (error) {
-      console.error('Error parsing recordings:', error);
-      return (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600">Error loading recordings. Please try again later.</p>
-        </div>
-      );
-    }
-
-    if (!recordings.length) {
-      return (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-600">No recordings available for this submission.</p>
-        </div>
-      );
-    }
-
+  // Waiting for report
+  if (!currentQuestion) {
     return (
-      <div className="space-y-6">
-        {recordings.map((recording: any, index: number) => {
-          const audioKey = `${selectedSubmission.id}_${recording.questionId || index}`;
-          return (
-            <Card key={audioKey} className="mb-4">
-              <CardHeader>
-                <CardTitle className="text-lg">Question {index + 1}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <Button
-                    onClick={() => handlePlayPause(audioKey)}
-                    className="rounded-full w-12 h-12"
-                    variant="outline"
-                  >
-                    {playingAudio === audioKey ? (
-                      <Pause className="h-6 w-6" />
-                    ) : (
-                      <Play className="h-6 w-6" />
-                    )}
-                  </Button>
-                  <audio
-                    ref={el => {
-                      if (el) {
-                        audioRefs.current[audioKey] = el;
-                      }
-                    }}
-                    src={recording.audioUrl}
-                    onEnded={() => setPlayingAudio(null)}
-                    className="hidden"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500">
-                      {recording.questionId ? `Question ID: ${recording.questionId}` : `Recording ${index + 1}`}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <FeedbackHeader
+            assignmentTitle={selectedSubmission.assignment_title || 'Assignment'}
+            submittedAt={selectedSubmission.submitted_at || ''}
+            studentName={selectedSubmission.student_name || 'Student'}
+            isAwaitingReview={isAwaitingReview}
+            onBack={handleBack}
+            onSubmitAndSend={handleSubmitAndSend}
+            submissionId={submissionId}
+            assignmentId={selectedSubmission.assignment_id}
+            studentId={selectedSubmission.student_id}
+            currentSubmission={selectedSubmission}
+            isStudent={role === 'student'}
+            onRedo={onRedo}
+            attempt={selectedSubmission.attempt}
+            isPractice={currentAssignment?.metadata?.isPractice === true}
+          />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+            <h2 className="text-lg font-semibold text-blue-800 mb-2">Waiting for Report</h2>
+            <p className="text-blue-600">Your submission is being processed. This may take a few moments.</p>
+            <div className="mt-4 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:px-6">
-      {/* Back button */}
-      <div className="flex justify-start mb-6">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          className="text-gray-600"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back
-        </Button>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <FeedbackHeader
+          assignmentTitle={selectedSubmission.assignment_title || 'Assignment'}
+          submittedAt={selectedSubmission.submitted_at || ''}
+          studentName={selectedSubmission.student_name || 'Student'}
+          isAwaitingReview={isAwaitingReview}
+          onBack={handleBack}
+          onSubmitAndSend={handleSubmitAndSend}
+          submissionId={submissionId}
+          assignmentId={selectedSubmission.assignment_id}
+          studentId={selectedSubmission.student_id}
+          currentSubmission={selectedSubmission}
+          isStudent={role === 'student'}
+          onRedo={onRedo}
+          attempt={selectedSubmission.attempt}
+          isPractice={currentAssignment?.metadata?.isPractice === true}
+        />
+
+        <SubmissionInfo
+          assignmentTitle={selectedSubmission.assignment_title || 'Assignment'}
+          studentName={selectedSubmission.student_name || 'Student'}
+          submittedAt={selectedSubmission.submitted_at || ''}
+          averageScores={selectedSubmission?.overall_assignment_score || { avg_fluency_score: 0, avg_grammar_score: 0, avg_lexical_score: 0, avg_pronunciation_score: 0 }}
+          tempScores={tempScores || { avg_fluency_score: 0, avg_grammar_score: 0, avg_lexical_score: 0, avg_pronunciation_score: 0 }}
+          isEditingOverall={isEditing.overall}
+          canEdit={canEdit}
+          onEditOverall={() => startEditing('overall')}
+          onSaveOverall={handleSaveOverallScores}
+          onCancelOverall={() => {
+            discardChanges('scores');
+            stopEditing('overall');
+          }}
+          onScoreChange={(field, value) => setTempScores({ ...tempScores!, [field]: value })}
+          teacherComment={teacherComment}
+          isEditingComment={isEditing.teacherComment}
+          onEditComment={() => startEditing('teacherComment')}
+          onSaveComment={handleSaveTeacherComment}
+          onCancelComment={() => {
+            discardChanges('comment');
+            stopEditing('teacherComment');
+          }}
+          onCommentChange={setTeacherComment}
+          isAutoGradeEnabled={currentAssignment?.metadata?.autoGrade ?? true}
+          isTest={currentAssignment?.metadata?.isTest ?? false}
+          grade={selectedSubmission?.grade}
+          audioUrl={currentQuestion?.audio_url || ''}
+        />
+
+        <QuestionContent
+          questions={selectedSubmission?.section_feedback || []}
+          selectedQuestionIndex={selectedQuestionIndex}
+          onSelectQuestion={handleQuestionSelect}
+          audioRef={audioRef}
+          audioUrl={currentQuestion?.audio_url || ''}
+          transcript={currentQuestion?.transcript || ''}
+          cleanTranscript={currentQuestion?.clean_transcript}
+          currentFeedback={currentFeedback || null}
+          highlightType={activeTab === 'grammar' ? 'grammar' : activeTab === 'vocabulary' ? 'vocabulary' : 'none'}
+          openPopover={openPopover}
+          setOpenPopover={setOpenPopover}
+          assignment={currentAssignment}
+        />
+
+        <Card className="shadow-sm border-0 bg-white">
+          <CardContent className="p-4">
+            <TabsContainer
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              canEdit={canEdit}
+              isEditing={isEditing}
+              onEditSection={(section) => startEditing(section)}
+              onSaveSection={handleSaveSectionFeedback}
+              onCancelSection={(section) => {
+                if (currentFeedback) setTempFeedback(currentFeedback);
+                stopEditing(section);
+              }}
+              currentFeedback={currentFeedback || null}
+              tempFeedback={tempFeedback}
+              currentQuestion={currentQuestion}
+              averageScores={selectedSubmission?.overall_assignment_score || { avg_fluency_score: 0, avg_grammar_score: 0, avg_lexical_score: 0, avg_pronunciation_score: 0 }}
+              audioRef={audioRef}
+              ttsAudioCache={ttsAudioCache}
+              ttsLoading={ttsLoading}
+              dispatch={dispatch}
+              grammarOpen={grammarOpen}
+              vocabularyOpen={vocabularyOpen}
+              onToggleGrammar={toggleGrammarOpen}
+              onToggleVocabulary={toggleVocabularyOpen}
+              onDeleteIssue={handleDeleteIssue}
+            />
+          </CardContent>
+        </Card>
       </div>
-
-      {/* Submission details */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Submission Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Assignment</h3>
-              <p className="text-gray-600">{selectedSubmission.assignment_id}</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Status</h3>
-              <Badge variant={selectedSubmission.status === 'graded' ? 'default' : 'secondary'}>
-                {selectedSubmission.status === 'graded' ? 'Graded' : 'Pending Review'}
-              </Badge>
-            </div>
-            {selectedSubmission.submitted_at && (
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Submitted</h3>
-                <p className="text-gray-600">
-                  {new Date(selectedSubmission.submitted_at).toLocaleString()}
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {selectedSubmission.status === 'graded' && selectedSubmission.section_feedback ? (
-        // Show feedback for graded submissions
-        (Array.isArray(selectedSubmission.section_feedback) ? selectedSubmission.section_feedback : [selectedSubmission.section_feedback]).map((feedback: any, index: number) => (
-          <div key={index} className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Question {feedback.question_id}</h2>
-            <div>
-              {renderFeedbackSection('Fluency', feedback.section_feedback.fluency)}
-              {renderFeedbackSection('Grammar', feedback.section_feedback.grammar)}
-              {renderFeedbackSection('Vocabulary', feedback.section_feedback.lexical)}
-              {renderFeedbackSection('Pronunciation', feedback.section_feedback.pronunciation)}
-            </div>
-          </div>
-        ))
-      ) : (
-        // Show recordings for pending submissions
-        <div>
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold">Your Recordings</h2>
-            <p className="text-sm text-gray-500">This submission is currently being processed.</p>
-          </div>
-          {renderRecordings()}
-        </div>
-      )}
     </div>
   );
 };
 
-export default SubmissionFeedback; 
+export default SubmissionFeedback;

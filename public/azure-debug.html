@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Speech API Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Azure Speech API Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Environment Info</h2>
+        <div id="envInfo"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 1: Token-Based Speech Recognition</h2>
+        <button onclick="testTokenBasedRecognition()">Test Token-Based Recognition</button>
+        <div id="tokenResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Different Speech Endpoints</h2>
+        <button onclick="testDifferentEndpoints()">Test Different Endpoints</button>
+        <div id="endpointResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Without Pronunciation Assessment</h2>
+        <button onclick="testWithoutPronunciation()">Test Without Pronunciation</button>
+        <div id="noPronunciationResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Record and Test Real Audio</h2>
+        <button onclick="startRecording()">Start Recording</button>
+        <button onclick="stopRecording()">Stop Recording</button>
+        <button onclick="testRealAudio()">Test Real Audio</button>
+        <div id="realAudioResult" class="result"></div>
+    </div>
+
+    <script>
+        const AZURE_SPEECH_KEY = 'CA4BV9f9rvEKQL22h6L383ucFVNHl9HvkS9bYsBR8xI6cdJm85fHJQQJ99BEACYeBjFXJ3w3AAAYACOGS9sl';
+        const AZURE_SPEECH_REGION = 'eastus';
+        
+        let mediaRecorder = null;
+        let recordedBlob = null;
+        let authToken = null;
+        
+        // Display environment info
+        document.getElementById('envInfo').innerHTML = `
+            <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+            <p><strong>Location:</strong> ${window.location.href}</p>
+            <p><strong>Protocol:</strong> ${window.location.protocol}</p>
+            <p><strong>Host:</strong> ${window.location.host}</p>
+            <p><strong>AudioContext Available:</strong> ${!!(window.AudioContext || window.webkitAudioContext)}</p>
+            <p><strong>MediaRecorder Available:</strong> ${!!window.MediaRecorder}</p>
+            <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+        `;
+        
+        // Get authentication token
+        async function getAuthToken() {
+            if (authToken) return authToken;
+            
+            try {
+                const response = await fetch(`https://${AZURE_SPEECH_REGION}.cognitiveservices.azure.com/sts/v1.0/issuetoken`, {
+                    method: 'POST',
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                
+                if (response.ok) {
+                    authToken = await response.text();
+                    return authToken;
+                } else {
+                    throw new Error(`Token request failed: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Failed to get auth token:', error);
+                throw error;
+            }
+        }
+        
+        async function testTokenBasedRecognition() {
+            const resultDiv = document.getElementById('tokenResult');
+            resultDiv.innerHTML = 'Testing token-based recognition...';
+            
+            try {
+                const token = await getAuthToken();
+                console.log('Got auth token:', token.substring(0, 50) + '...');
+                
+                // Test with basic audio data
+                const dummyAudio = new Uint8Array([1, 2, 3, 4]);
+                
+                const response = await fetch(`https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'audio/wav',
+                        'Accept': 'application/json'
+                    },
+                    body: dummyAudio
+                });
+                
+                const responseText = await response.text();
+                
+                resultDiv.innerHTML = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>Response:</strong> ${responseText}</p>
+                        <p><strong>Token (first 50 chars):</strong> ${token.substring(0, 50)}...</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Stack:</strong> ${error.stack}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testDifferentEndpoints() {
+            const resultDiv = document.getElementById('endpointResult');
+            resultDiv.innerHTML = 'Testing different endpoints...';
+            
+            const endpoints = [
+                {
+                    name: 'Conversation + language',
+                    url: `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`
+                },
+                {
+                    name: 'Interactive + language',
+                    url: `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/interactive/cognitiveservices/v1?language=en-US`
+                },
+                {
+                    name: 'Dictation + language',
+                    url: `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/dictation/cognitiveservices/v1?language=en-US`
+                },
+                {
+                    name: 'Conversation + format',
+                    url: `https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed`
+                }
+            ];
+            
+            let results = '<h3>Endpoint Test Results:</h3>';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url, {
+                        method: 'POST',
+                        headers: {
+                            'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+                            'Content-Type': 'audio/wav',
+                            'Accept': 'application/json'
+                        },
+                        body: new Uint8Array([1, 2, 3, 4])
+                    });
+                    
+                    const responseText = await response.text();
+                    
+                    results += `
+                        <div class="${response.ok ? 'success' : 'error'}">
+                            <p><strong>${endpoint.name}:</strong> ${response.status} - ${responseText}</p>
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    results += `
+                        <div class="error">
+                            <p><strong>${endpoint.name}:</strong> Error - ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            resultDiv.innerHTML = results;
+        }
+        
+        async function testWithoutPronunciation() {
+            const resultDiv = document.getElementById('noPronunciationResult');
+            resultDiv.innerHTML = 'Testing without pronunciation assessment...';
+            
+            try {
+                // Create a simple WAV file
+                const wavData = new Uint8Array([
+                    0x52, 0x49, 0x46, 0x46, // "RIFF"
+                    0x24, 0x00, 0x00, 0x00, // File size
+                    0x57, 0x41, 0x56, 0x45, // "WAVE"
+                    0x66, 0x6D, 0x74, 0x20, // "fmt "
+                    0x10, 0x00, 0x00, 0x00, // Subchunk1Size
+                    0x01, 0x00, 0x01, 0x00, // AudioFormat, NumChannels
+                    0x40, 0x1F, 0x00, 0x00, // SampleRate (8000)
+                    0x80, 0x3E, 0x00, 0x00, // ByteRate
+                    0x02, 0x00, 0x10, 0x00, // BlockAlign, BitsPerSample
+                    0x64, 0x61, 0x74, 0x61, // "data"
+                    0x00, 0x00, 0x00, 0x00  // Subchunk2Size
+                ]);
+                
+                const response = await fetch(`https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`, {
+                    method: 'POST',
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+                        'Content-Type': 'audio/wav',
+                        'Accept': 'application/json'
+                    },
+                    body: wavData
+                });
+                
+                const responseText = await response.text();
+                
+                resultDiv.innerHTML = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>Response:</strong> ${responseText}</p>
+                        <p><strong>Note:</strong> This test excludes pronunciation assessment headers</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Stack:</strong> ${error.stack}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                const chunks = [];
+                
+                mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(chunks, { type: 'audio/webm' });
+                    document.getElementById('realAudioResult').innerHTML = `
+                        <p>Recording complete! Blob size: ${recordedBlob.size} bytes</p>
+                        <p>Type: ${recordedBlob.type}</p>
+                    `;
+                };
+                
+                mediaRecorder.start();
+                document.getElementById('realAudioResult').innerHTML = 'Recording... (say "hello world")';
+                
+            } catch (error) {
+                document.getElementById('realAudioResult').innerHTML = `
+                    <div class="error">Recording failed: ${error.message}</div>
+                `;
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+        
+        async function testRealAudio() {
+            if (!recordedBlob) {
+                document.getElementById('realAudioResult').innerHTML = 'Please record audio first!';
+                return;
+            }
+            
+            const resultDiv = document.getElementById('realAudioResult');
+            resultDiv.innerHTML = 'Testing real audio with token authentication...';
+            
+            try {
+                const token = await getAuthToken();
+                
+                const response = await fetch(`https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'audio/webm',
+                        'Accept': 'application/json'
+                    },
+                    body: recordedBlob
+                });
+                
+                const responseText = await response.text();
+                
+                resultDiv.innerHTML = `
+                    <div class="${response.ok ? 'success' : 'error'}">
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>Response:</strong> ${responseText}</p>
+                        <p><strong>Audio Size:</strong> ${recordedBlob.size} bytes</p>
+                        <p><strong>Audio Type:</strong> ${recordedBlob.type}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Stack:</strong> ${error.stack}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 

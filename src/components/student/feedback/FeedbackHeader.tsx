@@ -1,0 +1,283 @@
+// components/student/feedback/FeedbackHeader.tsx
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, RotateCcw, ChevronDown, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from '@/components/ui/dropdown-menu';
+import PracticeSessionModal from '@/components/practice/PracticeSessionModal';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface Submission {
+  id: string;
+  attempt: number;
+  submitted_at: string;
+  status: string;
+}
+
+interface FeedbackHeaderProps {
+  assignmentTitle: string;
+  submittedAt: string;
+  studentName: string;
+  isAwaitingReview: boolean;
+  onBack: () => void;
+  onSubmitAndSend: () => void;
+  submissionId?: string;
+  assignmentId?: string;
+  studentId?: string;
+  currentSubmission?: Submission;
+  isStudent?: boolean;
+  onRedo?: () => void;
+  attempt?: number;
+  isPractice?: boolean;
+}
+
+const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
+  studentName,
+  isAwaitingReview,
+  onBack,
+  onSubmitAndSend,
+  assignmentId,
+  studentId,
+  isStudent = false,
+  onRedo,
+  attempt,
+  isPractice = false
+}) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showPracticeModal, setShowPracticeModal] = useState(false);
+  const [practiceSessionId, setPracticeSessionId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchAllSubmissions = async () => {
+      if (!assignmentId || !studentId) return;
+      
+      setLoading(true);
+      try {
+        const { submissionService } = await import('@/features/submissions/submissionsService');
+        const submissions = await submissionService.getSubmissionsByAssignmentAndStudent(
+          assignmentId,
+          studentId
+        );
+        setAllSubmissions(submissions);
+      } catch (error) {
+        console.error('Error fetching submissions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllSubmissions();
+  }, [assignmentId, studentId]);
+  
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleViewSubmission = (submissionId: string) => {
+    // Find the submission to check its status
+    const submission = allSubmissions.find(s => s.id === submissionId);
+    
+    if (isStudent && submission?.status === 'in_progress') {
+      // If student and in progress, go to practice page to continue recording
+      navigate(`/student/assignment/${assignmentId}/practice`);
+    } else {
+      // For teachers or completed submissions, go to feedback page
+      // Preserve the navigation state from the original navigation
+      navigate(`/student/submission/${submissionId}/feedback`, {
+        state: location.state, // Pass through the existing navigation state
+        replace: true // Replace current history entry instead of pushing new one
+      });
+    }
+  };
+
+  const handleStartPractice = async () => {
+    try {
+      // Get current user ID
+      const { data: { session: userSession } } = await supabase.auth.getSession();
+      if (!userSession?.user?.id) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to start practice",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create practice session
+      const { data, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          user_id: userSession.user.id,
+          status: 'transcript_processing'
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to create practice session:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create practice session",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setPracticeSessionId(data.id);
+      setShowPracticeModal(true);
+    } catch (err) {
+      console.error('Practice session creation error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to start practice session",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-2"
+          onClick={onBack}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        {attempt && (
+          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+            Attempt {attempt}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {isPractice && (
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 bg-[#272A69] text-white hover:bg-[#272A69]/90"
+            onClick={handleStartPractice}
+          >
+            <BookOpen className="h-4 w-4" />
+            Start Practice
+          </Button>
+        )}
+        {allSubmissions.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2" disabled={loading}>
+                {isStudent ? (
+                  <>
+                    <RotateCcw className="h-4 w-4" />
+                    {loading ? 'Loading...' : 'Redo Assignment'}
+                  </>
+                ) : (
+                  <>
+                    {loading ? 'Loading...' : 'View Attempts'}
+                  </>
+                )}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>
+                {isStudent ? 'Previous Attempts' : 'Student Attempts'}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {allSubmissions.map((submission) => (
+                <DropdownMenuItem
+                  key={submission.id}
+                  onClick={() => handleViewSubmission(submission.id)}
+                  className="flex flex-col items-start gap-1 py-2"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-medium">
+                      Attempt {submission.attempt}
+                      {isStudent && submission.status === 'in_progress' && ' (Continue)'}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      submission.status === 'graded' ? 'bg-green-100 text-green-700' :
+                      submission.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                      submission.status === 'awaiting_review' ? 'bg-blue-100 text-blue-700' :
+                      submission.status === 'in_progress' ? 'bg-orange-100 text-orange-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {submission.status === 'graded' ? 'Graded' :
+                       submission.status === 'pending' ? 'Pending' :
+                       submission.status === 'awaiting_review' ? 'Under Review' :
+                       submission.status === 'in_progress' ? 'In Progress' :
+                       submission.status}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {formatDate(submission.submitted_at)}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+              {isStudent && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onRedo}
+                    className="text-blue-600 font-medium"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Start New Attempt
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        {isAwaitingReview && (
+          <Button
+            variant="default"
+            className="flex items-center gap-2"
+            onClick={onSubmitAndSend}
+          >
+            Submit & Send to {studentName}
+          </Button>
+        )}
+      </div>
+      
+      {/* Practice Session Modal */}
+      {practiceSessionId && (
+        <PracticeSessionModal
+          isOpen={showPracticeModal}
+          onClose={() => setShowPracticeModal(false)}
+          sessionId={practiceSessionId}
+          onComplete={() => {
+            setShowPracticeModal(false);
+            setPracticeSessionId(null);
+            toast({
+              title: "Practice Complete!",
+              description: "Great job! You've completed the practice session.",
+            });
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default FeedbackHeader;

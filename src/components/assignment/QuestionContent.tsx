@@ -1,16 +1,18 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Clock, Play, Pause, RotateCcw } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { QuestionCard } from "@/features/assignments/types";
-import MicIcon from "@/lib/images/mic.svg";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import AssignmentHeader from './AssignmentHeader';
+import QuestionProgress from './QuestionProgress';
+import QuestionDisplay from './QuestionDisplay';
+import RecordingControls from './RecordingControls';
+import AudioPlayer from './AudioPlayer';
+import NavigationButton from './NavigationButton';
 import AudioVisualizer from './AudioVisualizer';
+import { Button } from '@/components/ui/button';
+import { Play } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 
 interface QuestionContentProps {
   currentQuestion: QuestionCard & { isCompleted?: boolean };
@@ -31,8 +33,31 @@ interface QuestionContentProps {
   currentTime?: number;
   duration?: number;
   onTimeUpdate?: (time: number) => void;
-  isProcessing?: boolean;
   mediaStream?: MediaStream | null;
+  onNextQuestion?: () => void;
+  isPreviewMode?: boolean;
+  getRecordingForQuestion: (index: number) => { url: string } | undefined;
+  isUploading?: boolean;
+  hasUploadError?: boolean;
+  isAutoAdvancing?: boolean;
+  isTest?: boolean;
+  isProcessing?: boolean;
+  onRetry?: () => void;
+  hasRetried?: boolean;
+  // Test mode prep time props
+  isPrepTimeActive?: boolean;
+  prepTimeRemaining?: number;
+  formatPrepTime?: (seconds: number) => string;
+  onStartPrepTime?: () => void;
+  showStartButton?: boolean;
+  // Audio-only mode props
+  isAudioOnlyMode?: boolean;
+  // Sections props
+  sections?: Array<{
+    id: string;
+    name: string;
+    questionStartIndex: number;
+  }>;
 }
 
 const QuestionContent: React.FC<QuestionContentProps> = ({
@@ -51,192 +76,124 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   dueDate,
   currentQuestionIndex,
   showRecordButton,
-  currentTime = 0,
-  duration = 0,
   onTimeUpdate,
+  mediaStream = null,
+  onNextQuestion,
+  isPreviewMode = false,
+  getRecordingForQuestion,
+  isUploading = false,
+  hasUploadError = false,
+  isAutoAdvancing = false,
+  isTest = false,
   isProcessing = false,
-  mediaStream = null
+  onRetry,
+  hasRetried = false,
+  // Test mode prep time props
+  isPrepTimeActive = false,
+  prepTimeRemaining = 0,
+  formatPrepTime,
+  onStartPrepTime,
+  showStartButton = false,
+  // Audio-only mode props
+  isAudioOnlyMode = false,
+  // Sections props
+  sections
 }) => {
   return (
-    <div className="bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col">
-      {/* Assignment title and due date */}
-      <div className="flex justify-between items-center mb-3 border-b border-gray-200 pb-3">
-        <div>
-          <h2 className="font-semibold text-lg text-gray-800">{assignmentTitle}</h2>
-          <p className="text-sm text-gray-500">Due: {dueDate}</p>
-        </div>
-        <div className="flex items-center bg-gray-50 px-3 py-1 rounded-lg shadow-md transition-all duration-300">
-          <Clock className={`h-4 w-4 mr-2 transition-colors duration-300 ${
-            timeRemaining <= 15 ? 'text-red-500' : 'text-gray-600'
-          }`} />
-          <span className={`text-sm font-medium transition-all duration-300 ${
-            timeRemaining < 0 
-              ? 'bg-red-500 text-white px-2 py-0.5 rounded' 
-              : timeRemaining <= 15 
-                ? 'text-red-500' 
-                : 'text-gray-600'
-          }`}>
-            {formatTime(timeRemaining)}
-          </span>
-        </div>
-      </div>
-      
-      {/* Question information */}
-      <div className="flex justify-between mb-3">
-        <div className="text-sm font-medium text-gray-600">
-          Question {currentQuestionIndex + 1} of {totalQuestions}
-        </div>
-      </div>
-      
-      {/* Question Content */}
-      <ScrollArea className="bg-white rounded-xl p-4 sm:p-6 mb-4 flex-grow overflow-auto" style={{ maxHeight: "420px" }}>
-        {currentQuestion.type === 'bulletPoints' ? (
-          <div>
-            <h3 className="text-lg font-medium mb-2">Question</h3>
-            <p className="text-gray-800 mb-3">{currentQuestion.question}</p>
-            <p className="text-gray-700 mb-2">You should say:</p>
-            <ul className="list-disc pl-5 text-gray-700 space-y-1">
-              {currentQuestion.bulletPoints?.map((point, idx) => (
-                <li key={idx}>{point}</li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <div>
-            <h3 className="text-lg font-medium mb-2">Question</h3>
-            <p className="text-gray-800">{currentQuestion.question}</p>
+    <div className={cn(
+      "bg-[#F7F8FB] rounded-2xl p-4 sm:p-6 shadow-md h-[600px] flex flex-col",
+      isTest && "ring-4 ring-orange-500"
+    )}>
+      <TooltipProvider>
+        <AssignmentHeader
+          assignmentTitle={assignmentTitle}
+          dueDate={dueDate}
+          timeRemaining={timeRemaining}
+          formatTime={formatTime}
+          isTest={isTest}
+          isPrepTimeActive={isPrepTimeActive}
+          prepTimeRemaining={prepTimeRemaining}
+          formatPrepTime={formatPrepTime}
+          showStartButton={showStartButton}
+          prepTime={currentQuestion.prepTime}
+        />
+        
+        <QuestionProgress
+          currentQuestionIndex={currentQuestionIndex}
+          totalQuestions={totalQuestions}
+          sections={sections}
+        />
+        
+        {/* Test Mode: Show Start Button Initially */}
+        {isTest && showStartButton && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Ready to Begin?</h2>
+              <p className="text-gray-600">Click start when you're ready to see the question and begin preparation time.</p>
+            </div>
+            <Button
+              onClick={onStartPrepTime}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 text-lg flex items-center gap-2"
+            >
+              <Play className="h-5 w-5" />
+              Start
+            </Button>
           </div>
         )}
-      </ScrollArea>
-      
-      {/* Recording Controls */}
-      <div className="flex flex-col gap-4">
-        {/* Audio Visualizer */}
-        {isRecording && mediaStream && (
-          <div className="w-full px-4">
-            <AudioVisualizer stream={mediaStream} isRecording={isRecording} />
-          </div>
-        )}
+        
+        {/* Normal Mode or Test Mode After Start */}
+        {(!isTest || !showStartButton) && (
+          <>
+            <QuestionDisplay currentQuestion={currentQuestion} isTestMode={isTest} isAudioOnlyMode={isAudioOnlyMode} isRecording={isRecording} />
+            
 
-        <div className="flex justify-center">
-          <div className="flex space-x-4 items-center">
-            {showRecordButton && (
-              <Button
-                onClick={toggleRecording}
-                className="rounded-full w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center bg-[#272A69] hover:bg-[#272A69]/90"
-                aria-label={isRecording ? "Stop recording" : "Start recording"}
-                disabled={isPlaying}
-              >
-                <img 
-                  src={MicIcon} 
-                  alt="Microphone" 
-                  className={`w-6 h-6 transition-all duration-200 ${
-                    isRecording || isPlaying ? 'hidden' : 'opacity-100'
-                  }`}
-                />
-                {(isPlaying || isRecording) && (
-                  <div className="w-8 h-8 bg-white border-2 border-[#272A69] rounded-[7px]" />
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Audio Player */}
-        {hasRecorded && !isRecording && (
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>{isProcessing ? "Processing..." : formatTime(currentTime)}</span>
-                  <span>{isProcessing ? "..." : formatTime(duration)}</span>
-                </div>
-                <div className="flex items-center gap-2 w-full">
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration || 100}
-                    value={currentTime}
-                    onChange={(e) => onTimeUpdate?.(Number(e.target.value))}
-                    step={0.01}
-                    disabled={isProcessing}
-                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      background: `linear-gradient(to right, #2563eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%)`,
-                      WebkitAppearance: 'none',
-                      appearance: 'none',
-                      height: '8px',
-                      borderRadius: '4px',
-                    }}
-                  />
-                </div>
+            
+            {/* Audio Visualizer */}
+            {isRecording && mediaStream && (
+              <div className="w-full px-4 mb-4">
+                <AudioVisualizer stream={mediaStream} isRecording={isRecording} />
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {hasRecorded && !isRecording && (
-          <div className="flex justify-center">
-            <div className="flex space-x-3">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={playRecording}
-                      variant="outline"
-                      className="text-gray-700"
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? (
-                        <div className="flex items-center">
-                          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mr-2" />
-                          Processing...
-                        </div>
-                      ) : isPlaying ? (
-                        <Pause size={16} />
-                      ) : (
-                        <Play size={16} />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
-                    <p>{isPlaying ? "Pause" : "Replay"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={toggleRecording}
-                      variant="outline"
-                      className="text-gray-700"
-                      disabled={isProcessing || isPlaying}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" align="center" className="relative translate-x-[-17%]">
-                    <p>Retry</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
+            <RecordingControls
+              isRecording={isRecording}
+              isPlaying={isPlaying}
+              showRecordButton={showRecordButton}
+              isPreviewMode={isPreviewMode}
+              onToggleRecording={toggleRecording}
+              onPlayRecording={playRecording}
+              isPrepTimeActive={isPrepTimeActive}
+              isProcessing={isProcessing}
+              isTest={isTest}
+              hasRecorded={hasRecorded}
+              onRedo={toggleRecording}
+            />
+
+            <AudioPlayer
+              hasRecorded={hasRecorded}
+              isRecording={isRecording}
+              onTimeUpdate={onTimeUpdate || (() => {})}
+              audioUrl={getRecordingForQuestion(currentQuestionIndex)?.url}
+            />
+
+            <NavigationButton
+              isLastQuestion={isLastQuestion}
+              hasRecorded={hasRecorded}
+              isPlaying={isPlaying}
+              isPreviewMode={isPreviewMode}
+              isUploading={isUploading}
+              hasUploadError={hasUploadError}
+              isAutoAdvancing={isAutoAdvancing}
+              isTest={isTest}
+              hasRetried={hasRetried}
+              isRecording={isRecording}
+              onComplete={completeQuestion}
+              onNext={onNextQuestion}
+              onRetry={onRetry}
+            />
+          </>
         )}
-      </div>
-      
-      {/* Navigation Button */}
-      <div className="flex justify-end mt-4">
-        <Button
-          onClick={completeQuestion}
-          disabled={!hasRecorded || isPlaying}
-          className="flex items-center bg-[#EF5136] hover:bg-[#EF5136]/90 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLastQuestion ? "Finish" : "Next"} 
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </div>
+      </TooltipProvider>
     </div>
   );
 };

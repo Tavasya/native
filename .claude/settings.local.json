@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(rg:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)",
+      "Bash(sed:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(npm run lint:*)",
+      "Bash(mv:*)",
+      "Bash(npx eslint:*)",
+      "Bash(git pull:*)",
+      "Bash(npm run:*)",
+      "Bash(touch:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(true)"
+    ],
+    "deny": []
+  }
+}

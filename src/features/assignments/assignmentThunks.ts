@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { 
   CreateAssignmentDto, 
+  UpdateAssignmentDto,
   AssignmentStatus, 
   StudentSubmission 
 } from "./types";
@@ -89,6 +90,22 @@ export const updateAssignmentStatus = createAsyncThunk<
   }
 );
 
+// Update assignment
+export const updateAssignment = createAsyncThunk<
+  Awaited<ReturnType<typeof assignmentService.updateAssignment>>,
+  { assignmentId: string; data: UpdateAssignmentDto },
+  { rejectValue: string }
+>(
+  "assignments/updateAssignment",
+  async ({ assignmentId, data }, { rejectWithValue }) => {
+    try {
+      return await assignmentService.updateAssignment(assignmentId, data);
+    } catch (err) {
+      return rejectWithValue((err as Error).message);
+    }
+  }
+);
+
 // Fetch the latest submissions for a given assignment
 export const fetchLatestSubmissionsByAssignment = createAsyncThunk<
   StudentSubmission[],
@@ -148,6 +165,22 @@ export const fetchClassDetailView = createAsyncThunk<
   async (classId, { rejectWithValue }) => {
     try {
       return await assignmentService.getClassDetailView(classId);
+    } catch (err) {
+      return rejectWithValue((err as Error).message);
+    }
+  }
+);
+
+// Fetch assignments by teacher
+export const fetchAssignmentsByTeacher = createAsyncThunk<
+  Awaited<ReturnType<typeof assignmentService.getAssignmentsByTeacher>>,
+  string,
+  { rejectValue: string }
+>(
+  "assignments/fetchAssignmentsByTeacher",
+  async (teacherId, { rejectWithValue }) => {
+    try {
+      return await assignmentService.getAssignmentsByTeacher(teacherId);
     } catch (err) {
       return rejectWithValue((err as Error).message);
     }

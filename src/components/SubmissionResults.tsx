@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { useRealtimeSubmission } from '@/hooks/useRealtimeSubmission';
+import { useRealtimeSubmission } from '@/hooks/feedback/useRealtimeSubmission';
 import { RootState } from '@/app/store';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
@@ -154,7 +154,9 @@ export function SubmissionResults() {
       )}
 
       {currentSubmission.recordings && currentSubmission.recordings.map((recording, index) => {
-        const feedback = currentSubmission.section_feedback?.[recording.questionId];
+        const feedback = currentSubmission.section_feedback?.find(
+          section => section.question_id === parseInt(recording.questionId)
+        )?.section_feedback;
         const audioKey = `${currentSubmission.id}_${recording.questionId}`;
         
         return (

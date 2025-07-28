@@ -7,10 +7,10 @@ interface AudioVisualizerProps {
 
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
-  const audioContextRef = useRef<AudioContext>();
-  const analyserRef = useRef<AnalyserNode>();
-  const dataArrayRef = useRef<Uint8Array>();
+  const animationRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
 
   useEffect(() => {
     if (!stream || !isRecording) {
@@ -93,9 +93,8 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }
 
     analyser.getByteFrequencyData(dataArray);
 
-    // Clean white background
-    canvasCtx.fillStyle = '#ffffff';
-    canvasCtx.fillRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+    // Remove white background fill
+    canvasCtx.clearRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
 
     const numBars = 16;
     const barWidth = 2;
@@ -113,7 +112,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }
       // Snap to whole pixels
       const x = Math.floor(startX + i * (barWidth + barSpacing));
 
-      canvasCtx.fillStyle = '#333333';
+      canvasCtx.fillStyle = '#1E3A8A';
       
       // Mirror across both axes - 4 bars total
       // Top-left quadrant
@@ -131,7 +130,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRecording }
     <div className="flex justify-center items-center w-full">
       <canvas
         ref={canvasRef}
-        className="rounded border border-gray-200"
+        className="rounded"
       />
     </div>
   );

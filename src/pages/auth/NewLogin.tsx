@@ -1,41 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmail } from '@/features/auth/authThunks';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { clearAuth } from '@/features/auth/authSlice';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 import NativeLogo from '@/lib/images/Native Logo.png';
-import { UserRole } from '@/features/auth/types';
 
 export default function NewLogin() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error: authError, user, role } = useAppSelector(state => state.auth);
+  const location = useLocation();
+  const { loading, error: authError, user, profile } = useAppSelector(state => state.auth);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('student');
   const [error, setError] = useState('');
+  const [googleError, setGoogleError] = useState('');
 
   useEffect(() => {
     dispatch(clearAuth());
   }, [dispatch]);
 
   useEffect(() => {
-    if (user && role) {
-      navigate(`/${role}/dashboard`);
+    // Debug logging
+    console.log('Auth state:', { user, profile, loading });
+    
+    // ✅ NEW - Check profile completion before redirecting
+    if (user && profile?.profile_complete && profile.role) {
+      console.log('Redirecting to dashboard:', profile.role);
+      // Check if there's a 'from' location to redirect back to
+      const from = location.state?.from?.pathname || `/${profile.role}/dashboard`;
+      navigate(from, { replace: true });
+    } else if (user && profile && !profile.profile_complete) {
+      console.log('Redirecting to onboarding - profile incomplete');
+      navigate('/onboarding');
     }
-  }, [user, role, navigate]);
+  }, [user, profile, loading, navigate, location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Attempting login with:', { email, password, selectedRole });
     const result = await dispatch(signInWithEmail({ 
       email, 
-      password,
-      selectedRole 
+      password
     }));
     
     if (signInWithEmail.rejected.match(result)) {
@@ -45,13 +54,10 @@ export default function NewLogin() {
         ? 'Invalid email or password'
         : errorMessage.includes('Email not confirmed')
         ? 'Please verify your email before logging in. Check your inbox for the verification link.'
-        : errorMessage.includes('Invalid role')
-        ? 'Please select the correct role for your account'
         : errorMessage.includes('not found')
         ? 'No account found with this email. Please sign up first.'
         : 'Failed to sign in. Please try again.';
       
-      console.error('Login failed:', errorMessage);
       dispatch(clearAuth());
       setError(friendlyError);
     }
@@ -62,12 +68,17 @@ export default function NewLogin() {
       <div className="w-full max-w-md">
         <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <div className="text-center mb-8">
-            <img src={NativeLogo} alt="Native" className="h-12 mx-auto mb-6" />
+            <img 
+              src={NativeLogo} 
+              alt="Native" 
+              className="h-12 mx-auto mb-6 cursor-pointer" 
+              onClick={() => navigate('/')}
+            />
           </div>
 
-          {(error || authError) && (
+          {(error || authError || googleError) && (
             <div className="mb-4 p-4 text-sm text-red-700 bg-red-50 rounded-lg">
-              {error || authError}
+              {error || authError || googleError}
               {error?.includes('verify your email') && (
                 <div className="mt-2">
                   <Button
@@ -81,29 +92,6 @@ export default function NewLogin() {
               )}
             </div>
           )}
-
-          <div className="flex rounded-lg border border-gray-200 p-1 mb-6">
-            <button
-              onClick={() => setSelectedRole('student')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'student'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Student
-            </button>
-            <button
-              onClick={() => setSelectedRole('teacher')}
-              className={`flex-1 py-2 px-4 rounded-md transition-colors ${
-                selectedRole === 'teacher'
-                  ? 'bg-[#272A69] text-white'
-                  : 'hover:bg-gray-50'
-              }`}
-            >
-              Teacher
-            </button>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -136,6 +124,11 @@ export default function NewLogin() {
                 required
                 className="w-full"
               />
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-sm text-[#272A69] hover:text-[#272A69]/90">
+                  Forgot Password
+                </Link>
+              </div>
             </div>
 
             <Button
@@ -146,6 +139,24 @@ export default function NewLogin() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <GoogleAuthButton 
+                mode="login" 
+                onError={(error) => setGoogleError(error)} 
+              />
+            </div>
+          </div>
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Don't have an account?{' '}

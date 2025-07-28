@@ -1,18 +1,37 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronDown, Info, FolderPlus, MoreVertical, Copy, Move } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
-import { useAppDispatch } from '@/app/hooks';
-import { createAssignment } from '@/features/assignments/assignmentThunks';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
+import { createAssignment, updateAssignment } from '@/features/assignments/assignmentThunks';
+import { fetchAssignmentTemplates, createAssignmentTemplate, deleteAssignmentTemplate } from '@/features/assignmentTemplates/assignmentTemplateThunks';
+import { 
+  fetchPublicParts, 
+  fetchPublicCombinations
+} from '@/features/assignmentParts/assignmentPartsThunks';
+import { 
+  setSelectedTopic as setTopic,
+  setSelectedPartType as setPartType,
+  clearFilters as clearFiltersAction
+} from '@/features/assignmentParts/assignmentPartsSlice';
+import AssignmentPractice from '@/pages/student/AssignmentPractice';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import PartLibrary from '@/components/assignment/PartLibrary';
+import type { RootState } from '@/app/store';
+import type { AssignmentTemplate } from '@/features/assignmentTemplates/types';
+import type { AssignmentPart, PartCombination, PartType } from '@/features/assignmentParts/types';
 
 interface QuestionCard {
   id: string;
@@ -21,40 +40,396 @@ interface QuestionCard {
   bulletPoints?: string[];
   speakAloud: boolean;
   timeLimit: string;
+  prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
+  hasHint?: boolean;          // Toggle for enabling/disabling hints (Part 1 & 3 only)
+  hintText?: string;          // The actual hint content
+  sectionIndex?: number;      // Which section this question belongs to
+}
+
+interface SectionTag {
+  id: string;
+  name: string;
+  questionStartIndex: number; // Index where this section starts
 }
 
 const CreateAssignmentPage: React.FC = () => {
   const user = useAppSelector(state => state.auth.user?.id);
+  const { templates, loading: templatesLoading } = useAppSelector((state: RootState) => state.assignmentTemplates);
+  const { parts, combinations, loading: partsLoading, selectedTopic, selectedPartType } = useAppSelector((state: RootState) => state.assignmentParts);
 
   const navigate = useNavigate();
   const { id: classId } = useParams<{ id: string }>();
   const { toast } = useToast();
   const dispatch = useAppDispatch();
+  const location = useLocation();
   // State
   const [title, setTitle] = useState('');
-  // const [description, setDescription] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [dueDateTime, setDueDateTime] = useState(''); // Combined date and time as ISO string
   const [questionCards, setQuestionCards] = useState<QuestionCard[]>([
     {
       id: 'card-1',
       type: 'normal',
       question: '',
       speakAloud: false,
-      timeLimit: '1'
+      timeLimit: '1',
+      prepTime: '0:15'
     }
   ]);
   const [activeCardId, setActiveCardId] = useState('1');
   const [activeHeaderCard, setActiveHeaderCard] = useState(false);
-  // const [showPreview, setShowPreview] = useState(false);
+  const [autoGrade, setAutoGrade] = useState(true);
+  const [isTest, setIsTest] = useState(false);
+  const [audioOnlyMode, setAudioOnlyMode] = useState(true);
+  
+  // Sections state
+  const [sections, setSections] = useState<SectionTag[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [openSectionMenu, setOpenSectionMenu] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [tempSections, setTempSections] = useState<SectionTag[]>([]);
+  
+  // Part library state
+  const [isPartLibraryOpen, setIsPartLibraryOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Drag and drop state
+  const [isDraggingPart, setIsDraggingPart] = useState(false);
+  const [draggedPart, setDraggedPart] = useState<AssignmentPart | PartCombination | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   // Time limit options in minutes
   const timeLimits = [
     { value: "0.25", label: "15 seconds" },
+    { value: "0.333", label: "20 seconds" },
+    { value: "0.417", label: "25 seconds" },
     { value: "0.5", label: "30 seconds" },
     { value: "1", label: "1 minute" },
     { value: "2", label: "2 minutes" },
     { value: "3", label: "3 minutes" },
   ];
+
+  // Section helper functions
+  const getSectionForQuestionIndex = (questionIndex: number): SectionTag | null => {
+    if (sections.length === 0) return null;
+    
+    // Find the section that starts at or before this question index
+    for (let i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].questionStartIndex <= questionIndex) {
+        return sections[i];
+      }
+    }
+    return sections[0];
+  };
+
+  const createNewSection = () => {
+    // If there are already questions but no sections yet, create first section at index 0
+    if (questionCards.length > 0 && sections.length === 0) {
+      const firstSection: SectionTag = {
+        id: `section-${Date.now()}`,
+        name: 'Section 1',
+        questionStartIndex: 0
+      };
+      setSections([firstSection]);
+      return;
+    }
+    
+    // If no questions exist at all, this shouldn't happen but handle it
+    if (questionCards.length === 0) {
+      return; // Do nothing - user should add a question first
+    }
+
+    // Create new section after existing questions
+    const newSection: SectionTag = {
+      id: `section-${Date.now()}`,
+      name: `Section ${sections.length + 1}`,
+      questionStartIndex: questionCards.length
+    };
+    
+    // Add a new question to the new section
+    const newCard: QuestionCard = {
+      id: `card-${Date.now()}`,
+      type: 'normal',
+      question: '',
+      speakAloud: false,
+      timeLimit: '1',
+      prepTime: '0:15'
+    };
+    
+    setSections(prev => [...prev, newSection]);
+    setQuestionCards(prev => [...prev, newCard]);
+    setActiveCardId(newCard.id);
+  };
+
+  const addQuestionToSection = (sectionIndex: number) => {
+    const section = sections[sectionIndex];
+    if (!section) return;
+    
+    // Find the insertion point (after the last question of this section)
+    let insertIndex = questionCards.length;
+    if (sectionIndex < sections.length - 1) {
+      // Find the start of the next section
+      const nextSection = sections[sectionIndex + 1];
+      insertIndex = nextSection.questionStartIndex;
+    }
+    
+    const newCard: QuestionCard = {
+      id: `card-${Date.now()}`,
+      type: 'normal',
+      question: '',
+      speakAloud: false,
+      timeLimit: '1',
+      prepTime: '0:15',
+      sectionIndex
+    };
+    
+    const newCards = [...questionCards];
+    newCards.splice(insertIndex, 0, newCard);
+    setQuestionCards(newCards);
+    
+    // Update section start indices for sections after the insertion point
+    setSections(prev => prev.map((s, i) => {
+      if (i > sectionIndex) {
+        return { ...s, questionStartIndex: s.questionStartIndex + 1 };
+      }
+      return s;
+    }));
+    
+    setActiveCardId(newCard.id);
+  };
+
+  const deleteSection = (sectionId: string) => {
+    const sectionToDelete = sections.find(s => s.id === sectionId);
+    if (!sectionToDelete) return;
+
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    
+    // Find questions that belong to this section
+    let questionsToDelete: string[] = [];
+    
+    if (sectionIndex === sections.length - 1) {
+      // Last section - delete from start index to end
+      questionsToDelete = questionCards
+        .slice(sectionToDelete.questionStartIndex)
+        .map(card => card.id);
+    } else {
+      // Not last section - delete from start index to next section start
+      const nextSection = sections[sectionIndex + 1];
+      questionsToDelete = questionCards
+        .slice(sectionToDelete.questionStartIndex, nextSection.questionStartIndex)
+        .map(card => card.id);
+    }
+
+    // Remove the questions
+    const newQuestionCards = questionCards.filter(card => !questionsToDelete.includes(card.id));
+    
+    // Remove the section
+    const newSections = sections.filter(s => s.id !== sectionId);
+    
+    // Update start indices for remaining sections
+    const updatedSections = newSections.map((section, index) => {
+      if (index < sectionIndex) {
+        return section; // Sections before deleted one stay the same
+      } else {
+        // Sections after deleted one need their start index adjusted
+        return {
+          ...section,
+          questionStartIndex: section.questionStartIndex - questionsToDelete.length
+        };
+      }
+    });
+
+    setQuestionCards(newQuestionCards);
+    setSections(updatedSections);
+    
+    // If no sections left, exit section mode
+    if (updatedSections.length === 0) {
+      // If no questions left either, add a default question
+      if (newQuestionCards.length === 0) {
+        const defaultCard: QuestionCard = {
+          id: `card-${Date.now()}`,
+          type: 'normal',
+          question: '',
+          speakAloud: false,
+          timeLimit: '1',
+          prepTime: '0:15'
+        };
+        setQuestionCards([defaultCard]);
+        setActiveCardId(defaultCard.id);
+      }
+    }
+    
+    setShowDeleteConfirm(null);
+  };
+
+  const duplicateSection = (sectionId: string) => {
+    const sectionToDuplicate = sections.find(s => s.id === sectionId);
+    if (!sectionToDuplicate) return;
+
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    
+    // Find questions that belong to this section
+    let questionsInSection: QuestionCard[] = [];
+    
+    if (sectionIndex === sections.length - 1) {
+      // Last section - get from start index to end
+      questionsInSection = questionCards.slice(sectionToDuplicate.questionStartIndex);
+    } else {
+      // Not last section - get from start index to next section start
+      const nextSection = sections[sectionIndex + 1];
+      questionsInSection = questionCards.slice(sectionToDuplicate.questionStartIndex, nextSection.questionStartIndex);
+    }
+
+    // Create duplicated questions with new IDs
+    const duplicatedQuestions: QuestionCard[] = questionsInSection.map(q => ({
+      ...q,
+      id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    // Create new section
+    const newSection: SectionTag = {
+      id: `section-${Date.now()}`,
+      name: `${sectionToDuplicate.name} (Copy)`,
+      questionStartIndex: questionCards.length
+    };
+
+    // Update state
+    setQuestionCards(prev => [...prev, ...duplicatedQuestions]);
+    setSections(prev => [...prev, newSection]);
+    
+    setOpenSectionMenu(null);
+  };
+
+  const openMoveModal = () => {
+    setTempSections([...sections]);
+    setShowMoveModal(true);
+    setOpenSectionMenu(null);
+  };
+
+  const handleMoveModalDragEnd = (result: any) => {
+    if (!result.destination) return;
+
+    const reorderedSections = Array.from(tempSections);
+    const [movedSection] = reorderedSections.splice(result.source.index, 1);
+    reorderedSections.splice(result.destination.index, 0, movedSection);
+
+    setTempSections(reorderedSections);
+  };
+
+  const applyMoveChanges = () => {
+    // First, gather all questions for each section
+    const sectionQuestions: { [key: string]: QuestionCard[] } = {};
+    
+    sections.forEach((section, index) => {
+      let questionsInSection: QuestionCard[] = [];
+      
+      if (index === sections.length - 1) {
+        questionsInSection = questionCards.slice(section.questionStartIndex);
+      } else {
+        const nextSection = sections[index + 1];
+        questionsInSection = questionCards.slice(section.questionStartIndex, nextSection.questionStartIndex);
+      }
+      
+      sectionQuestions[section.id] = questionsInSection;
+    });
+
+    // Now reorder sections and calculate new start indices
+    let currentStartIndex = 0;
+    const reorderedSections = tempSections.map((section) => {
+      const newSection = {
+        ...section,
+        questionStartIndex: currentStartIndex
+      };
+      currentStartIndex += sectionQuestions[section.id].length;
+      return newSection;
+    });
+
+    // Reorder questions based on section reordering
+    const newQuestionCards: QuestionCard[] = [];
+    reorderedSections.forEach((section) => {
+      newQuestionCards.push(...sectionQuestions[section.id]);
+    });
+
+    setSections(reorderedSections);
+    setQuestionCards(newQuestionCards);
+    setShowMoveModal(false);
+  };
+
+  const cancelMoveChanges = () => {
+    setTempSections([]);
+    setShowMoveModal(false);
+  };
+
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchAssignmentTemplates(user));
+      dispatch(fetchPublicParts());
+      dispatch(fetchPublicCombinations());
+    }
+  }, [user, dispatch]);
+
+  // Handle edit data from navigation state
+  useEffect(() => {
+    const editData = location.state?.editData;
+    const isEditing = location.state?.isEditing;
+    
+    if (editData && isEditing) {
+      setTitle(editData.title || '');
+      // Convert separate date and time back to ISO string, or use due_date if it's already ISO
+      if (editData.due_date) {
+        if (editData.due_time) {
+          // Legacy format with separate date and time
+          const dateTime = new Date(`${editData.due_date}T${editData.due_time}`);
+          setDueDateTime(dateTime.toISOString());
+        } else {
+          // New format with ISO string
+          setDueDateTime(editData.due_date);
+        }
+      }
+      setAutoGrade(editData.metadata?.autoGrade ?? true);
+      setIsTest(editData.metadata?.isTest ?? false);
+      setAudioOnlyMode(editData.metadata?.audioOnlyMode ?? false);
+      
+      // Load sections if they exist
+      if (editData.metadata?.sections) {
+        setSections(editData.metadata.sections);
+      }
+      
+      // Restore the actual question cards that were edited
+      if (editData.questions) {
+        let questionsArray = editData.questions;
+        
+        // Handle case where questions might be stored as a JSON string
+        if (typeof questionsArray === 'string') {
+          try {
+            questionsArray = JSON.parse(questionsArray);
+          } catch (e) {
+            console.error('Failed to parse questions JSON:', e);
+            questionsArray = [];
+          }
+        }
+        
+        // Ensure we have an array and it has items
+        if (Array.isArray(questionsArray) && questionsArray.length > 0) {
+          setQuestionCards(questionsArray.map((q: any, index: number) => ({
+            id: q.id || `card-${index + 1}`,
+            type: q.type || 'normal',
+            question: q.question || '',
+            bulletPoints: q.bulletPoints || [],
+            speakAloud: q.speakAloud || false,
+            timeLimit: q.timeLimit || '1',
+            prepTime: q.prepTime || '0:15',
+            hasHint: q.hasHint || false,
+            hintText: q.hintText || ''
+          })));
+          
+        }
+      }
+      
+      // Clear the navigation state to prevent re-population on re-renders
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Card operations
   const addQuestionCard = (type: 'normal' | 'bulletPoints' = 'normal') => {
@@ -63,7 +438,8 @@ const CreateAssignmentPage: React.FC = () => {
       type,
       question: '',
       speakAloud: false,
-      timeLimit: '1'
+      timeLimit: '1',
+      prepTime: '0:15'
     };
 
     if (type === 'bulletPoints') {
@@ -71,13 +447,22 @@ const CreateAssignmentPage: React.FC = () => {
     }
 
     setQuestionCards([...questionCards, newCard]);
-    setActiveHeaderCard(false);    
+    setActiveHeaderCard(false);
     setActiveCardId(newCard.id);
   };
 
   const deleteQuestionCard = (id: string) => {
     if (questionCards.length > 1) {
+      const deletedIndex = questionCards.findIndex(card => card.id === id);
       setQuestionCards(questionCards.filter(card => card.id !== id));
+
+      // Update section start indices after deletion
+      setSections(prev => prev.map(section => {
+        if (section.questionStartIndex > deletedIndex) {
+          return { ...section, questionStartIndex: section.questionStartIndex - 1 };
+        }
+        return section;
+      }).filter(section => section.questionStartIndex < questionCards.length - 1)); // Remove sections that no longer have questions
 
       // If we're deleting the active card, set a new active card
       if (activeCardId === id) {
@@ -100,6 +485,23 @@ const CreateAssignmentPage: React.FC = () => {
     ));
   };
 
+  // Helper functions for time format conversion
+
+  const secondsToTime = (totalSeconds: number): string => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const formatPrepTime = (prepTime?: string): string => {
+    if (!prepTime) return '0:15';
+    // If it's already in M:SS format, return as is
+    if (prepTime.includes(':')) return prepTime;
+    // Convert from old minutes format to M:SS
+    const seconds = parseFloat(prepTime) * 60;
+    return secondsToTime(seconds);
+  };
+
   // Bullet point operations
   const addBulletPoint = (cardId: string) => {
     setQuestionCards(questionCards.map(card => {
@@ -113,11 +515,71 @@ const CreateAssignmentPage: React.FC = () => {
     }));
   };
 
+  // Helper function to detect and split multiple bullet points
+  const splitBulletPoints = (text: string): string[] => {
+    // Split by newlines first - this handles the case where newlines are preserved
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    
+    if (lines.length > 1) {
+      // Multiple lines detected, return each line as a separate bullet point
+      return lines.map(line => line.trim());
+    }
+    
+    // For single line, check if it looks like multiple items that should be separated
+    const singleLine = text.trim();
+    
+    // Look for patterns that suggest multiple items separated by spaces
+    // Common patterns: "1. Item 2. Item 3. Item" or "Item1 Item2 Item3"
+    const words = singleLine.split(/\s+/);
+    
+    // If we have multiple words and they look like separate bullet points
+    if (words.length > 2) {
+      // Check if the text looks like separate bullet points rather than a sentence
+      const hasBulletPointPattern = words.some(word => 
+        /^\d+\.$/.test(word) || // Pattern like "1.", "2.", "3."
+        /^[A-Z]{2,}\d+$/.test(word) || // Pattern like "BP1", "BP2"
+        /^[A-Z][a-z]+\d*$/.test(word) || // Pattern like "Item1", "Point2"
+        /^[A-Z]{2,}$/.test(word) // Pattern like "BP", "POINT"
+      );
+      
+      if (hasBulletPointPattern) {
+        // For numbered lists, split by the number pattern but keep the number with its content
+        if (words.some(word => /^\d+\.$/.test(word))) {
+          const items = singleLine.split(/\s+(?=\d+\.)/);
+          return items.filter(item => item.trim()).map(item => item.trim());
+        }
+        
+        // For other patterns, split by the pattern
+        const items = singleLine.split(/\s+(?=\b[A-Z]{2,}\d+\b|\b[A-Z][a-z]+\d*\b|\b[A-Z]{2,}\b)/);
+        return items.filter(item => item.trim()).map(item => item.trim());
+      }
+    }
+    
+    // If no clear pattern detected, return as single bullet point
+    return [singleLine];
+  };
+
   const updateBulletPoint = (cardId: string, index: number, value: string) => {
     setQuestionCards(questionCards.map(card => {
       if (card.id === cardId && card.type === 'bulletPoints') {
         const newBulletPoints = [...(card.bulletPoints || [])];
-        newBulletPoints[index] = value;
+        
+        // Check if the pasted text contains multiple bullet points
+        const splitPoints = splitBulletPoints(value);
+        
+        if (splitPoints.length > 1) {
+          // Replace the current bullet point with the first item
+          newBulletPoints[index] = splitPoints[0];
+          
+          // Insert the remaining items as new bullet points
+          for (let i = 1; i < splitPoints.length; i++) {
+            newBulletPoints.splice(index + i, 0, splitPoints[i]);
+          }
+        } else {
+          // Single bullet point, update normally
+          newBulletPoints[index] = value;
+        }
+        
         return {
           ...card,
           bulletPoints: newBulletPoints
@@ -152,10 +614,10 @@ const CreateAssignmentPage: React.FC = () => {
       return;
     }
 
-    if (!dueDate) {
+    if (!dueDateTime) {
       toast({
         title: "Missing due date",
-        description: "Please set a due date for the assignment",
+        description: "Please set a due date and time for the assignment",
       });
       return;
     }
@@ -169,28 +631,69 @@ const CreateAssignmentPage: React.FC = () => {
     }
 
     try {
-      const assignmentData = {
-        class_id: classId!,
-        created_by: user || '',
-        title: title.trim(),
-        due_date: dueDate,
-        questions: questionCards.map(card => ({
-          ...card,
-          question: card.question.trim(),
-          bulletPoints: card.bulletPoints?.map(bp => bp.trim())
-        })),
-        metadata: { autoSendReport: false },
-        status: 'not_started' as const
-      };
+      // Use the combined datetime value
+      const dueDateTimeObj = new Date(dueDateTime);
 
-      await dispatch(createAssignment(assignmentData)).unwrap();
+      const isEditing = location.state?.isEditing;
+      const assignmentId = location.state?.assignmentId;
+
+      if (isEditing && assignmentId) {
+        // Update existing assignment
+        const updateData = {
+          title: title.trim(),
+          due_date: dueDateTimeObj.toISOString(),
+          questions: questionCards.map(card => ({
+            ...card,
+            question: card.question.trim(),
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+            hintText: card.hintText?.trim()
+          })),
+          metadata: { 
+            autoGrade, 
+            isTest, 
+            audioOnlyMode,
+            ...(sections.length > 0 && { sections })
+          },
+        };
+
+        await dispatch(updateAssignment({ assignmentId, data: updateData })).unwrap();
+      } else {
+        // Create new assignment
+        const assignmentData = {
+          class_id: classId!,
+          created_by: user || '',
+          title: title.trim(),
+          due_date: dueDateTimeObj.toISOString(),
+          questions: questionCards.map(card => ({
+            ...card,
+            question: card.question.trim(),
+            bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+            hintText: card.hintText?.trim()
+          })),
+          metadata: { 
+            autoGrade, 
+            isTest, 
+            audioOnlyMode,
+            ...(sections.length > 0 && { sections })
+          },
+          status: 'not_started' as const
+        };
+
+        await dispatch(createAssignment(assignmentData)).unwrap();
+      }
+
+      const actionText = isEditing ? 'updated' : 'published';
       
-      toast({ title: 'Assignment published', description: 'The assignment has been published successfully' });
+      toast({ 
+        title: `Assignment ${actionText}`, 
+        description: `The assignment has been ${actionText} successfully` 
+      });
       navigate(`/class/${classId}`);
     } catch (err: any) {
-      toast({ 
-        title: 'Publish failed', 
-        description: err?.message || 'Could not create assignment',
+      const isEditing = location.state?.isEditing;
+      toast({
+        title: isEditing ? 'Update failed' : 'Publish failed',
+        description: err?.message || `Could not ${isEditing ? 'update' : 'create'} assignment`,
         variant: 'destructive'
       });
     }
@@ -225,338 +728,1147 @@ const CreateAssignmentPage: React.FC = () => {
     </div>
   );
 
+  // Add preview handler
+  const handlePreview = () => {
+    if (!title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter an assignment title",
+      });
+      return;
+    }
+
+    if (!dueDateTime) {
+      toast({
+        title: "Missing due date",
+        description: "Please set a due date and time for the assignment",
+      });
+      return;
+    }
+
+    if (questionCards.some(q => !q.question.trim())) {
+      toast({
+        title: "Incomplete questions",
+        description: "Please make sure all questions have content",
+      });
+      return;
+    }
+
+    setIsPreviewMode(true);
+  };
+
+  // Add a placeholder for save as template
+  const handleSaveAsTemplate = async () => {
+    if (!title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter an assignment title",
+      });
+      return;
+    }
+
+    if (questionCards.some(q => !q.question.trim())) {
+      toast({
+        title: "Incomplete questions",
+        description: "Please make sure all questions have content",
+      });
+      return;
+    }
+
+    try {
+      const templateData = {
+        teacher_id: user!,
+        title: title.trim(),
+        questions: questionCards.map(card => ({
+          ...card,
+          question: card.question.trim(),
+          bulletPoints: card.bulletPoints?.map(bp => bp.trim()),
+          hintText: card.hintText?.trim()
+        })),
+        metadata: { 
+          autoGrade,
+          ...(sections.length > 0 && { sections })
+        }
+      };
+
+      await dispatch(createAssignmentTemplate(templateData)).unwrap();
+      toast({
+        title: 'Template saved',
+        description: 'This assignment has been saved as a template.'
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Save failed',
+        description: err?.message || 'Could not save template',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Filter handlers
+  const handleTopicChange = (topic: string | undefined) => {
+    dispatch(setTopic(topic));
+  };
+
+  const handlePartTypeChange = (partType: PartType | undefined) => {
+    dispatch(setPartType(partType));
+  };
+
+  const handleClearFilters = () => {
+    dispatch(clearFiltersAction());
+  };
+
+  // Add part to assignment
+  const handleAddPart = (part: AssignmentPart | PartCombination, insertIndex?: number, createNewSection?: boolean) => {
+    let questions: any[] = [];
+    
+    if ('part2' in part && 'part3' in part) {
+      // This is a PartCombination - combine part2 and part3 questions
+      const part2Questions = (part.part2?.questions || []).map((q: any) => ({
+        ...q,
+        type: 'bulletPoints' as const,
+        bulletPoints: q.bulletPoints || ['']
+      }));
+      
+      const part3Questions = (part.part3?.questions || []).map((q: any) => ({
+        ...q,
+        type: 'normal' as const
+      }));
+      
+      questions = [...part2Questions, ...part3Questions];
+    } else if ('questions' in part) {
+      // This is an AssignmentPart
+      questions = part.questions.map((q: any) => {
+        if (part.part_type === 'part2_only') {
+          return {
+            ...q,
+            type: 'bulletPoints' as const,
+            bulletPoints: q.bulletPoints || ['']
+          };
+        } else {
+          return {
+            ...q,
+            type: 'normal' as const
+          };
+        }
+      });
+    }
+    
+    const newQuestionCards = questions.map((q: any, index: number) => ({
+      id: `card-${Date.now()}-${index}`,
+      type: q.type,
+      question: q.question,
+      bulletPoints: q.bulletPoints || [],
+      speakAloud: q.speakAloud || false,
+      timeLimit: '1',
+      prepTime: '0:15',
+      hasHint: false,
+      hintText: ''
+    }));
+    
+    if (insertIndex !== undefined) {
+      // Insert at specific position
+      setQuestionCards(prev => {
+        const newCards = [...prev];
+        newCards.splice(insertIndex, 0, ...newQuestionCards);
+        return newCards;
+      });
+      
+      // Update section start indices if sections exist
+      if (sections.length > 0) {
+        setSections(prev => prev.map(section => {
+          // If this section starts at or after the insert point, update its start index
+          if (section.questionStartIndex >= insertIndex) {
+            return {
+              ...section,
+              questionStartIndex: section.questionStartIndex + newQuestionCards.length
+            };
+          }
+          return section;
+        }));
+      }
+    } else {
+      // Add to end - check if we should create a new section
+      const currentQuestionCount = questionCards.length;
+      
+      // Check if we have any non-empty questions
+      const hasNonEmptyQuestions = questionCards.some(q => q.question.trim() !== '');
+      
+      // Only create sections if we're already in section mode OR it's an empty assignment
+      const isInSectionMode = sections.length > 0;
+      const isEmptyAssignment = !hasNonEmptyQuestions;
+      const shouldCreateSection = createNewSection && (isInSectionMode || isEmptyAssignment);
+      
+      if (shouldCreateSection) {
+        // Create a new section when clicking in section mode or empty assignment
+        let partTypeText = '';
+        if ('part2' in part && 'part3' in part) {
+          partTypeText = ' (Part 2 & 3)';
+        } else if ('part_type' in part) {
+          switch (part.part_type) {
+            case 'part1':
+              partTypeText = ' (Part 1)';
+              break;
+            case 'part2_only':
+              partTypeText = ' (Part 2)';
+              break;
+            case 'part2_3':
+              partTypeText = ' (Part 2 & 3)';
+              break;
+            case 'part3_only':
+              partTypeText = ' (Part 3)';
+              break;
+            default:
+              partTypeText = '';
+          }
+        }
+        
+        const newSection: SectionTag = {
+          id: `section-${Date.now()}`,
+          name: `${part.title}${partTypeText}`,
+          questionStartIndex: isEmptyAssignment ? 0 : currentQuestionCount
+        };
+        
+        if (isEmptyAssignment) {
+          setSections([newSection]); // Replace sections for empty assignment
+        } else {
+          setSections(prev => [...prev, newSection]); // Add to existing sections
+        }
+      }
+      
+      // Handle question replacement/addition
+      if (createNewSection && !hasNonEmptyQuestions) {
+        // Replace empty questions (normal mode behavior)
+        setQuestionCards(newQuestionCards);
+      } else {
+        // Add to existing questions
+        setQuestionCards(prev => [...prev, ...newQuestionCards]);
+      }
+    }
+    
+    // Show success toast
+    toast({
+      title: 'Questions added',
+      description: `Added ${questions.length} question${questions.length !== 1 ? 's' : ''} from "${part.title}"`,
+    });
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (part: AssignmentPart | PartCombination) => {
+    setIsDraggingPart(true);
+    setDraggedPart(part);
+  };
+
+  const handleDragEnd = () => {
+    setIsDraggingPart(false);
+    setDraggedPart(null);
+    setDropIndex(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDropIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedPart) {
+      handleAddPart(draggedPart, index);
+    }
+    handleDragEnd();
+  };
+
+  // Global drag end handler
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      if (isDraggingPart) {
+        handleDragEnd();
+      }
+    };
+
+    document.addEventListener('dragend', handleGlobalDragEnd);
+    return () => {
+      document.removeEventListener('dragend', handleGlobalDragEnd);
+    };
+  }, [isDraggingPart]);
+
+
+  if (isPreviewMode) {
+    return (
+      <AssignmentPractice
+        previewMode={true}
+        previewData={{
+          title,
+          due_date: dueDateTime,
+          questions: questionCards,
+          id: 'preview',
+          metadata: {
+            autoGrade,
+            isTest,
+            ...(sections.length > 0 && { sections })
+          }
+        }}
+        onBack={() => setIsPreviewMode(false)}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F5F9FF]">
+      <main className="flex-1">
+        {/* Part Library Sidebar */}
+        <PartLibrary
+          isOpen={isPartLibraryOpen}
+          onToggle={setIsPartLibraryOpen}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedTopic={selectedTopic}
+          onTopicChange={handleTopicChange}
+          selectedPartType={selectedPartType}
+          onPartTypeChange={handlePartTypeChange}
+          onClearFilters={handleClearFilters}
+          parts={parts}
+          combinations={combinations}
+          partsLoading={partsLoading}
+          onAddPart={handleAddPart}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        />
 
-      <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Header with back button and publish button */}
-        <div className="flex justify-between items-center mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`/class/${classId}`)}
-            className="text-gray-600"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to class
-          </Button>
+        {/* Main Content */}
+        <div className={cn(
+          "min-h-screen transition-all duration-300 ease-in-out",
+          isPartLibraryOpen ? "ml-80" : "ml-12"
+        )}>
+          <div className="container mx-auto px-4 py-8 max-w-4xl">
+          {/* Header with back button and publish button */}
+          <div className="flex justify-between items-center mb-6">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                // Always go back to the class detail page
+                navigate(`/class/${classId}`);
+              }}
+              className="text-gray-600"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {location.state?.isEditing ? 'Back to class' : 'Back to class'}
+            </Button>
 
-          <Button
-            onClick={handleSubmit}
-            className="bg-[#272A69] hover:bg-[#272A69]/90 text-white"
-          >
-            Publish
-          </Button>
-        </div>
-
-        <div className="max-w-4xl mx-auto relative">
-          {/* Header Card with title, description, settings */}
-          <Card
-            className={cn(
-              "mb-4 overflow-hidden border shadow-md rounded-lg transition-all duration-200",
-              activeHeaderCard ? "ring-2 ring-[#272A69]" : ""
-            )}
-            onMouseDown={(e: React.MouseEvent) => {
-              const target = e.target as HTMLElement;
-              const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
-
-              if (!isInput) {
-                (document.activeElement as HTMLElement)?.blur();
-                setActiveCardId(''); // Clear selected question card
-                setActiveHeaderCard(true); // Activate header card
-              }
-            }}
-          >
-            <CardContent className="p-6 space-y-6">
-              {/* Title and description */}
-              <div className="space-y-2">
-                <div className={cn(
-                  "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
-                  activeHeaderCard ? "bg-gray-50" : "bg-transparent"
-                )}>
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    onFocus={() => {
-                      setActiveCardId('');
-                      setActiveHeaderCard(true);
-                    }}
-                    placeholder="Untitled Assignment"
-                    className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                </div>
-                {/* Description input commented out for now
-                <div className={cn(
-                  "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
-                  activeHeaderCard ? "bg-gray-50" : "bg-transparent"
-                )}>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    onFocus={() => {
-                      setActiveCardId('');
-                      setActiveHeaderCard(true);
-                    }}
-                    placeholder="Assignment description"
-                    className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                </div>
-                */}
+            <div className="flex gap-4">
+              <Button
+                variant="ghost"
+                onClick={handlePreview}
+                className="text-[#272A69] hover:text-[#272A69]/90"
+              >
+                Preview
+              </Button>
+              <div className="flex">
+                <Button
+                  onClick={handleSubmit}
+                  className="bg-[#272A69] hover:bg-[#272A69]/90 text-white rounded-r-none border-r border-[#1f2251]"
+                >
+                  {location.state?.isEditing ? 'Update' : 'Publish'}
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="bg-[#272A69] hover:bg-[#272A69]/90 text-white px-2 rounded-l-none">
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleSaveAsTemplate}>
+                      Save as Template
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
+            </div>
+          </div>
 
-              {/* Settings - Only show if header card is active */}
-              <AnimatePresence>
-                {activeHeaderCard && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <div className="space-y-5 pt-3 border-t">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Due Date */}
-                        <div className="space-y-2">
-                          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date</Label>
-                          <Input
-                            id="dueDate"
-                            type="date"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                            className="bg-white px-3 py-2 rounded-md border border-gray-200 focus:outline-none focus:ring-0 focus:ring-offset-0 w-36 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 [&::-webkit-datetime-edit]:text-gray-700 [&::-webkit-datetime-edit-fields-wrapper]:text-gray-700 [&::-webkit-datetime-edit]:font-normal"
-                          />
+          <div className="max-w-4xl mx-auto relative">
+            {/* Header Card with title, description, settings */}
+            <Card
+              className={cn(
+                "border border-gray-200 shadow-md overflow-hidden mb-6",
+                activeHeaderCard && (isTest ? "ring-2 ring-orange-500 border-orange-500" : "ring-2 ring-[#272A69] border-[#272A69]"),
+                !activeHeaderCard && "border-gray-200"
+              )}
+              onMouseDown={(e: React.MouseEvent) => {
+                const target = e.target as HTMLElement;
+                const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+
+                if (!isInput) {
+                  (document.activeElement as HTMLElement)?.blur();
+                  setActiveCardId(''); // Clear selected question card
+                  setActiveHeaderCard(true); // Activate header card
+                }
+              }}
+            >
+              <CardContent className="p-6">
+                {/* Spacer to match drag handle spacing */}
+                <div className="py-1"></div>
+                
+                {/* Title and description */}
+                <div className="space-y-2">
+                  <div className={cn(
+                    "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
+                    activeHeaderCard ? "bg-gray-50" : "bg-transparent"
+                  )}>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      onFocus={() => {
+                        setActiveCardId('');
+                        setActiveHeaderCard(true);
+                      }}
+                      placeholder="Assignment Title"
+                      className="border-none text-xl font-medium p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+
+                {/* Settings - Only show if header card is active */}
+                <AnimatePresence>
+                  {activeHeaderCard && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      style={{ overflow: 'hidden' }}
+                      className="mt-6"
+                    >
+                      <div className="space-y-5 pt-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Due Date and Time */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Due Date & Time</Label>
+                            <DateTimePicker
+                              value={dueDateTime}
+                              onChange={setDueDateTime}
+                              minDate={new Date().toISOString()}
+                              placeholder="Select due date and time"
+                              className="bg-white"
+                            />
+                          </div>
+                          
+                          {/* Auto Grade Setting */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-sm font-medium text-gray-700">Auto Grading</Label>
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="focus:outline-none">
+                                      <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                    <p className="text-sm text-gray-700">Instant AI grading for student speaking submissions. Disable to review and edit the report manually before sending it to the student.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                              <Switch
+                                id="auto-grade"
+                                checked={autoGrade}
+                                onCheckedChange={setAutoGrade}
+                              />
+                              <Label htmlFor="auto-grade" className="text-sm text-gray-600">
+                                {autoGrade ? "Enabled" : "Disabled"}
+                              </Label>
+                            </div>
+                          </div>
+
+                          {/* Test Setting */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-1">
+                              <Label className="text-sm font-medium text-gray-700">Test Mode</Label>
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="focus:outline-none">
+                                      <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                    <p className="text-sm text-gray-700">Simulates real test with spoken questions. Disable for normal practice sessions.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                              <Switch
+                                id="test-mode"
+                                checked={isTest}
+                                onCheckedChange={setIsTest}
+                              />
+                              <Label htmlFor="test-mode" className="text-sm text-gray-600">
+                                {isTest ? "Enabled" : "Disabled"}
+                              </Label>
+                            </div>
+                          </div>
+                          
+                          {/* Audio-Only Mode Setting */}
+                          {!isTest && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1">
+                                <Label className="text-sm font-medium text-gray-700">Audio-Only Mode</Label>
+                                <TooltipProvider delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button type="button" className="focus:outline-none">
+                                        <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right" className="bg-white border border-gray-200 shadow-lg max-w-xs">
+                                      <p className="text-sm text-gray-700">Hide question text for Part 1 & 3 questions. Students will only hear audio without seeing the text.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div className="flex items-center space-x-2 bg-white p-2 rounded-md border border-gray-200">
+                                <Switch
+                                  id="audio-only-mode"
+                                  checked={audioOnlyMode}
+                                  onCheckedChange={setAudioOnlyMode}
+                                />
+                                <Label htmlFor="audio-only-mode" className="text-sm text-gray-600">
+                                  {audioOnlyMode ? "Enabled" : "Disabled"}
+                                </Label>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Assignment Templates */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">Templates</Label>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  className="w-full justify-between bg-white"
+                                  disabled={templatesLoading || templates.length === 0}
+                                >
+                                  {templatesLoading ? "Loading..." : 
+                                   templates.length === 0 ? "No templates" : 
+                                   "Select template"}
+                                  <ChevronDown className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-80 overflow-y-auto" align="start">
+                                {templates.map((template: AssignmentTemplate) => (
+                                  <div key={template.id}>
+                                    <div className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 group">
+                                      <button
+                                        type="button"
+                                        className="text-sm font-medium text-left flex-1 hover:text-[#272A69] transition-colors"
+                                        onClick={() => {
+                                          setTitle(template.title);
+                                          setQuestionCards(template.questions);
+                                        }}
+                                      >
+                                        {template.title}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-2 p-1 rounded hover:bg-red-50"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          dispatch(deleteAssignmentTemplate(template.id));
+                                        }}
+                                        title="Delete template"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                    {template !== templates[templates.length - 1] && <DropdownMenuSeparator />}
+                                  </div>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </CardContent>
-          </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
 
-          {/* Question Cards */}
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="questionsList" type="QUESTION" direction="vertical">
-              {(provided: DroppableProvided) => (
-                <div
-                  {...provided.droppableProps}
-                  ref={provided.innerRef}
-                  className="flex flex-col mb-6"
-                >
-                  {questionCards.map((card, index) => (
-                    <Draggable key={card.id} draggableId={card.id} index={index}>
-                      {(provided: DraggableProvided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          className={cn(
-                            "mb-4 relative rounded-lg overflow-hidden",
-                            activeCardId === card.id && "ring-2 ring-[#272A69]"
-                          )}
-                          onMouseDown={(e: React.MouseEvent) => {
-                            const target = e.target as HTMLElement;
-
-                            // Only activate the card if the click is NOT inside an editable field
-                            if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
-
-                            (document.activeElement as HTMLElement)?.blur();
-                            setActiveCardId(card.id);
-                            setActiveHeaderCard(false);
-                          }}
-                        >
-                          <Card className="border shadow-md overflow-hidden">
-                            <div {...provided.dragHandleProps} className="flex justify-center">
-                              <DragHandle />
-                            </div>
-                            <CardContent className="p-6">
-                              <div className="space-y-4">
-                                {/* Question Input */}
-                                <div className="space-y-2">
-                                  <div
-                                    className={cn(
-                                      "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
-                                      activeCardId === card.id ? "bg-gray-50" : "bg-transparent"
-                                    )}
-                                  >
-                                    <Input
-                                      value={card.question}
-                                      onChange={e =>
-                                        updateQuestionCard(card.id, { question: e.target.value })
-                                      }
-                                      onFocus={() => {
-                                        setActiveCardId(card.id);
-                                        setActiveHeaderCard(false);
+            {/* Question Cards */}
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="questionsList" type="QUESTION" direction="vertical">
+                {(provided: DroppableProvided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="flex flex-col mb-6"
+                  >
+                    {/* Drop zone at the beginning */}
+                    {isDraggingPart && (
+                      <div
+                        className={cn(
+                          "h-8 mb-2 rounded-lg border-2 border-dashed transition-all duration-200",
+                          dropIndex === 0 
+                            ? "border-[#272A69] bg-[#272A69]/5" 
+                            : "border-gray-300 bg-gray-50"
+                        )}
+                        onDragOver={(e) => handleDragOver(e, 0)}
+                        onDrop={(e) => handleDrop(e, 0)}
+                      />
+                    )}
+                    
+                    {questionCards.map((card, index) => {
+                      const currentSection = getSectionForQuestionIndex(index);
+                      const isFirstInSection = currentSection && currentSection.questionStartIndex === index;
+                      const isLastInSection = index === questionCards.length - 1 || 
+                        (index + 1 < questionCards.length && getSectionForQuestionIndex(index + 1)?.id !== currentSection?.id);
+                      const sectionIndex = sections.findIndex(s => s.id === currentSection?.id);
+                      
+                      return (
+                        <React.Fragment key={card.id}>
+                          {/* Section Tag */}
+                          {isFirstInSection && currentSection && (
+                            <div className="mb-4">
+                              <div className="px-4 py-3 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-between">
+                                <input
+                                  type="text"
+                                  value={currentSection.name}
+                                  onChange={(e) => {
+                                    setSections(prev => prev.map(s => 
+                                      s.id === currentSection.id ? { ...s, name: e.target.value } : s
+                                    ));
+                                  }}
+                                  className="flex h-10 w-full rounded-md border border-input ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                  placeholder={`Section ${sections.findIndex(s => s.id === currentSection.id) + 1}`}
+                                />
+                                <DropdownMenu open={openSectionMenu === currentSection.id} onOpenChange={(open) => setOpenSectionMenu(open ? currentSection.id : null)}>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-2 h-8 w-8 p-0"
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={openMoveModal}>
+                                      <Move className="mr-2 h-4 w-4" />
+                                      Move Section
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => duplicateSection(currentSection.id)}>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Duplicate Section
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setShowDeleteConfirm(currentSection.id);
+                                        setOpenSectionMenu(null);
                                       }}
-                                      placeholder={`Question ${index + 1}`}
-                                      className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
-                                    />
-                                  </div>
-                                </div>
+                                      className="text-red-600 focus:text-red-600"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete Section
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <Draggable draggableId={card.id} index={index}>
+                            {(provided: DraggableProvided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                "mb-4 relative rounded-lg overflow-hidden",
+                                activeCardId === card.id && (isTest ? "ring-2 ring-orange-500" : "ring-2 ring-[#272A69]")
+                              )}
+                              onMouseDown={(e: React.MouseEvent) => {
+                                const target = e.target as HTMLElement;
 
-                                {/* Bullet Points */}
-                                {card.type === "bulletPoints" && (
-                                  <div
-                                    className={cn(
-                                      "p-4 rounded-lg",
-                                      activeCardId === card.id ? "bg-gray-50" : ""
-                                    )}
-                                  >
-                                    <h4 className="text-sm font-medium mb-3">Bullet Points</h4>
+                                // Only activate the card if the click is NOT inside an editable field
+                                if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+                                (document.activeElement as HTMLElement)?.blur();
+                                setActiveCardId(card.id);
+                                setActiveHeaderCard(false);
+                              }}
+                            >
+                              <Card className="border border-gray-200 shadow-md overflow-hidden">
+                                <div {...provided.dragHandleProps} className="flex justify-center">
+                                  <DragHandle />
+                                </div>
+                                <CardContent className="p-6">
+                                  <div className="space-y-4">
+                                    {/* Question Input */}
                                     <div className="space-y-2">
-                                      {card.bulletPoints?.map((bullet, i) => (
-                                        <div key={i} className="flex items-center space-x-2">
-                                          <div className="text-gray-500 font-bold">•</div>
-                                          <Input
-                                            value={bullet}
-                                            onChange={e => updateBulletPoint(card.id, i, e.target.value)}
-                                            onMouseDown={() => {
-                                              setActiveCardId(card.id)
-                                              setActiveHeaderCard(false)
-                                            }}
-                                            placeholder="Enter bullet point text..."
-                                            className="
-                                              flex-1
-                                              focus:outline-none
-                                              focus:ring-0
-                                              focus:ring-transparent
-                                              focus:ring-offset-0
-                                              focus-visible:ring-0
-                                              focus-visible:ring-transparent
-                                              focus-visible:ring-offset-0
-                                              ring-0
-                                            "
-                                          />
-                                          {card.bulletPoints!.length > 1 &&
-                                            activeCardId === card.id && (
+                                      <div
+                                        className={cn(
+                                          "bg-gray-50 px-4 py-3 rounded-md transition-all duration-200",
+                                          activeCardId === card.id ? "bg-gray-50" : "bg-transparent"
+                                        )}
+                                      >
+                                        <Input
+                                          value={card.question}
+                                          onChange={e =>
+                                            updateQuestionCard(card.id, { question: e.target.value })
+                                          }
+                                          onFocus={() => {
+                                            setActiveCardId(card.id);
+                                            setActiveHeaderCard(false);
+                                          }}
+                                          placeholder={`Question ${index + 1}`}
+                                          className="border-none text-xl font-medium p-0 bg-transparent mb-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Bullet Points */}
+                                    {card.type === "bulletPoints" && (
+                                      <div
+                                        className={cn(
+                                          "p-4 rounded-lg",
+                                          activeCardId === card.id ? "bg-gray-50" : ""
+                                        )}
+                                      >
+                                        <h4 className="text-sm font-medium mb-3">You should say:</h4>
+                                        <div className="space-y-2">
+                                          {card.bulletPoints?.map((bullet, i) => (
+                                            <div key={i} className="flex items-center space-x-2">
+                                              <div className="text-gray-500 font-bold">•</div>
+                                              <Input
+                                                value={bullet}
+                                                onChange={e => updateBulletPoint(card.id, i, e.target.value)}
+                                                onMouseDown={() => {
+                                                  setActiveCardId(card.id)
+                                                  setActiveHeaderCard(false)
+                                                }}
+                                                placeholder="Enter bullet point text..."
+                                                className="
+                                                  flex-1
+                                                  focus:outline-none
+                                                  focus:ring-0
+                                                  focus:ring-transparent
+                                                  focus:ring-offset-0
+                                                  focus-visible:ring-0
+                                                  focus-visible:ring-transparent
+                                                  focus-visible:ring-offset-0
+                                                  ring-0
+                                                "
+                                              />
+                                              {card.bulletPoints!.length > 1 &&
+                                                activeCardId === card.id && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={e => {
+                                                      e.stopPropagation()
+                                                      deleteBulletPoint(card.id, i)
+                                                    }}
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
+                                                  >
+                                                    <Trash2 className="h-4 w-4" />
+                                                  </Button>
+                                                )}
+                                            </div>
+                                          ))}
+                                          {activeCardId === card.id && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={e => {
+                                                e.stopPropagation()
+                                                addBulletPoint(card.id)
+                                              }}
+                                              className="mt-2 border-none focus:outline-none focus:ring-0"
+                                            >
+                                              <Plus className="h-3 w-3 mr-2" />
+                                              Add Bullet Point
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Hints - Available for all question types */}
+                                    {card.hasHint && (
+                                      <div
+                                        className={cn(
+                                          "p-4 rounded-lg",
+                                          activeCardId === card.id ? "bg-gray-50" : ""
+                                        )}
+                                      >
+                                        <h4 className="text-sm font-medium mb-3">Hint:</h4>
+                                        <Textarea
+                                          value={card.hintText || ''}
+                                          onChange={(e) => updateQuestionCard(card.id, { hintText: e.target.value })}
+                                          onMouseDown={() => {
+                                            setActiveCardId(card.id);
+                                            setActiveHeaderCard(false);
+                                          }}
+                                          placeholder="Enter a hint to help students with this question..."
+                                          className="min-h-[60px] bg-white focus:outline-none focus:ring-0 focus:ring-transparent focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0 ring-0"
+                                          maxLength={500}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Controls */}
+                                    <AnimatePresence>
+                                      {activeCardId === card.id && (
+                                        <motion.div
+                                          initial={{ height: 0, opacity: 0 }}
+                                          animate={{ height: "auto", opacity: 1 }}
+                                          exit={{ height: 0, opacity: 0 }}
+                                          transition={{ duration: 0.2, ease: "easeInOut" }}
+                                          style={{ overflow: 'hidden' }}
+                                        >
+                                          <div className="flex flex-col space-y-4 pt-4">
+                                            <div className="flex items-center justify-between gap-4">
+                                              <div className="flex items-center gap-4">
+                                                <div className="flex flex-col">
+                                                  <label className="text-xs text-gray-500 mb-1">Question Style</label>
+                                                  <Select
+                                                    value={card.type}
+                                                    onValueChange={(value: "normal" | "bulletPoints") =>
+                                                      updateQuestionCard(card.id, {
+                                                        type: value,
+                                                        bulletPoints:
+                                                          value === "bulletPoints" ? [""] : undefined,
+                                                        hasHint: value === "normal" ? card.hasHint : false,
+                                                        hintText: value === "normal" ? card.hintText : undefined,
+                                                      })
+                                                    }
+                                                  >
+                                                    <SelectTrigger className="w-40">
+                                                      <SelectValue>
+                                                        {card.type === "normal"
+                                                          ? "Part 1 or Part 3 "
+                                                          : "Part 2 "}
+                                                      </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      <SelectItem value="normal">Part 1 or Part 3</SelectItem>
+                                                      <SelectItem value="bulletPoints">
+                                                        Part 2
+                                                      </SelectItem>
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+
+                                                {/* Hint Toggle - Available for all question types */}
+                                                <div className="flex flex-col">
+                                                    <label className="text-xs text-gray-500 mb-1">Hint</label>
+                                                    <div className="flex items-center h-9">
+                                                      <Switch
+                                                        checked={card.hasHint || false}
+                                                        onCheckedChange={(checked) => {
+                                                          updateQuestionCard(card.id, { 
+                                                            hasHint: checked,
+                                                            hintText: checked ? (card.hintText || '') : undefined
+                                                          });
+                                                        }}
+                                                      />
+                                                    </div>
+                                                  </div>
+                                              </div>
+                                              
+                                              <div className="flex items-center gap-4">
+                                                {isTest && (
+                                                  <div className="flex flex-col">
+                                                    <label className="text-xs text-gray-500 mb-1">Prep Time (M:SS)</label>
+                                                    <Input
+                                                      type="text"
+                                                      pattern="[0-9]:[0-9]{2}"
+                                                      placeholder="0:15"
+                                                      value={formatPrepTime(card.prepTime)}
+                                                      onChange={(e) => {
+                                                        const timeValue = e.target.value;
+                                                        // Validate M:SS format and max 9:59
+                                                        if (/^[0-9]?:?[0-9]{0,2}$/.test(timeValue)) {
+                                                          updateQuestionCard(card.id, { prepTime: timeValue });
+                                                        }
+                                                      }}
+                                                      onBlur={(e) => {
+                                                        const timeValue = e.target.value;
+                                                        // Ensure proper format on blur
+                                                        if (timeValue && !timeValue.includes(':')) {
+                                                          // If only numbers, treat as minutes (max 9)
+                                                          const minutes = Math.min(parseInt(timeValue) || 1, 9);
+                                                          const formatted = secondsToTime(minutes * 60);
+                                                          updateQuestionCard(card.id, { prepTime: formatted });
+                                                        } else if (timeValue.includes(':')) {
+                                                          // Validate and fix M:SS format
+                                                          const parts = timeValue.split(':');
+                                                          const minutes = Math.min(parseInt(parts[0]) || 0, 9);
+                                                          const seconds = Math.min(parseInt(parts[1]) || 0, 59);
+                                                          const formatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                                          updateQuestionCard(card.id, { prepTime: formatted });
+                                                        }
+                                                      }}
+                                                      className="w-16 text-center text-sm"
+                                                    />
+                                                  </div>
+                                                )}
+                                                
+                                                <div className="flex flex-col">
+                                                  <label className="text-xs text-gray-500 mb-1">Recording Time</label>
+                                                  <Select
+                                                    value={card.timeLimit}
+                                                    onValueChange={value =>
+                                                      updateQuestionCard(card.id, { timeLimit: value })
+                                                    }
+                                                  >
+                                                    <SelectTrigger className="w-32">
+                                                      <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {timeLimits.map(t => (
+                                                        <SelectItem key={t.value} value={t.value}>
+                                                          {t.label}
+                                                        </SelectItem>
+                                                      ))}
+                                                    </SelectContent>
+                                                  </Select>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            
+
+                                            
+                                            <div className="flex items-center justify-end">
                                               <Button
-                                                variant="ghost"
+                                                variant="destructive"
                                                 size="icon"
+                                                disabled={questionCards.length <= 1}
                                                 onClick={e => {
                                                   e.stopPropagation()
-                                                  deleteBulletPoint(card.id, i)
+                                                  deleteQuestionCard(card.id)
                                                 }}
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8"
                                               >
                                                 <Trash2 className="h-4 w-4" />
                                               </Button>
-                                            )}
-                                        </div>
-                                      ))}
-                                      {activeCardId === card.id && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={e => {
-                                            e.stopPropagation()
-                                            addBulletPoint(card.id)
-                                          }}
-                                          className="mt-2 border-none focus:outline-none focus:ring-0"
-                                        >
-                                          <Plus className="h-3 w-3 mr-2" />
-                                          Add Bullet Point
-                                        </Button>
+                                            </div>
+                                          </div>
+                                        </motion.div>
                                       )}
-                                    </div>
+                                    </AnimatePresence>
                                   </div>
-                                )}
-
-                                {/* Controls */}
-                                <AnimatePresence>
-                                  {activeCardId === card.id && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2, ease: "easeInOut" }}
-                                      style={{ overflow: 'hidden' }}
+                                </CardContent>
+                              </Card>
+                            </div>
+                          )}
+                        </Draggable>
+                        
+                        {/* Drop zone after each card */}
+                        {isDraggingPart && (
+                          <div
+                            className={cn(
+                              "h-8 mb-2 rounded-lg border-2 border-dashed transition-all duration-200",
+                              dropIndex === index + 1 
+                                ? "border-[#272A69] bg-[#272A69]/5" 
+                                : "border-gray-300 bg-gray-50"
+                            )}
+                            onDragOver={(e) => handleDragOver(e, index + 1)}
+                            onDrop={(e) => handleDrop(e, index + 1)}
+                          />
+                          )}
+                          
+                          {/* Add Question to Section Button */}
+                          {isLastInSection && currentSection && sectionIndex >= 0 && (
+                            <div className="flex justify-center mt-4 mb-6">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="secondary"
+                                      size="icon"
+                                      onClick={() => addQuestionToSection(sectionIndex)}
+                                      className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
                                     >
-                                      <div className="flex flex-col space-y-4 pt-4">
-                                        <div className="flex items-center justify-between gap-4">
-                                          <Select
-                                            value={card.type}
-                                            onValueChange={(value: "normal" | "bulletPoints") =>
-                                              updateQuestionCard(card.id, {
-                                                type: value,
-                                                bulletPoints:
-                                                  value === "bulletPoints" ? [""] : undefined,
-                                              })
-                                            }
-                                          >
-                                            <SelectTrigger className="w-40">
-                                              <SelectValue>
-                                                {card.type === "normal"
-                                                  ? "Standard "
-                                                  : "Cue Card "}
-                                              </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="normal">Standard</SelectItem>
-                                              <SelectItem value="bulletPoints">
-                                                Cue Card
-                                              </SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                          <Select
-                                            value={card.timeLimit}
-                                            onValueChange={value =>
-                                              updateQuestionCard(card.id, { timeLimit: value })
-                                            }
-                                          >
-                                            <SelectTrigger className="w-32">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              {timeLimits.map(t => (
-                                                <SelectItem key={t.value} value={t.value}>
-                                                  {t.label}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-                                        <div className="flex items-center justify-end">
-                                          <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            disabled={questionCards.length <= 1}
-                                            onClick={e => {
-                                              e.stopPropagation()
-                                              deleteQuestionCard(card.id)
-                                            }}
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
+                                      <Plus className="h-6 w-6" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Add Question to Section</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
 
-                  {provided.placeholder}
+                    {provided.placeholder}
 
-                  {/* Add Question Button */}
-                  <div className="flex justify-center mt-4">
+                    {/* Bottom Buttons */}
+                    {sections.length === 0 ? (
+                      /* No sections yet - show both buttons */
+                      <div className="flex justify-center gap-4 mt-6">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={() => addQuestionCard('normal')}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <Plus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Question</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={createNewSection}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <FolderPlus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Section</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    ) : (
+                      /* Sections exist - only show add section button */
+                      <div className="flex justify-center mt-6">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={createNewSection}
+                                className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                              >
+                                <FolderPlus className="h-6 w-6" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add Section</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+            
+            {/* Delete Section Confirmation Modal */}
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-semibold mb-2">Delete Section</h3>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to delete this section? This will permanently delete all questions within this section.
+                  </p>
+                  <div className="flex gap-3 justify-end">
                     <Button
-                      variant="secondary"
-                      size="icon"
-                      onClick={() => addQuestionCard('normal')}
-                      className="h-12 w-12 rounded-full bg-white shadow-lg hover:bg-gray-100"
+                      variant="outline"
+                      onClick={() => setShowDeleteConfirm(null)}
                     >
-                      <Plus className="h-6 w-6" />
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => deleteSection(showDeleteConfirm)}
+                    >
+                      Delete Section
                     </Button>
                   </div>
                 </div>
-              )}
-            </Droppable>
-          </DragDropContext>
+              </div>
+            )}
+
+            {/* Move Section Modal */}
+            {showMoveModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                  <h3 className="text-lg font-semibold mb-4">Reorder Sections</h3>
+                  <p className="text-gray-600 mb-4">
+                    Drag and drop to reorder sections. Questions will move with their sections.
+                  </p>
+                  
+                  <DragDropContext onDragEnd={handleMoveModalDragEnd}>
+                    <Droppable droppableId="section-reorder">
+                      {(provided) => (
+                        <div
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className="mb-4 h-[300px] overflow-y-auto p-4"
+                        >
+                          {tempSections.map((section, index) => (
+                            <Draggable key={section.id} draggableId={section.id} index={index}>
+                              {(provided) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className="mb-3 flex items-center gap-3 p-3 bg-gray-50 rounded-md border cursor-move"
+                                >
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex gap-0.5">
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                    </div>
+                                    <div className="flex gap-0.5">
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                      <div className="w-0.5 h-0.5 rounded-full bg-gray-400"></div>
+                                    </div>
+                                  </div>
+                                  <span className="font-medium">{section.name}</span>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
+                  
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={cancelMoveChanges}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={applyMoveChanges}
+                    >
+                      Apply Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         </div>
       </main>
 

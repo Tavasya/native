@@ -1,19 +1,37 @@
 import { supabase } from "@/integrations/supabase/client";
 import { RecordingData } from "./types";
+import { validateAudioBlob } from "@/utils/webm-diagnostics";
 
 /**
  * Gets the appropriate file extension based on MIME type
  */
 function getFileExtension(mimeType: string): string {
+  // Handle codec-specific MIME types by checking the base type
+  const baseType = mimeType.split(';')[0].toLowerCase();
+  
   const extensionMap: Record<string, string> = {
-    'audio/webm;codecs=opus': 'webm',
     'audio/webm': 'webm',
-    'audio/mp4': 'mp4',
+    'audio/mp4': 'm4a',  // Use .m4a for audio-only MP4
     'audio/mpeg': 'mp3',
-    'audio/wav': 'wav'
+    'audio/wav': 'wav',
+    'audio/ogg': 'ogg'
   };
   
-  return extensionMap[mimeType] || 'webm';
+  const extension = extensionMap[baseType];
+  if (extension) {
+    return extension;
+  }
+  
+  // Try to infer from the full MIME type if base type didn't match
+  if (mimeType.includes('webm')) return 'webm';
+  if (mimeType.includes('mp4')) return 'm4a';
+  if (mimeType.includes('mpeg')) return 'mp3';
+  if (mimeType.includes('wav')) return 'wav';
+  if (mimeType.includes('ogg')) return 'ogg';
+  
+  // Log unknown MIME type for debugging
+  console.warn(`Unknown MIME type: ${mimeType}, defaulting to .m4a`);
+  return 'm4a'; // Default to m4a instead of webm for better compatibility
 }
 
 /**
@@ -25,6 +43,12 @@ export async function uploadAudioToStorage(
   questionId: string, 
   studentId: string
 ): Promise<string> {
+  // Validate the blob before uploading
+  const validation = await validateAudioBlob(blob);
+  if (!validation.valid) {
+    throw new Error(`Invalid audio file: ${validation.error}`);
+  }
+
   // Check if user is authenticated
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
@@ -91,6 +115,12 @@ export async function prepareRecordingsForSubmission(
         const idx = parseInt(questionIdx);
         const questionId = (questions[idx]?.id || idx).toString();
         
+        // Validate the recording before uploading
+        const validation = await validateAudioBlob(recording.blob);
+        if (!validation.valid) {
+          throw new Error(`Invalid recording for question ${questionId}: ${validation.error}`);
+        }
+        
         // Upload the recording to Supabase
         const publicUrl = await uploadAudioToStorage(
           recording.blob,
@@ -112,5 +142,4 @@ export async function prepareRecordingsForSubmission(
     }
     
     return recordingData;
-    
 }

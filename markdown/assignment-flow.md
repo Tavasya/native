@@ -24,7 +24,6 @@
 4. Add 3 questions with different types:
    - Text question
    - Audio prompt question
-   - Image-based question
 5. Click "Publish Assignment"
 
 **Expected Assertions:**

@@ -1,7 +1,7 @@
 // src/features/assignments/types.ts
 
 export type AssignmentStatus    = 'not_started' | 'in_progress' | 'completed';
-export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed' | 'pending' | 'graded' | 'rejected';
+export type SubmissionStatus    = 'not_started' | 'in_progress' | 'completed' | 'pending' | 'graded' | 'rejected' | 'awaiting_review';
 
 export interface QuestionCard {
   id: string;
@@ -10,6 +10,9 @@ export interface QuestionCard {
   bulletPoints?: string[];
   speakAloud: boolean;
   timeLimit: string;          // in minutes, e.g. "5"
+  prepTime?: string;          // in minutes, e.g. "2" - prep time for test mode
+  hasHint?: boolean;          // Toggle for enabling/disabling hints (Part 1 & 3 only)
+  hintText?: string;          // The actual hint content
 }
 
 export interface Assignment {
@@ -21,10 +24,13 @@ export interface Assignment {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];  // now an array of the above
   metadata: {
-    autoSendReport: boolean;
-    [key: string]: any;       // for future flags
+    autoGrade?: boolean;
+    isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
+    [key: string]: unknown;       // for future flags
   };
   status: AssignmentStatus;
+  view?: boolean;            // for hiding assignments
   // optionally injected by stats thunk:
   completionStats?: {
     submitted: number;
@@ -42,8 +48,24 @@ export interface CreateAssignmentDto {
   due_date: string;           // ISO timestamp
   questions: QuestionCard[];
   metadata?: {
-    autoSendReport: boolean;
-    [key: string]: any;
+    autoGrade?: boolean;
+    isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
+    [key: string]: unknown;
+  };
+  status?: AssignmentStatus;
+}
+
+export interface UpdateAssignmentDto {
+  title?: string;
+  topic?: string;
+  due_date?: string;          // ISO timestamp
+  questions?: QuestionCard[];
+  metadata?: {
+    autoGrade?: boolean;
+    isTest?: boolean;
+    audioOnlyMode?: boolean;     // Hide question text for Part 1 & 3 questions
+    [key: string]: unknown;
   };
   status?: AssignmentStatus;
 }
@@ -59,6 +81,10 @@ export interface StudentSubmission {
   submitted_at: string | null;
   grade: number | null;
   overall_grade: number | null;
+  has_ever_completed?: boolean;
+  total_attempts?: number;
+  completed_attempts?: number;
+  completed_submission_id?: string;
 }
 
 export interface AssignmentState {
@@ -79,6 +105,11 @@ export interface AssignmentState {
     [assignmentId: string]: {
       currentQuestionIndex: number;
       completedQuestions: string[];
+    };
+  };
+  testMode: {
+    hasGloballyStarted: {
+      [assignmentId: string]: boolean;
     };
   };
 }

@@ -1,0 +1,337 @@
+import React, { useMemo, useState } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import { useSelector, useDispatch } from 'react-redux';
+import type { RootState, AppDispatch } from '@/app/store';
+import { fetchSubmissionTrends } from '@/features/metrics/metricsSlice';
+
+type TimelineOption = 'daily' | 'weekly' | 'monthly';
+
+interface SubmissionTrendsData {
+  period: string;
+  Graded: number;
+  'Awaiting Review': number;
+  Pending: number;
+}
+
+const SubmissionTrendsGraph: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const submissionTrends = useSelector((state: RootState) => state.metrics.submissionTrends);
+  const loadingSubmissionTrends = useSelector((state: RootState) => state.metrics.loadingSubmissionTrends);
+  const [timeline, setTimeline] = useState<TimelineOption>('weekly');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await dispatch(fetchSubmissionTrends());
+    setIsRefreshing(false);
+  };
+
+  // Transform data for the graph based on selected timeline
+  const transformedData = useMemo(() => {
+    const now = new Date();
+    let periods: string[] = [];
+    let periodCount: number;
+
+    // Generate periods based on timeline selection
+    switch (timeline) {
+      case 'daily':
+        periodCount = 30; // Last 30 days
+        periods = Array.from({ length: periodCount }, (_, i) => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (periodCount - 1 - i));
+          return date.toISOString().split('T')[0];
+        });
+        break;
+      case 'weekly':
+        periodCount = 8; // Last 8 weeks
+        periods = Array.from({ length: periodCount }, (_, i) => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (i * 7));
+          // Set to start of week (Sunday)
+          date.setDate(date.getDate() - date.getDay());
+          return date.toISOString().split('T')[0];
+        }).reverse();
+        break;
+      case 'monthly':
+        periodCount = 12; // Last 12 months
+        periods = Array.from({ length: periodCount }, (_, i) => {
+          const date = new Date(now.getFullYear(), now.getMonth() - (periodCount - 1 - i), 1);
+          return date.toISOString().split('T')[0];
+        });
+        break;
+    }
+
+    // Separate submissions by status
+    const gradedSubmissions = submissionTrends.filter(submission => submission.status === 'graded');
+    const awaitingReviewSubmissions = submissionTrends.filter(submission => submission.status === 'awaiting_review');
+    const pendingSubmissions = submissionTrends.filter(submission => submission.status === 'pending');
+    
+    // Create trend data using cumulative submissions count
+    const transformed = periods.map((period, periodIndex) => {
+      const periodData: SubmissionTrendsData = { 
+        period: '',
+        Graded: 0,
+        'Awaiting Review': 0,
+        Pending: 0
+      };
+
+      let periodEnd: Date;
+      
+      switch (timeline) {
+        case 'daily':
+          periodData.period = new Date(period).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+          });
+          periodEnd = new Date(period);
+          periodEnd.setDate(periodEnd.getDate() + 1);
+          break;
+        case 'weekly':
+          periodData.period = `Week ${periodIndex + 1}`;
+          periodEnd = new Date(period);
+          periodEnd.setDate(periodEnd.getDate() + 7);
+          break;
+        case 'monthly':
+          periodData.period = new Date(period).toLocaleDateString('en-US', { 
+            month: 'short', 
+            year: 'numeric' 
+          });
+          periodEnd = new Date(period);
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+          break;
+      }
+
+      // Count graded submissions up to this period
+      let gradedCount = 0;
+      gradedSubmissions.forEach(submission => {
+        const submissionDate = new Date(submission.submitted_at);
+        if (submissionDate < periodEnd) {
+          gradedCount++;
+        }
+      });
+      periodData.Graded = gradedCount;
+
+      // Count awaiting review submissions up to this period
+      let awaitingCount = 0;
+      awaitingReviewSubmissions.forEach(submission => {
+        const submissionDate = new Date(submission.submitted_at);
+        if (submissionDate < periodEnd) {
+          awaitingCount++;
+        }
+      });
+      periodData['Awaiting Review'] = awaitingCount;
+
+      // Count pending submissions up to this period
+      let pendingCount = 0;
+      pendingSubmissions.forEach(submission => {
+        const submissionDate = new Date(submission.submitted_at);
+        if (submissionDate < periodEnd) {
+          pendingCount++;
+        }
+      });
+      periodData.Pending = pendingCount;
+
+
+      return periodData;
+    });
+
+    return transformed;
+  }, [submissionTrends, timeline]);
+
+  // Calculate current totals
+  const totalGraded = submissionTrends.filter(submission => submission.status === 'graded').length;
+  const totalAwaitingReview = submissionTrends.filter(submission => submission.status === 'awaiting_review').length;
+  const totalPending = submissionTrends.filter(submission => submission.status === 'pending').length;
+
+  // Calculate recent submissions based on timeline
+  const getRecentSubmissions = () => {
+    const now = new Date();
+    let startDate: Date;
+
+    switch (timeline) {
+      case 'daily':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7); // Last 7 days
+        break;
+      case 'weekly':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 14); // Last 2 weeks
+        break;
+      case 'monthly':
+        startDate = new Date(now);
+        startDate.setMonth(startDate.getMonth() - 1); // Last month
+        break;
+    }
+
+    const recentGraded = submissionTrends.filter(submission => 
+      submission.status === 'graded' && 
+      new Date(submission.submitted_at) >= startDate
+    ).length;
+    
+    const recentAwaitingReview = submissionTrends.filter(submission => 
+      submission.status === 'awaiting_review' && 
+      new Date(submission.submitted_at) >= startDate
+    ).length;
+
+    const recentPending = submissionTrends.filter(submission => 
+      submission.status === 'pending' && 
+      new Date(submission.submitted_at) >= startDate
+    ).length;
+
+    return { recentGraded, recentAwaitingReview, recentPending };
+  };
+
+  const { recentGraded, recentAwaitingReview, recentPending } = getRecentSubmissions();
+
+  const getTimelineLabel = () => {
+    switch (timeline) {
+      case 'daily': return '7d';
+      case 'weekly': return '2w';
+      case 'monthly': return '1m';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">Submission Trends</h3>
+        <div className="flex items-center space-x-4">
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing || loadingSubmissionTrends}
+            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+              isRefreshing || loadingSubmissionTrends
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            }`}
+          >
+            {isRefreshing || loadingSubmissionTrends ? 'Refreshing...' : 'Refresh Data'}
+          </button>
+          {/* Timeline Selector */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Timeline:</span>
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              {(['daily', 'weekly', 'monthly'] as TimelineOption[]).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setTimeline(option)}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    timeline === option
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Legend */}
+          <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+              <span>Graded ({totalGraded})</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+              <span>Awaiting Review ({totalAwaitingReview})</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+              <span>Pending ({totalPending})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={transformedData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="period" 
+              tick={{ fontSize: 12 }}
+              angle={timeline === 'monthly' ? -45 : 0}
+              textAnchor={timeline === 'monthly' ? 'end' : 'middle'}
+              height={timeline === 'monthly' ? 80 : 60}
+            />
+            <YAxis 
+              tick={{ fontSize: 12 }}
+              label={{ value: 'Number of Submissions', angle: -90, position: 'insideLeft' }}
+            />
+            <Tooltip 
+              formatter={(value: number, name: string) => [value, name]}
+              labelFormatter={(label) => {
+                switch (timeline) {
+                  case 'daily': return `Date: ${label}`;
+                  case 'weekly': return `Period: ${label}`;
+                  case 'monthly': return `Month: ${label}`;
+                }
+              }}
+            />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="Graded"
+              stroke="#10b981"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+              name="Graded"
+            />
+            <Line
+              type="monotone"
+              dataKey="Awaiting Review"
+              stroke="#f59e0b"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+              name="Awaiting Review"
+            />
+            <Line
+              type="monotone"
+              dataKey="Pending"
+              stroke="#3b82f6"
+              strokeWidth={3}
+              dot={{ r: 5 }}
+              activeDot={{ r: 7 }}
+              name="Pending"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Summary stats */}
+      <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="bg-green-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-green-800">Total Graded</h4>
+          <p className="text-2xl font-bold text-green-900">{totalGraded}</p>
+          <p className="text-xs text-green-600">+{recentGraded} ({getTimelineLabel()})</p>
+        </div>
+        <div className="bg-orange-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-orange-800">Total Awaiting Review</h4>
+          <p className="text-2xl font-bold text-orange-900">{totalAwaitingReview}</p>
+          <p className="text-xs text-orange-600">+{recentAwaitingReview} ({getTimelineLabel()})</p>
+        </div>
+        <div className="bg-blue-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-800">Total Pending</h4>
+          <p className="text-2xl font-bold text-blue-900">{totalPending}</p>
+          <p className="text-xs text-blue-600">+{recentPending} ({getTimelineLabel()})</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SubmissionTrendsGraph;

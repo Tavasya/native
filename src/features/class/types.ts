@@ -44,7 +44,6 @@ export interface CreateAssignmentDto {
   description: string;
   template: string;
   dueDate: string;
-  autoSendReport: boolean;
   questions: {
     id: string;
     type: 'normal' | 'bulletPoints';

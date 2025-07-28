@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -76,22 +75,30 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
       if (!user || !assignments.length) return;
       
       setIsLoadingSubmissions(true);
-      const submissions: Record<string, { isCompleted: boolean; isInProgress: boolean }> = {};
       
       try {
-        for (const assignment of assignments) {
-          const { data, error } = await supabase
+        // Get all submission statuses in parallel
+        const submissionPromises = assignments.map(assignment => 
+          supabase
             .from('submissions')
             .select('status')
             .eq('assignment_id', assignment.id)
             .eq('student_id', user.id)
             .order('submitted_at', { ascending: false })
-            .limit(1);
+            .limit(1)
+        );
 
+        const results = await Promise.all(submissionPromises);
+        
+        // Process all results at once
+        const submissions: Record<string, { isCompleted: boolean; isInProgress: boolean }> = {};
+        
+        assignments.forEach((assignment, index) => {
+          const { data, error } = results[index];
           if (!error && data && data.length > 0) {
             const status = data[0].status;
             submissions[assignment.id] = {
-              isCompleted: ['pending', 'graded'].includes(status),
+              isCompleted: ['pending', 'graded', 'awaiting_review'].includes(status),
               isInProgress: status === 'in_progress'
             };
           } else {
@@ -100,15 +107,23 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
               isInProgress: false
             };
           }
-        }
-      } finally {
+        });
+
         setAssignmentSubmissions(submissions);
+      } catch (error) {
+        console.error('Error checking submissions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load submission statuses",
+          variant: "destructive",
+        });
+      } finally {
         setIsLoadingSubmissions(false);
       }
     };
 
     checkSubmissions();
-  }, [user, assignments]);
+  }, [user, assignments, toast]);
 
   // Filter assignments to only show those that are not completed
   const activeAssignments = assignments.filter(assignment => {
@@ -149,15 +164,17 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
 
   const renderSkeletonLoader = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <Card className="overflow-hidden shadow-sm h-full flex flex-col rounded-lg">
-        <div className="p-5 bg-white flex flex-col h-full">
-          <Skeleton className="h-6 w-3/4 mb-3" />
-          <Skeleton className="h-4 w-1/2 mb-4" />
-          <div className="mt-auto">
-            <Skeleton className="h-10 w-full rounded-lg" />
+      {[1, 2, 3].map((index) => (
+        <Card key={index} className="overflow-hidden shadow-sm h-full flex flex-col rounded-lg">
+          <div className="p-5 bg-white flex flex-col h-full">
+            <Skeleton className="h-6 w-3/4 mb-3" />
+            <Skeleton className="h-4 w-1/2 mb-4" />
+            <div className="mt-auto">
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ))}
     </div>
   );
 
@@ -168,7 +185,7 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-900">Active Assignments</h2>
           
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
             <div className="relative">
               <div className="flex bg-gray-100 rounded-lg items-center">
                 <Select 
@@ -255,12 +272,21 @@ const AssignmentList: React.FC<AssignmentListProps> = ({ onAddClass }) => {
               >
                 <div className="p-5 bg-white flex flex-col h-full">
                   <h3 className="text-lg font-medium text-gray-800 mb-3">{assignment.title}</h3>
-                  <p className="text-xs font-medium text-gray-500 mb-4">Due: {new Date(assignment.due_date).toLocaleDateString()}</p>
+                  <p className="text-xs font-medium text-gray-500 mb-4">
+                    Due: {new Date(assignment.due_date).toLocaleString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
                   
                   <div className="mt-auto">
                     <Button 
                       variant="outline" 
-                      className="w-full hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium rounded-lg"
+                      className="w-full hover:bg-[#272A69]/90 hover:text-white text-white border border-[#272A69] font-medium rounded-lg bg-[#272A69]"
                       onClick={() => handleViewAssignment(assignment.id)}
                     >
                       {getButtonText(assignment.status, assignmentSubmissions[assignment.id]?.isInProgress || false)}

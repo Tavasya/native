@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Debug Comparison</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .working { background: #e8f5e9; }
+        .failing { background: #ffebee; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .copy-btn { background: #2196F3; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+        .diff { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Environment Debug Comparison</h1>
+    <p><strong>Purpose:</strong> Compare your working localhost environment with non-working environments</p>
+    
+    <div class="section">
+        <h2>Quick Environment Summary</h2>
+        <button onclick="generateEnvironmentReport()">Generate Full Environment Report</button>
+        <div id="envSummary" class="result"></div>
+        <button class="copy-btn" onclick="copyToClipboard('envSummary')">Copy Report</button>
+    </div>
+    
+    <div class="section">
+        <h2>Browser & System Info</h2>
+        <div id="browserInfo" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Audio & Media Capabilities</h2>
+        <button onclick="testAudioCapabilities()">Test Audio Capabilities</button>
+        <div id="audioInfo" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Network & DNS Info</h2>
+        <button onclick="testNetworkInfo()">Test Network Info</button>
+        <div id="networkInfo" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Storage & Cache Info</h2>
+        <button onclick="checkStorageInfo()">Check Storage Info</button>
+        <div id="storageInfo" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Azure Speech API Test</h2>
+        <button onclick="testAzureSpeech()">Test Azure Speech API</button>
+        <div id="azureTest" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>Environment Comparison</h2>
+        <p>Paste report from another machine here:</p>
+        <textarea id="otherReport" placeholder="Paste environment report from non-working machine..." rows="10" cols="80"></textarea>
+        <br>
+        <button onclick="compareEnvironments()">Compare Environments</button>
+        <div id="comparison" class="result"></div>
+    </div>
+
+    <script>
+        const AZURE_SPEECH_KEY = 'CA4BV9f9rvEKQL22h6L383ucFVNHl9HvkS9bYsBR8xI6cdJm85fHJQQJ99BEACYeBjFXJ3w3AAAYACOGS9sl';
+        const AZURE_SPEECH_REGION = 'eastus';
+        
+        // Display browser info immediately
+        document.getElementById('browserInfo').innerHTML = getBrowserInfo();
+        
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            const browserInfo = {
+                userAgent: ua,
+                platform: navigator.platform,
+                language: navigator.language,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                maxTouchPoints: navigator.maxTouchPoints,
+                vendor: navigator.vendor,
+                vendorSub: navigator.vendorSub,
+                productSub: navigator.productSub,
+                appName: navigator.appName,
+                appVersion: navigator.appVersion,
+                appCodeName: navigator.appCodeName,
+                oscpu: navigator.oscpu || 'N/A',
+                buildID: navigator.buildID || 'N/A'
+            };
+            
+            // Detect browser and version
+            let browserName = 'Unknown';
+            let browserVersion = 'Unknown';
+            
+            if (ua.includes('Chrome/') && !ua.includes('Edg/')) {
+                browserName = 'Chrome';
+                browserVersion = ua.match(/Chrome\/([0-9.]+)/)?.[1] || 'Unknown';
+            } else if (ua.includes('Firefox/')) {
+                browserName = 'Firefox';
+                browserVersion = ua.match(/Firefox\/([0-9.]+)/)?.[1] || 'Unknown';
+            } else if (ua.includes('Safari/') && !ua.includes('Chrome')) {
+                browserName = 'Safari';
+                browserVersion = ua.match(/Version\/([0-9.]+)/)?.[1] || 'Unknown';
+            } else if (ua.includes('Edg/')) {
+                browserName = 'Edge';
+                browserVersion = ua.match(/Edg\/([0-9.]+)/)?.[1] || 'Unknown';
+            }
+            
+            browserInfo.detectedBrowser = browserName;
+            browserInfo.detectedVersion = browserVersion;
+            
+            return formatObject(browserInfo);
+        }
+        
+        async function testAudioCapabilities() {
+            const audioInfo = {
+                audioContext: !!(window.AudioContext || window.webkitAudioContext),
+                mediaRecorder: !!window.MediaRecorder,
+                getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                webkitGetUserMedia: !!navigator.webkitGetUserMedia,
+                mozGetUserMedia: !!navigator.mozGetUserMedia
+            };
+            
+            // Test MediaRecorder formats
+            if (window.MediaRecorder) {
+                const formats = ['audio/webm', 'audio/webm;codecs=opus', 'audio/mp4', 'audio/wav', 'audio/ogg'];
+                audioInfo.supportedFormats = formats.filter(format => MediaRecorder.isTypeSupported(format));
+            }
+            
+            // Test AudioContext
+            if (window.AudioContext || window.webkitAudioContext) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    audioInfo.audioContextState = ctx.state;
+                    audioInfo.sampleRate = ctx.sampleRate;
+                    audioInfo.baseLatency = ctx.baseLatency || 'N/A';
+                    audioInfo.outputLatency = ctx.outputLatency || 'N/A';
+                    await ctx.close();
+                } catch (error) {
+                    audioInfo.audioContextError = error.message;
+                }
+            }
+            
+            // Test WebRTC capabilities
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const track = stream.getAudioTracks()[0];
+                audioInfo.audioTrackCapabilities = track.getCapabilities ? track.getCapabilities() : 'Not supported';
+                audioInfo.audioTrackSettings = track.getSettings ? track.getSettings() : 'Not supported';
+                stream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                audioInfo.getUserMediaError = error.message;
+            }
+            
+            document.getElementById('audioInfo').innerHTML = formatObject(audioInfo);
+        }
+        
+        async function testNetworkInfo() {
+            const networkInfo = {
+                location: window.location.href,
+                protocol: window.location.protocol,
+                hostname: window.location.hostname,
+                port: window.location.port,
+                origin: window.location.origin,
+                referrer: document.referrer,
+                cookieEnabled: navigator.cookieEnabled
+            };
+            
+            // Test DNS resolution time
+            const dnsTests = [
+                'eastus.stt.speech.microsoft.com',
+                'eastus.cognitiveservices.azure.com',
+                'api.cognitive.microsoft.com'
+            ];
+            
+            for (const host of dnsTests) {
+                const start = performance.now();
+                try {
+                    await fetch(`https://${host}`, { method: 'HEAD', mode: 'no-cors' });
+                    networkInfo[`${host}_reachable`] = `${(performance.now() - start).toFixed(2)}ms`;
+                } catch (error) {
+                    networkInfo[`${host}_error`] = error.message;
+                }
+            }
+            
+            // Test CORS
+            try {
+                await fetch('https://httpbin.org/headers', { method: 'GET' });
+                networkInfo.corsTest = 'CORS requests working';
+            } catch (error) {
+                networkInfo.corsError = error.message;
+            }
+            
+            document.getElementById('networkInfo').innerHTML = formatObject(networkInfo);
+        }
+        
+        function checkStorageInfo() {
+            const storageInfo = {
+                localStorage: !!window.localStorage,
+                sessionStorage: !!window.sessionStorage,
+                indexedDB: !!window.indexedDB,
+                webSQL: !!window.openDatabase,
+                cookies: document.cookie ? 'Available' : 'None/Disabled'
+            };
+            
+            // Check for Native app specific storage
+            if (localStorage) {
+                const keys = Object.keys(localStorage).filter(key => 
+                    key.includes('luna') || key.includes('azure') || key.includes('speech') || key.includes('practice')
+                );
+                storageInfo.relevantLocalStorageKeys = keys.length > 0 ? keys : 'None found';
+                
+                // Check for specific items
+                const lunaAnswers = localStorage.getItem('lunaOnboardingAnswers');
+                if (lunaAnswers) {
+                    storageInfo.lunaOnboardingAnswers = 'Present';
+                }
+                
+                const recordings = localStorage.getItem('recordings');
+                if (recordings) {
+                    storageInfo.recordings = 'Present';
+                }
+            }
+            
+            document.getElementById('storageInfo').innerHTML = formatObject(storageInfo);
+        }
+        
+        async function testAzureSpeech() {
+            const testResults = {
+                timestamp: new Date().toISOString(),
+                testEnvironment: window.location.href
+            };
+            
+            try {
+                // Test 1: Token request
+                const tokenResponse = await fetch(`https://${AZURE_SPEECH_REGION}.cognitiveservices.azure.com/sts/v1.0/issuetoken`, {
+                    method: 'POST',
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': AZURE_SPEECH_KEY,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                
+                testResults.tokenRequest = {
+                    status: tokenResponse.status,
+                    success: tokenResponse.ok,
+                    headers: Object.fromEntries(tokenResponse.headers)
+                };
+                
+                if (tokenResponse.ok) {
+                    const token = await tokenResponse.text();
+                    testResults.tokenLength = token.length;
+                    
+                    // Test 2: Basic speech recognition
+                    const speechResponse = await fetch(`https://${AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'audio/wav',
+                            'Accept': 'application/json'
+                        },
+                        body: new Uint8Array([1, 2, 3, 4])
+                    });
+                    
+                    const speechResponseText = await speechResponse.text();
+                    testResults.speechRecognition = {
+                        status: speechResponse.status,
+                        success: speechResponse.ok,
+                        response: speechResponseText,
+                        headers: Object.fromEntries(speechResponse.headers)
+                    };
+                }
+                
+            } catch (error) {
+                testResults.error = error.message;
+                testResults.stack = error.stack;
+            }
+            
+            document.getElementById('azureTest').innerHTML = formatObject(testResults);
+        }
+        
+        function generateEnvironmentReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                url: window.location.href,
+                browser: getBrowserInfo(),
+                screen: {
+                    width: screen.width,
+                    height: screen.height,
+                    colorDepth: screen.colorDepth,
+                    pixelDepth: screen.pixelDepth
+                },
+                window: {
+                    innerWidth: window.innerWidth,
+                    innerHeight: window.innerHeight,
+                    devicePixelRatio: window.devicePixelRatio
+                },
+                timezone: {
+                    offset: new Date().getTimezoneOffset(),
+                    locale: Intl.DateTimeFormat().resolvedOptions().timeZone
+                }
+            };
+            
+            document.getElementById('envSummary').innerHTML = JSON.stringify(report, null, 2);
+        }
+        
+        function compareEnvironments() {
+            const current = document.getElementById('envSummary').textContent;
+            const other = document.getElementById('otherReport').value;
+            
+            if (!current || !other) {
+                document.getElementById('comparison').innerHTML = 'Please generate current environment report and paste another environment report first.';
+                return;
+            }
+            
+            try {
+                const currentObj = JSON.parse(current);
+                const otherObj = JSON.parse(other);
+                
+                const differences = findDifferences(currentObj, otherObj);
+                
+                document.getElementById('comparison').innerHTML = `
+                    <h3>Environment Differences Found:</h3>
+                    ${differences.length > 0 ? differences.map(diff => `<div class="diff">${diff}</div>`).join('') : '<p>No differences found!</p>'}
+                `;
+                
+            } catch (error) {
+                document.getElementById('comparison').innerHTML = `Error comparing environments: ${error.message}`;
+            }
+        }
+        
+        function findDifferences(obj1, obj2, path = '') {
+            const differences = [];
+            
+            const allKeys = new Set([...Object.keys(obj1 || {}), ...Object.keys(obj2 || {})]);
+            
+            for (const key of allKeys) {
+                const currentPath = path ? `${path}.${key}` : key;
+                const val1 = obj1?.[key];
+                const val2 = obj2?.[key];
+                
+                if (val1 === undefined && val2 !== undefined) {
+                    differences.push(`Missing in current: ${currentPath} = ${JSON.stringify(val2)}`);
+                } else if (val1 !== undefined && val2 === undefined) {
+                    differences.push(`Missing in other: ${currentPath} = ${JSON.stringify(val1)}`);
+                } else if (typeof val1 === 'object' && typeof val2 === 'object' && val1 !== null && val2 !== null) {
+                    differences.push(...findDifferences(val1, val2, currentPath));
+                } else if (val1 !== val2) {
+                    differences.push(`Different: ${currentPath} | Current: ${JSON.stringify(val1)} | Other: ${JSON.stringify(val2)}`);
+                }
+            }
+            
+            return differences;
+        }
+        
+        function formatObject(obj) {
+            return JSON.stringify(obj, null, 2);
+        }
+        
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html> 
