@@ -28,7 +28,7 @@ const AssignmentPracticeModal: React.FC = () => {
   const [practiceSession, setPracticeSession] = useState<PracticeSession | null>(null);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
 
-  const MAX_RECORDING_TIME = 180; // 3 minutes
+  const MAX_RECORDING_TIME = 300; // 5 minutes
 
   useEffect(() => {
     return () => {

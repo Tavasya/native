@@ -20,8 +20,14 @@
       "Bash(npm run:*)",
       "Bash(touch:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(true)"
+      "Bash(true)",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration"
     ],
     "deny": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
