@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Play, X, MessageCircle } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signOut } from '@/features/auth/authThunks';
-import { roadmapService } from '@/features/roadmap';
 import { SupportTicketModal } from '@/components/support/SupportTicketModal';
 import { SuccessToast } from '@/components/support/SuccessToast';
 import NativeLogo from '@/lib/images/Native Logo.png';
@@ -46,44 +45,6 @@ const Navbar: React.FC = () => {
     setMenuOpen(false);
   };
 
-  const handlePracticeClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    setMenuOpen(false);
-    
-    if (!user?.id) {
-      console.log('🔀 No user ID, redirecting to login...');
-      navigate('/login');
-      return;
-    }
-
-    console.log('🔍 Practice click debug - checking Luna onboarding completion...');
-    
-    try {
-      // Check if user has completed Luna-specific onboarding
-      const onboardingResponse = await roadmapService.getOnboardingMetrics(user.id);
-      const hasCompletedLunaOnboarding = onboardingResponse.success && onboardingResponse.data !== undefined;
-      
-      console.log('🔍 Luna onboarding check:', {
-        user_id: user.id,
-        onboardingResponse: onboardingResponse,
-        hasCompletedLunaOnboarding: hasCompletedLunaOnboarding,
-        shouldRedirectToLunaOnboarding: !hasCompletedLunaOnboarding
-      });
-      
-      if (!hasCompletedLunaOnboarding) {
-        console.log('🔀 Luna onboarding not complete, redirecting to /luna/onboarding...');
-        navigate('/luna/onboarding');
-      } else {
-        console.log('🔀 Luna onboarding complete, navigating to /luna/dashboard...');
-        navigate('/luna/dashboard');
-      }
-    } catch (error) {
-      console.error('🔥 Error checking Luna onboarding status:', error);
-      // On error, default to redirecting to Luna onboarding to be safe
-      console.log('🔀 Error occurred, defaulting to /luna/onboarding...');
-      navigate('/luna/onboarding');
-    }
-  };
 
   /* ----------------------------------------------------- render ---- */
   return (
@@ -101,17 +62,26 @@ const Navbar: React.FC = () => {
 
             {user && role === 'teacher' && (
               <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-[#272A69]">
-                <Link 
-                  to="/teacher/dashboard" 
+                <Link
+                  to="/teacher/dashboard"
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Classes
                 </Link>
-                <a 
-                  href="/luna/dashboard" 
+                <Link
+                  to="/teacher/usage"
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
-                  onClick={handlePracticeClick}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Usage
+                </Link>
+                <a
+                  href="https://nativespeaking.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={() => setMenuOpen(false)}
                 >
                   Practice
                 </a>
@@ -128,9 +98,11 @@ const Navbar: React.FC = () => {
                   Dashboard
                 </Link>
                 <a 
-                  href="/luna/dashboard" 
+                  href="https://nativespeaking.ai" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
-                  onClick={handlePracticeClick}
+                  onClick={() => setMenuOpen(false)}
                 >
                   Practice
                 </a>

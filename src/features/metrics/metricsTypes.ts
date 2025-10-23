@@ -57,4 +57,16 @@ export interface LastLogin {
     submitted_at: string;
     assignment_title?: string;
   }
+
+  export interface UsageMetrics {
+    totalMinutes: number;
+    analysisCosts: number;
+    totalSubmissions: number;
+    totalRecordings: number;
+    activeStudents: number;
+    avgRecordingLength: number;
+    costPerMinute: number;
+    costPerSubmission: number;
+    remainingHours: number;
+  }
   
