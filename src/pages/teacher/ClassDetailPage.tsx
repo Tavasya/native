@@ -7,11 +7,14 @@ import ClassDetail from '@/components/teacher/ClassDetail';
 
 const ClassDetailPage: React.FC = () => {
   const navigate = useNavigate();
-  const { subscription } = useAppSelector(state => state.subscriptions);
+  const { subscription, loading } = useAppSelector(state => state.subscriptions);
   const { toast } = useToast();
 
-  // Check subscription on mount
+  // Check subscription on mount (but only after loading completes)
   useEffect(() => {
+    // Don't redirect while loading
+    if (loading) return;
+
     if (!subscription || subscription.status !== 'active') {
       toast({
         title: 'Subscription Required',
@@ -20,10 +23,10 @@ const ClassDetailPage: React.FC = () => {
       });
       setTimeout(() => navigate('/teacher/subscriptions'), 1500);
     }
-  }, [subscription, navigate, toast]);
+  }, [subscription, loading, navigate, toast]);
 
-  // If no active subscription, don't render the component
-  if (!subscription || subscription.status !== 'active') {
+  // If no active subscription AND not loading, don't render the component
+  if (!loading && (!subscription || subscription.status !== 'active')) {
     return null;
   }
 

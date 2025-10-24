@@ -13,7 +13,7 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { user } = useAppSelector(state => state.auth);
   const { classes: classModels, classStats, loading, createClassLoading, statsLoading } = useAppSelector(state => state.classes);
-  const { subscription } = useAppSelector(state => state.subscriptions);
+  const { subscription, loading: subscriptionLoading } = useAppSelector(state => state.subscriptions);
   const { toast } = useToast();
 
   // Modal state + form
@@ -95,6 +95,12 @@ export default function TeacherDashboard() {
 
   const handleAddClick = () => {
     console.log('TeacherDash - Opening create class modal');
+
+    // Don't block if subscription is still loading
+    if (subscriptionLoading) {
+      setIsModalOpen(true);
+      return;
+    }
 
     // Check if user has an active subscription
     if (!subscription || subscription.status !== 'active') {

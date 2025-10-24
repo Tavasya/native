@@ -34,7 +34,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { subscription } = useAppSelector(state => state.subscriptions);
+  const { subscription, loading } = useAppSelector(state => state.subscriptions);
   
   const handleDelete = () => {
     if (classToDelete) {
@@ -61,6 +61,9 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   };
 
   const handleClassClick = (e: React.MouseEvent) => {
+    // Don't block if subscription is still loading
+    if (loading) return;
+
     // Check if user has an active subscription
     if (!subscription || subscription.status !== 'active') {
       e.preventDefault();
