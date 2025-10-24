@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -731,23 +731,18 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-1/5">
                               <div className="flex items-center gap-2">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const submissionId = st.has_ever_completed && st.completed_submission_id 
+                                <Link
+                                  to={`/student/submission/${
+                                    st.has_ever_completed && st.completed_submission_id 
                                       ? st.completed_submission_id 
-                                      : st.id;
-                                    navigate(`/student/submission/${submissionId}/feedback`, { 
-                                      state: { 
-                                        fromClassDetail: true
-                                      } 
-                                    });
-                                  }}
+                                      : st.id
+                                  }/feedback`}
+                                  state={{ fromClassDetail: true }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-3"
                                 >
                                   Review
-                                </Button>
+                                </Link>
                                 <Button
                                   variant="ghost"
                                   size="sm"

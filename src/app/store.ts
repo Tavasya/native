@@ -15,6 +15,7 @@ import practiceReducer from '@/features/practice/practiceSlice'
 import libraryReducer from '@/features/library/librarySlice'
 import roadmapReducer from '@/features/roadmap/roadmapSlice'
 import supportReducer from '@/features/support/supportSlice'
+import subscriptionReducer from '@/features/subscriptions/subscriptionSlice'
 
 // Configure persist options
 const persistConfig = {
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
   library: libraryReducer,
   roadmap: roadmapReducer,
   support: supportReducer,
+  subscriptions: subscriptionReducer,
 });
 
 // Create a root reducer that handles clearing all state
@@ -58,6 +60,7 @@ const rootReducerWithReset = (state: ReturnType<typeof rootReducer> | undefined,
       library: libraryReducer(undefined, action),
       roadmap: roadmapReducer(undefined, action),
       support: supportReducer(undefined, action),
+      subscriptions: subscriptionReducer(undefined, action),
     };
   }
   return rootReducer(state, action);

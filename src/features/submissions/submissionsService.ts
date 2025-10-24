@@ -368,11 +368,11 @@ export const submissionService = {
       
       const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           audio_urls: urls,
           submission_url: submission_id
         }),

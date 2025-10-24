@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2, Users, FileText, Play, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAppSelector } from '@/app/hooks';
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +33,8 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { subscription } = useAppSelector(state => state.subscriptions);
   
   const handleDelete = () => {
     if (classToDelete) {
@@ -57,6 +60,20 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
     });
   };
 
+  const handleClassClick = (e: React.MouseEvent) => {
+    // Check if user has an active subscription
+    if (!subscription || subscription.status !== 'active') {
+      e.preventDefault();
+      toast({
+        title: 'Subscription Required',
+        description: 'You need an active subscription to access classes. Redirecting to billing...',
+        variant: 'destructive',
+      });
+      setTimeout(() => navigate('/teacher/subscriptions'), 1500);
+      return;
+    }
+  };
+
   return (
     <TooltipProvider>
       {classes.length === 0 ? (
@@ -80,11 +97,15 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {classes.map((classItem) => (
-            <Card 
-              key={classItem.id} 
+            <Card
+              key={classItem.id}
               className="overflow-hidden hover:shadow-md transition-shadow duration-200 rounded-md cursor-pointer relative"
             >
-              <Link to={`/class/${classItem.id}`} className="block">
+              <Link
+                to={`/class/${classItem.id}`}
+                className="block"
+                onClick={handleClassClick}
+              >
                 <CardContent className="p-5 pb-16">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">

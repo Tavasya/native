@@ -40,14 +40,26 @@ export async function getLastLogins(page: number = 1, perPage: number = 20): Pro
 
   // Then get the view status for these users
   const userIds = lastLoginsData.map(user => user.user_id);
-  const { data: usersData, error: usersError } = await supabase
-    .from('users')
-    .select('id, view')
-    .in('id', userIds);
-
-  if (usersError) {
-    console.error('Error fetching users:', usersError);
-    throw usersError;
+  
+  // Batch the user IDs to avoid URL length issues
+  const batchSize = 50; // Safe batch size for URL length
+  const usersData: any[] = [];
+  
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize);
+    const { data: batchData, error: batchError } = await supabase
+      .from('users')
+      .select('id, view')
+      .in('id', batch);
+    
+    if (batchError) {
+      console.error('Error fetching users batch:', batchError);
+      throw batchError;
+    }
+    
+    if (batchData) {
+      usersData.push(...batchData);
+    }
   }
 
   console.log('Users data:', usersData);
@@ -101,11 +113,25 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
 
   // Get the view status for these users
   const userIds = lastLoginsData.map(user => user.user_id);
-  const { data: usersData, error: usersError } = await supabase
-    .from('users')
-    .select('id, view')
-    .in('id', userIds);
-  if (usersError) throw usersError;
+  
+  // Batch the user IDs to avoid URL length issues
+  const batchSize = 50; // Safe batch size for URL length
+  const usersData: any[] = [];
+  
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize);
+    const { data: batchData, error: batchError } = await supabase
+      .from('users')
+      .select('id, view')
+      .in('id', batch);
+    
+    if (batchError) throw batchError;
+    
+    if (batchData) {
+      usersData.push(...batchData);
+    }
+  }
+  
   console.log('Users data:', usersData);
   const viewStatusMap = new Map(usersData.map(user => [user.id, user.view]));
 
@@ -430,4 +456,148 @@ export async function getSubmissionTrends(): Promise<SubmissionTrend[]> {
   });
 
   return result;
+}
+
+/**
+ * Fetches usage metrics for a teacher including minutes and analysis costs
+ */
+export async function getTeacherUsageMetrics(teacherId: string): Promise<{
+  totalMinutes: number;
+  analysisCosts: number;
+  totalSubmissions: number;
+  totalRecordings: number;
+  activeStudents: number;
+  avgRecordingLength: number;
+  costPerMinute: number;
+  costPerSubmission: number;
+  remainingHours: number;
+}> {
+  // Get teacher's credits
+  const { data: teacher, error: teacherError } = await supabase
+    .from('users')
+    .select('credits')
+    .eq('id', teacherId)
+    .single();
+
+  if (teacherError) throw teacherError;
+
+  const credits = teacher?.credits || 10; // Default 10 hours
+
+  // Get all classes for this teacher
+  const { data: classes, error: classesError } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('teacher_id', teacherId);
+
+  if (classesError) throw classesError;
+
+  const classIds = classes?.map(c => c.id) || [];
+
+  // Get total enrolled students (not filtered by date)
+  const { data: enrolledStudents, error: enrolledError } = await supabase
+    .from('students_classes')
+    .select('student_id')
+    .in('class_id', classIds);
+
+  if (enrolledError) throw enrolledError;
+
+  const totalEnrolledStudents = new Set(enrolledStudents?.map(s => s.student_id) || []).size;
+
+  if (classIds.length === 0) {
+    return {
+      totalMinutes: 0,
+      analysisCosts: 0,
+      totalSubmissions: 0,
+      totalRecordings: 0,
+      activeStudents: totalEnrolledStudents,
+      avgRecordingLength: 0,
+      costPerMinute: 0,
+      costPerSubmission: 0,
+      remainingHours: credits,
+    };
+  }
+
+  // Get all assignments for these classes
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from('assignments')
+    .select('id')
+    .in('class_id', classIds);
+
+  if (assignmentsError) throw assignmentsError;
+
+  const assignmentIds = assignments?.map(a => a.id) || [];
+
+  if (assignmentIds.length === 0) {
+    return {
+      totalMinutes: 0,
+      analysisCosts: 0,
+      totalSubmissions: 0,
+      totalRecordings: 0,
+      activeStudents: totalEnrolledStudents,
+      avgRecordingLength: 0,
+      costPerMinute: 0,
+      costPerSubmission: 0,
+      remainingHours: credits,
+    };
+  }
+
+  // Get all submissions for these assignments with audio duration
+  // Starting from October 23, 2025
+  const { data: submissions, error: submissionsError } = await supabase
+    .from('submissions')
+    .select('id, student_id, recordings, overall_assignment_score')
+    .in('assignment_id', assignmentIds)
+    .not('submitted_at', 'is', null)
+    .gte('submitted_at', '2025-10-23T00:00:00.000Z');
+
+  if (submissionsError) throw submissionsError;
+
+  // Calculate metrics from submissions after Oct 23, 2025
+  let totalRecordings = 0;
+  let totalDurationSeconds = 0;
+
+  submissions?.forEach(submission => {
+    if (submission.recordings && Array.isArray(submission.recordings)) {
+      totalRecordings += submission.recordings.length;
+    }
+
+    // Get total audio duration from overall_assignment_score
+    if (submission.overall_assignment_score &&
+        typeof submission.overall_assignment_score === 'object') {
+      const score = submission.overall_assignment_score as any;
+      if (score.total_audio_duration_seconds) {
+        totalDurationSeconds += parseFloat(score.total_audio_duration_seconds);
+      }
+    }
+  });
+
+  const totalMinutes = totalDurationSeconds / 60;
+
+  // Cost estimation:
+  // - Transcription: ~$0.006 per minute (Deepgram)
+  // - AI Analysis: ~$0.01 per submission (OpenAI GPT-4)
+  const transcriptionCost = totalMinutes * 0.006;
+  const analysisPerSubmission = 0.01;
+  const totalAnalysisCost = (submissions?.length || 0) * analysisPerSubmission;
+  const totalCosts = transcriptionCost + totalAnalysisCost;
+
+  const avgRecordingLength = totalRecordings > 0 ? totalMinutes / totalRecordings : 0;
+  const costPerMinute = totalMinutes > 0 ? totalCosts / totalMinutes : 0;
+  const costPerSubmission = submissions?.length ? totalCosts / submissions.length : 0;
+
+  // Calculate remaining hours: credits - (totalMinutes / 60)
+  const hoursUsed = totalMinutes / 60;
+  const remainingHours = Math.max(0, credits - hoursUsed);
+
+  return {
+    totalMinutes,
+    analysisCosts: totalCosts,
+    totalSubmissions: submissions?.length || 0,
+    totalRecordings,
+    activeStudents: totalEnrolledStudents,
+    avgRecordingLength,
+    costPerMinute,
+    costPerSubmission,
+    remainingHours,
+  };
 }

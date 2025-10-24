@@ -1,15 +1,19 @@
 // src/components/TeacherDashboard.tsx
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchClasses, createClass, deleteClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
+import { fetchTeacherSubscription } from '@/features/subscriptions/subscriptionThunks';
 import { useToast } from '@/hooks/use-toast';
 import ClassTableActions from './ClassTableActions';
 import ClassTable, { ClassData } from './ClassTable';
 
 export default function TeacherDashboard() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { user } = useAppSelector(state => state.auth);
   const { classes: classModels, classStats, loading, createClassLoading, statsLoading } = useAppSelector(state => state.classes);
+  const { subscription } = useAppSelector(state => state.subscriptions);
   const { toast } = useToast();
 
   // Modal state + form
@@ -21,7 +25,8 @@ export default function TeacherDashboard() {
     if (user) {
       Promise.all([
         dispatch(fetchClasses({ role: 'teacher', userId: user.id })),
-        dispatch(fetchClassStatsByTeacher(user.id))
+        dispatch(fetchClassStatsByTeacher(user.id)),
+        dispatch(fetchTeacherSubscription(user.id))
       ]);
     }
   }, [user, dispatch]);
@@ -90,6 +95,18 @@ export default function TeacherDashboard() {
 
   const handleAddClick = () => {
     console.log('TeacherDash - Opening create class modal');
+
+    // Check if user has an active subscription
+    if (!subscription || subscription.status !== 'active') {
+      toast({
+        title: 'Subscription Required',
+        description: 'You need an active subscription to create classes. Redirecting to billing...',
+        variant: 'destructive',
+      });
+      setTimeout(() => navigate('/teacher/subscriptions'), 1500);
+      return;
+    }
+
     setIsModalOpen(true);
   };
 

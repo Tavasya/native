@@ -15,6 +15,9 @@ import LibraryPage from '@/pages/teacher/LibraryPage'
 import LibraryTemplateView from '@/pages/teacher/LibraryTemplateView'
 import ClassDetailPage from '@/pages/teacher/ClassDetailPage'
 import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
+import UsagePage from '@/pages/teacher/UsagePage';
+import SubscriptionsPage from '@/pages/teacher/SubscriptionsPage';
+import SubscriptionSuccessPage from '@/pages/teacher/SubscriptionSuccessPage';
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
 import GeneralPractice from "@/pages/student/GeneralPractice"
 import NewLogin from '@/pages/auth/NewLogin'
@@ -133,6 +136,9 @@ export default function AppRoutes() {
           {/* -------- TEACHER ROUTES -------- */}
           <Route element={<RequireAuth allowedRoles={['teacher']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDash />} />
+            <Route path="/teacher/usage" element={<UsagePage />} />
+            <Route path="/teacher/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/teacher/subscriptions/success" element={<SubscriptionSuccessPage />} />
             <Route path="/teacher/library" element={<LibraryPage />} />
             <Route path="/teacher/library/template/:templateId" element={<LibraryTemplateView />} />
             <Route path="/class/:id" element={<ClassDetailPage />} />
