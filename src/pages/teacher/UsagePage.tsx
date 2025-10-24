@@ -2,11 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Loader2, Clock, FileText, Users, Coins, CreditCard } from 'lucide-react';
-import { getTeacherUsageMetrics, UsageMetrics } from '@/features/metrics/metricsService';
+import { Loader2, Clock, FileText, Users, Coins } from 'lucide-react';
+import { getTeacherUsageMetrics } from '@/features/metrics/metricsService';
 import { fetchTeacherSubscription } from '@/features/subscriptions/subscriptionThunks';
 import { SubscriptionStatus } from '@/components/subscriptions/SubscriptionStatus';
+
+interface UsageMetrics {
+  totalMinutes: number;
+  analysisCosts: number;
+  totalSubmissions: number;
+  totalRecordings: number;
+  activeStudents: number;
+  avgRecordingLength: number;
+  costPerMinute: number;
+  costPerSubmission: number;
+  remainingHours: number;
+}
 
 const UsagePage: React.FC = () => {
   const navigate = useNavigate();

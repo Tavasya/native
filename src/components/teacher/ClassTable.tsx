@@ -60,7 +60,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
     });
   };
 
-  const handleClassClick = (e: React.MouseEvent, classId: string) => {
+  const handleClassClick = (e: React.MouseEvent) => {
     // Check if user has an active subscription
     if (!subscription || subscription.status !== 'active') {
       e.preventDefault();
@@ -104,7 +104,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
               <Link
                 to={`/class/${classItem.id}`}
                 className="block"
-                onClick={(e) => handleClassClick(e, classItem.id)}
+                onClick={handleClassClick}
               >
                 <CardContent className="p-5 pb-16">
                   <div className="flex justify-between items-start">

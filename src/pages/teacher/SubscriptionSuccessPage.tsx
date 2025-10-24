@@ -16,7 +16,7 @@ export default function SubscriptionSuccessPage() {
   const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const { user } = useAppSelector((state) => state.auth);
-  const { subscription, loading } = useAppSelector((state) => state.subscriptions);
+  const { subscription } = useAppSelector((state) => state.subscriptions);
 
   const [pollCount, setPollCount] = useState(0);
   const sessionId = searchParams.get('session_id');
