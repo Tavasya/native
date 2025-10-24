@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '@/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Clock, FileText, Users, Coins } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Clock, FileText, Users, Coins, CreditCard } from 'lucide-react';
 import { getTeacherUsageMetrics, UsageMetrics } from '@/features/metrics/metricsService';
+import { fetchTeacherSubscription } from '@/features/subscriptions/subscriptionThunks';
+import { SubscriptionStatus } from '@/components/subscriptions/SubscriptionStatus';
 
 const UsagePage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((s) => s.auth);
+  const { subscription } = useAppSelector((s) => s.subscriptions);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<UsageMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +23,15 @@ const UsagePage: React.FC = () => {
       return;
     }
 
-    const fetchMetrics = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await getTeacherUsageMetrics(user.id);
-        setMetrics(data);
+        // Fetch both metrics and subscription
+        const [metricsData] = await Promise.all([
+          getTeacherUsageMetrics(user.id),
+          dispatch(fetchTeacherSubscription(user.id)),
+        ]);
+        setMetrics(metricsData);
       } catch (err) {
         console.error('Error fetching usage metrics:', err);
         setError('Failed to load usage metrics');
@@ -31,8 +40,8 @@ const UsagePage: React.FC = () => {
       }
     };
 
-    fetchMetrics();
-  }, [user, navigate]);
+    fetchData();
+  }, [user, navigate, dispatch]);
 
   if (loading) {
     return (
@@ -136,6 +145,15 @@ const UsagePage: React.FC = () => {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Subscription Status */}
+        <div className="mb-8">
+          <SubscriptionStatus
+            subscription={subscription}
+            onManageBilling={() => navigate('/teacher/subscriptions')}
+            onUpgrade={() => navigate('/teacher/subscriptions')}
+          />
         </div>
 
         {/* Detailed Breakdown */}

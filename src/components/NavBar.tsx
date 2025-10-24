@@ -76,6 +76,13 @@ const Navbar: React.FC = () => {
                 >
                   Usage
                 </Link>
+                <Link
+                  to="/teacher/subscriptions"
+                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Billing
+                </Link>
                 <a
                   href="https://nativespeaking.ai"
                   target="_blank"
