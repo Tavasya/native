@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Users, Calendar, AlertCircle } from 'lucide-react';
-import { getPlanDisplayName, getBillingCycleDisplayName } from '@/features/subscriptions/pricingConfig';
+import { CreditCard, Users, Calendar, AlertCircle, DollarSign } from 'lucide-react';
+import { getPlanDisplayName, getBillingCycleDisplayName, calculateTotal, formatPrice } from '@/features/subscriptions/pricingConfig';
 import type { TeacherSubscription } from '@/features/subscriptions/types';
 
 interface SubscriptionStatusProps {
@@ -39,12 +39,12 @@ export function SubscriptionStatus({
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-600">Current Plan</div>
             <div className="text-2xl font-semibold">Free</div>
-            <p className="text-sm text-gray-500 mt-1">40 hours per month</p>
+            <p className="text-sm text-gray-500 mt-1">No credits included</p>
           </div>
 
           {onUpgrade && (
             <Button onClick={onUpgrade} className="w-full" size="lg">
-              Upgrade to Pro
+              Subscribe to Get Started
             </Button>
           )}
         </CardContent>
@@ -55,6 +55,7 @@ export function SubscriptionStatus({
   // Active subscription
   const isActive = subscription.status === 'active';
   const isPastDue = subscription.status === 'past_due';
+  const isCanceling = subscription.cancel_at_period_end === true;
 
   return (
     <Card className={isPastDue ? 'border-red-300' : ''}>
@@ -101,7 +102,7 @@ export function SubscriptionStatus({
 
           <Separator />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <div className="flex items-center gap-1.5 text-sm text-gray-600">
                 <Users className="h-4 w-4" />
@@ -121,20 +122,75 @@ export function SubscriptionStatus({
                 {subscription.credits?.toFixed(1) || 0} hours
               </div>
             </div>
+
+            <div>
+              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                <DollarSign className="h-4 w-4" />
+                Price
+              </div>
+              <div className="text-lg font-semibold mt-0.5">
+                {subscription.plan_type && subscription.billing_cycle && subscription.student_count
+                  ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, subscription.student_count))
+                  : '$0.00'}
+                <span className="text-xs font-normal text-gray-500">
+                  /{subscription.billing_cycle === 'monthly' ? 'mo' : 'qtr'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Billing Period */}
         {subscription.current_period_end && (
-          <div className="text-sm">
-            <span className="text-gray-600">Renews on: </span>
-            <span className="font-medium">
-              {new Date(subscription.current_period_end).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
+          <div className="space-y-2">
+            <div className="text-sm">
+              <span className="text-gray-600">{isCanceling ? 'Access ends on: ' : 'Renews on: '}</span>
+              <span className="font-medium">
+                {new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </span>
+            </div>
+
+            {isCanceling ? (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <p className="text-xs text-orange-900">
+                  <strong>Subscription Canceled:</strong> Your subscription has been canceled and will end on {new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}. You'll still have access to all features until then. After that, you'll be moved to the free tier and <strong>won't be charged again</strong>.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                <div>
+                  <p className="text-xs font-semibold text-blue-900 mb-1">Next Billing Date:</p>
+                  <p className="text-xs text-blue-800">
+                    On {new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}, you'll be charged your recurring subscription cost of <strong>
+                      {subscription.plan_type && subscription.billing_cycle && subscription.student_count
+                        ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, subscription.student_count))
+                        : '$0.00'}
+                    </strong>.
+                  </p>
+                </div>
+                <div className="border-t border-blue-300 pt-2">
+                  <p className="text-xs text-blue-800">
+                    <strong>Note:</strong> If you recently updated your student count, your next payment may include a prorated charge for the additional students, plus your full {subscription.billing_cycle === 'monthly' ? 'monthly' : 'quarterly'} subscription. After that, you'll be charged <strong>
+                      {subscription.plan_type && subscription.billing_cycle && subscription.student_count
+                        ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, subscription.student_count))
+                        : '$0.00'}
+                    </strong> per {subscription.billing_cycle === 'monthly' ? 'month' : 'quarter'}.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

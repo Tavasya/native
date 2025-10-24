@@ -19,6 +19,8 @@ interface PricingCardProps {
   onSubscribe: (planType: PlanType, billingCycle: BillingCycle, studentCount: number) => void;
   loading?: boolean;
   isCurrentPlan?: boolean;
+  currentStudentCount?: number;
+  currentBillingCycle?: BillingCycle;
 }
 
 const PLAN_FEATURES: Record<PlanType, string[]> = {
@@ -37,11 +39,10 @@ const PLAN_FEATURES: Record<PlanType, string[]> = {
   ],
 };
 
-export function PricingCard({ planType, onSubscribe, loading, isCurrentPlan }: PricingCardProps) {
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
-  const [studentCount, setStudentCount] = useState<number>(25);
+export function PricingCard({ planType, onSubscribe, loading, isCurrentPlan, currentStudentCount, currentBillingCycle }: PricingCardProps) {
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>(isCurrentPlan && currentBillingCycle ? currentBillingCycle : 'monthly');
+  const [studentCount, setStudentCount] = useState<number>(isCurrentPlan && currentStudentCount ? currentStudentCount : 25);
 
-  const pricing = PRICING[planType][billingCycle];
   const total = calculateTotal(planType, billingCycle, studentCount);
   const credits = calculateCredits(planType, studentCount);
 

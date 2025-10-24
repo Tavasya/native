@@ -22,6 +22,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ArrowLeft } from 'lucide-react';
+import { calculateTotal, formatPrice, getPlanDisplayName, getBillingCycleDisplayName } from '@/features/subscriptions/pricingConfig';
 import type { PlanType, BillingCycle } from '@/features/subscriptions/types';
 
 export default function SubscriptionsPage() {
@@ -34,7 +35,8 @@ export default function SubscriptionsPage() {
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
-  const [newStudentCount, setNewStudentCount] = useState(subscription?.student_count || 25);
+  const [showConfirmUpdateDialog, setShowConfirmUpdateDialog] = useState(false);
+  const [newStudentCount, setNewStudentCount] = useState<number | string>(subscription?.student_count || 25);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -103,14 +105,34 @@ export default function SubscriptionsPage() {
     }
   };
 
-  const handleUpdateStudentCount = async () => {
-    if (!user || !newStudentCount || newStudentCount < 1) return;
+  const handleUpdateStudentCountClick = () => {
+    const count = typeof newStudentCount === 'string' ? parseInt(newStudentCount) : newStudentCount;
+    if (!count || count < 1) return;
+
+    // Check if student count has changed
+    if (subscription?.student_count && count !== subscription.student_count) {
+      // Show confirmation dialog
+      setShowUpdateDialog(false);
+      setShowConfirmUpdateDialog(true);
+    } else {
+      // No change, just close the dialog
+      toast({
+        title: 'No Changes',
+        description: 'Student count is the same. No update needed.',
+      });
+      setShowUpdateDialog(false);
+    }
+  };
+
+  const handleConfirmUpdate = async () => {
+    const count = typeof newStudentCount === 'string' ? parseInt(newStudentCount) : newStudentCount;
+    if (!user || !count || count < 1) return;
 
     try {
       const result = await dispatch(
         updateStudentCount({
           teacher_id: user.id,
-          new_student_count: newStudentCount,
+          new_student_count: count,
         })
       ).unwrap();
 
@@ -119,7 +141,7 @@ export default function SubscriptionsPage() {
         description: result.message,
       });
 
-      setShowUpdateDialog(false);
+      setShowConfirmUpdateDialog(false);
 
       // Refresh subscription
       dispatch(fetchTeacherSubscription(user.id));
@@ -219,12 +241,16 @@ export default function SubscriptionsPage() {
                   onSubscribe={handleSubscribe}
                   loading={loading}
                   isCurrentPlan={subscription?.plan_type === '30min' && hasActiveSubscription}
+                  currentStudentCount={subscription?.student_count || undefined}
+                  currentBillingCycle={subscription?.billing_cycle || undefined}
                 />
                 <PricingCard
                   planType="60min"
                   onSubscribe={handleSubscribe}
                   loading={loading}
                   isCurrentPlan={subscription?.plan_type === '60min' && hasActiveSubscription}
+                  currentStudentCount={subscription?.student_count || undefined}
+                  currentBillingCycle={subscription?.billing_cycle || undefined}
                 />
               </div>
             </TabsContent>
@@ -288,23 +314,127 @@ export default function SubscriptionsPage() {
               <Label htmlFor="student-count">Number of Students</Label>
               <Input
                 id="student-count"
-                type="number"
-                min="1"
+                type="text"
                 value={newStudentCount}
-                onChange={(e) => setNewStudentCount(parseInt(e.target.value) || 1)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty string or valid numbers only
+                  if (value === '' || /^\d+$/.test(value)) {
+                    setNewStudentCount(value === '' ? '' : parseInt(value));
+                  }
+                }}
+                placeholder="Enter number of students"
                 className="mt-2"
               />
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleUpdateStudentCount} disabled={updateLoading}>
+              <AlertDialogAction
+                onClick={handleUpdateStudentCountClick}
+                disabled={!newStudentCount || (typeof newStudentCount === 'number' && newStudentCount < 1)}
+              >
+                Continue
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Confirm Update Student Count Dialog */}
+        <AlertDialog open={showConfirmUpdateDialog} onOpenChange={setShowConfirmUpdateDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Student Count Update</AlertDialogTitle>
+              <AlertDialogDescription>
+                Please review the changes before confirming:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4 space-y-3">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Plan:</span>
+                  <span className="font-semibold">
+                    {subscription?.plan_type && getPlanDisplayName(subscription.plan_type)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Billing Cycle:</span>
+                  <span className="font-semibold">
+                    {subscription?.billing_cycle && getBillingCycleDisplayName(subscription.billing_cycle)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Current Students:</span>
+                  <span className="font-semibold">{subscription?.student_count || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">New Students:</span>
+                  <span className="font-semibold text-blue-600">{newStudentCount}</span>
+                </div>
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">New Recurring Cost:</span>
+                    <span className="text-xl font-bold text-blue-600">
+                      {subscription?.plan_type && subscription?.billing_cycle && typeof newStudentCount === 'number'
+                        ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, newStudentCount))
+                        : '$0.00'}
+                      <span className="text-sm font-normal text-gray-500">
+                        /{subscription?.billing_cycle === 'monthly' ? 'mo' : 'qtr'}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold text-blue-900 text-sm">Billing Details:</h4>
+
+                <div className="bg-white rounded p-3 border border-blue-300">
+                  <p className="text-sm text-blue-900 font-semibold mb-2">
+                    On {subscription?.current_period_end && new Date(subscription.current_period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} you'll be charged:
+                  </p>
+                  <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                    <li>• Prorated charge for additional {typeof newStudentCount === 'number' && subscription?.student_count ? newStudentCount - subscription.student_count : 0} students for the current period</li>
+                    <li>• Full {subscription?.billing_cycle === 'monthly' ? 'month' : 'quarter'} charge: <strong>
+                      {subscription?.plan_type && subscription?.billing_cycle && typeof newStudentCount === 'number'
+                        ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, newStudentCount))
+                        : '$0.00'}
+                    </strong> ({newStudentCount} students)</li>
+                  </ul>
+                  <p className="text-sm text-blue-900 font-bold mt-2 pt-2 border-t border-blue-200">
+                    One-time total: Prorated amount + {subscription?.plan_type && subscription?.billing_cycle && typeof newStudentCount === 'number'
+                      ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, newStudentCount))
+                      : '$0.00'}
+                  </p>
+                </div>
+
+                <p className="text-sm text-blue-800">
+                  <strong>Every {subscription?.billing_cycle === 'monthly' ? 'month' : 'quarter'} after that:</strong> You'll be charged <strong>
+                    {subscription?.plan_type && subscription?.billing_cycle && typeof newStudentCount === 'number'
+                      ? formatPrice(calculateTotal(subscription.plan_type, subscription.billing_cycle, newStudentCount))
+                      : '$0.00'}
+                  </strong> as your recurring subscription cost.
+                </p>
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowConfirmUpdateDialog(false);
+                setShowUpdateDialog(true);
+              }}>
+                Go Back
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmUpdate}
+                disabled={updateLoading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 {updateLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Updating...
                   </>
                 ) : (
-                  'Update'
+                  'Confirm Update'
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

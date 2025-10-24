@@ -22,6 +22,7 @@ export interface TeacherSubscription {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: string | null;
+  cancel_at_period_end: boolean | null; // Whether subscription is scheduled to cancel
 }
 
 /**
