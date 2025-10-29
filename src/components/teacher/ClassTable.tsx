@@ -7,6 +7,7 @@ import { Trash2, Users, FileText, Play, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppSelector } from '@/app/hooks';
+import { isAdmin } from '@/utils/adminUtils';
 import {
   Tooltip,
   TooltipContent,
@@ -35,7 +36,11 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { subscription, loading } = useAppSelector(state => state.subscriptions);
-  
+  const { user } = useAppSelector(state => state.auth);
+
+  // Check if user is admin (can bypass subscription check)
+  const userIsAdmin = isAdmin(user);
+
   const handleDelete = () => {
     if (classToDelete) {
       onDelete(classToDelete);
@@ -63,6 +68,9 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   const handleClassClick = (e: React.MouseEvent) => {
     // Don't block if subscription is still loading
     if (loading) return;
+
+    // Admins can bypass subscription check
+    if (userIsAdmin) return;
 
     // Check if user has an active subscription
     if (!subscription || subscription.status !== 'active') {

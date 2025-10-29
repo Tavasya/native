@@ -29,6 +29,10 @@ import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
 import ReportsProcessor from '@/components/dev/ReportsProcessor';
 import RedoV2 from '@/components/dev/RedoV2';
 import { SupportTicketList } from '@/components/support/SupportTicketList';
+import { getTeacherUsageMetrics } from '@/features/metrics/metricsService';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Clock, FileText, Users, Coins } from 'lucide-react';
 
 // Icon component types
 interface IconProps {
@@ -58,6 +62,13 @@ const AlertIcon: React.FC<IconProps> = ({ className }) => (
 const DevIcon: React.FC<IconProps> = ({ className }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 20 20">
     <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+  </svg>
+);
+
+const CoinsIcon: React.FC<IconProps> = ({ className }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
   </svg>
 );
 
@@ -167,6 +178,11 @@ export default function DashboardPage() {
   const [devMessage, setDevMessage] = useState('');
   const [devError, setDevError] = useState('');
   const [devMode, setDevMode] = useState<'localhost' | 'trigger'>('localhost');
+  const [selectedUsageTeacherId, setSelectedUsageTeacherId] = useState('');
+  const [usageMetrics, setUsageMetrics] = useState<any>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageTeacher, setUsageTeacher] = useState<any>(null);
+  const [usageSubscription, setUsageSubscription] = useState<any>(null);
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
@@ -206,6 +222,50 @@ export default function DashboardPage() {
   useEffect(() => {
     sessionStorage.setItem('devDashActiveTab', activeTab);
   }, [activeTab]);
+
+  // Fetch usage metrics when teacher is selected
+  useEffect(() => {
+    if (!selectedUsageTeacherId) {
+      setUsageMetrics(null);
+      setUsageTeacher(null);
+      setUsageSubscription(null);
+      return;
+    }
+
+    const fetchUsageData = async () => {
+      try {
+        setUsageLoading(true);
+
+        // Fetch teacher info
+        const { data: teacherData } = await supabase
+          .from('users')
+          .select('id, name, email, credits')
+          .eq('id', selectedUsageTeacherId)
+          .single();
+
+        setUsageTeacher(teacherData);
+
+        // Fetch subscription info
+        const { data: subscriptionData } = await supabase
+          .from('teacher_subscriptions')
+          .select('current_period_start, current_period_end')
+          .eq('teacher_id', selectedUsageTeacherId)
+          .single();
+
+        setUsageSubscription(subscriptionData);
+
+        // Fetch usage metrics
+        const metricsData = await getTeacherUsageMetrics(selectedUsageTeacherId);
+        setUsageMetrics(metricsData);
+      } catch (err) {
+        console.error('Error fetching usage data:', err);
+      } finally {
+        setUsageLoading(false);
+      }
+    };
+
+    fetchUsageData();
+  }, [selectedUsageTeacherId]);
 
   // Load data when component mounts
   useEffect(() => {
@@ -249,6 +309,7 @@ export default function DashboardPage() {
     { id: 'assignments', name: 'Assignments', icon: BookIcon },
     { id: 'support', name: 'Support', icon: AlertIcon },
     { id: 'dev', name: 'Dev', icon: DevIcon },
+    { id: 'usage', name: 'Usage', icon: CoinsIcon },
     // { id: 'engagement', name: 'Engagement', icon: ChartIcon },
   ] as const;
 
@@ -791,6 +852,214 @@ export default function DashboardPage() {
             <div>
               <RedoV2 />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'usage' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Teacher Usage & Credits</h2>
+            </div>
+
+            {/* Teacher Selector */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <label htmlFor="usageTeacher" className="block text-sm font-medium text-gray-700 mb-2">
+                Select Teacher
+              </label>
+              <select
+                id="usageTeacher"
+                value={selectedUsageTeacherId}
+                onChange={(e) => setSelectedUsageTeacherId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">-- Select a teacher --</option>
+                {allLastLogins
+                  .filter(user => user.role === 'teacher' && user.view !== false)
+                  .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                  .map(teacher => (
+                    <option key={teacher.user_id} value={teacher.user_id}>
+                      {teacher.name} ({teacher.email})
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            {/* Loading State */}
+            {usageLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <span className="ml-3 text-gray-600">Loading usage data...</span>
+              </div>
+            )}
+
+            {/* Usage Metrics Display */}
+            {!usageLoading && usageMetrics && usageTeacher && (
+              <>
+                {/* Teacher Info */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{usageTeacher.name}</h3>
+                  <p className="text-sm text-gray-600">{usageTeacher.email}</p>
+                  {usageSubscription && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Billing Period: {new Date(usageSubscription.current_period_start).toLocaleDateString()} - {new Date(usageSubscription.current_period_end).toLocaleDateString()}
+                    </p>
+                  )}
+                  {!usageSubscription && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      No active subscription (showing last 30 days)
+                    </p>
+                  )}
+                </div>
+
+                {/* Credit Summary */}
+                <Card className="border-2 border-blue-100">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Credit Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-6">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Allocated</p>
+                        <p className="text-2xl font-bold text-gray-900">
+                          {((usageTeacher.credits || 0)).toFixed(1)}h
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Used</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {(usageMetrics.totalMinutes / 60).toFixed(1)}h
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Remaining</p>
+                        <p className={`text-2xl font-bold ${usageMetrics.remainingHours < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {usageMetrics.remainingHours.toFixed(1)}h
+                          {usageMetrics.remainingHours < 0 && <span className="text-sm ml-2">(OVER)</span>}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm text-gray-600 mb-2">
+                        <span>Usage: {((usageMetrics.totalMinutes / 60) / (usageTeacher.credits || 1) * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className={`h-3 rounded-full transition-all ${
+                            usageMetrics.remainingHours < 0 ? 'bg-red-500' :
+                            (usageMetrics.totalMinutes / 60) / (usageTeacher.credits || 1) > 0.75 ? 'bg-orange-500' :
+                            'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(((usageMetrics.totalMinutes / 60) / (usageTeacher.credits || 1) * 100), 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Metrics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Audio Minutes</CardTitle>
+                      <Clock className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{usageMetrics.totalMinutes.toFixed(1)} min</div>
+                      <p className="text-xs text-gray-500 mt-1">Total recorded audio</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Submissions</CardTitle>
+                      <FileText className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{usageMetrics.totalSubmissions}</div>
+                      <p className="text-xs text-gray-500 mt-1">Student submissions</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+                      <Users className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{usageMetrics.activeStudents}</div>
+                      <p className="text-xs text-gray-500 mt-1">Enrolled students</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Est. Costs</CardTitle>
+                      <Coins className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">${usageMetrics.analysisCosts.toFixed(2)}</div>
+                      <p className="text-xs text-gray-500 mt-1">Processing costs</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Detailed Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Usage Breakdown</CardTitle>
+                    <CardDescription>
+                      {usageSubscription
+                        ? `Detailed view for current billing period (since ${new Date(usageSubscription.current_period_start).toLocaleDateString()})`
+                        : 'Detailed view for last 30 days'
+                      }
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b pb-3">
+                        <div>
+                          <p className="font-medium text-gray-900">Total Recordings</p>
+                          <p className="text-sm text-gray-500">Audio files processed</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">{usageMetrics.totalRecordings}</p>
+                      </div>
+
+                      <div className="flex justify-between items-center border-b pb-3">
+                        <div>
+                          <p className="font-medium text-gray-900">Avg Recording Length</p>
+                          <p className="text-sm text-gray-500">Average duration per recording</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {usageMetrics.avgRecordingLength.toFixed(1)} min
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium text-gray-900">Cost Per Minute</p>
+                          <p className="text-sm text-gray-500">Average cost per audio minute</p>
+                        </div>
+                        <p className="text-lg font-semibold text-gray-900">
+                          ${usageMetrics.costPerMinute.toFixed(4)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+
+            {/* No teacher selected state */}
+            {!selectedUsageTeacherId && !usageLoading && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                <Coins className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Teacher Selected</h3>
+                <p className="text-gray-600">Select a teacher from the dropdown above to view their usage metrics</p>
+              </div>
+            )}
           </div>
         )}
 

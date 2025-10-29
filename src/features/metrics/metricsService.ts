@@ -483,6 +483,18 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   const credits = teacher?.credits || 10; // Default 10 hours
 
+  // Get teacher's subscription to determine billing period start date
+  const { data: subscription } = await supabase
+    .from('teacher_subscriptions')
+    .select('current_period_start')
+    .eq('teacher_id', teacherId)
+    .single();
+
+  // Use subscription period start date, or default to 30 days ago if no subscription
+  const startDate = subscription?.current_period_start
+    ? new Date(subscription.current_period_start).toISOString()
+    : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
   // Get all classes for this teacher
   const { data: classes, error: classesError } = await supabase
     .from('classes')
@@ -542,17 +554,17 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   }
 
   // Get all submissions for these assignments with audio duration
-  // Starting from October 23, 2025
+  // Starting from subscription period start (or last 30 days if no subscription)
   const { data: submissions, error: submissionsError } = await supabase
     .from('submissions')
     .select('id, student_id, recordings, overall_assignment_score')
     .in('assignment_id', assignmentIds)
     .not('submitted_at', 'is', null)
-    .gte('submitted_at', '2025-10-23T00:00:00.000Z');
+    .gte('submitted_at', startDate);
 
   if (submissionsError) throw submissionsError;
 
-  // Calculate metrics from submissions after Oct 23, 2025
+  // Calculate metrics from submissions in current billing period
   let totalRecordings = 0;
   let totalDurationSeconds = 0;
 
@@ -586,8 +598,9 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   const costPerSubmission = submissions?.length ? totalCosts / submissions.length : 0;
 
   // Calculate remaining hours: credits - (totalMinutes / 60)
+  // Allow negative values to show overage
   const hoursUsed = totalMinutes / 60;
-  const remainingHours = Math.max(0, credits - hoursUsed);
+  const remainingHours = credits - hoursUsed;
 
   return {
     totalMinutes,

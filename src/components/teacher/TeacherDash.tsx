@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { fetchClasses, createClass, deleteClass, fetchClassStatsByTeacher } from '@/features/class/classThunks';
 import { fetchTeacherSubscription } from '@/features/subscriptions/subscriptionThunks';
 import { useToast } from '@/hooks/use-toast';
+import { isAdmin } from '@/utils/adminUtils';
 import ClassTableActions from './ClassTableActions';
 import ClassTable, { ClassData } from './ClassTable';
 
@@ -15,6 +16,9 @@ export default function TeacherDashboard() {
   const { classes: classModels, classStats, loading, createClassLoading, statsLoading } = useAppSelector(state => state.classes);
   const { subscription, loading: subscriptionLoading } = useAppSelector(state => state.subscriptions);
   const { toast } = useToast();
+
+  // Check if user is admin (can bypass subscription check)
+  const userIsAdmin = isAdmin(user);
 
   // Modal state + form
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +102,12 @@ export default function TeacherDashboard() {
 
     // Don't block if subscription is still loading
     if (subscriptionLoading) {
+      setIsModalOpen(true);
+      return;
+    }
+
+    // Admins can bypass subscription check
+    if (userIsAdmin) {
       setIsModalOpen(true);
       return;
     }

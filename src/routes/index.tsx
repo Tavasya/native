@@ -18,6 +18,7 @@ import CreateAssignmentPage from "@/pages/teacher/CreateAssignmentPage";
 import UsagePage from '@/pages/teacher/UsagePage';
 import SubscriptionsPage from '@/pages/teacher/SubscriptionsPage';
 import SubscriptionSuccessPage from '@/pages/teacher/SubscriptionSuccessPage';
+import TeacherUsagePage from '@/pages/admin/TeacherUsagePage';
 import AssignmentPractice from "@/pages/student/AssignmentPractice"
 import GeneralPractice from "@/pages/student/GeneralPractice"
 import NewLogin from '@/pages/auth/NewLogin'
@@ -144,6 +145,8 @@ export default function AppRoutes() {
             <Route path="/class/:id" element={<ClassDetailPage />} />
             <Route path="/class/:id/create-assignment" element={<CreateAssignmentPage />} />
             <Route path="/dev-dash" element={<DevDash />} />
+            <Route path="/dev" element={<DevDash />} />
+            <Route path="/admin/teacher-usage/:teacherId" element={<TeacherUsagePage />} />
           </Route>
 
           {/* -------- SHARED ROUTES -------- */}

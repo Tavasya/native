@@ -4,16 +4,24 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '@/app/hooks';
 import { useToast } from '@/hooks/use-toast';
 import ClassDetail from '@/components/teacher/ClassDetail';
+import { isAdmin } from '@/utils/adminUtils';
 
 const ClassDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { subscription, loading } = useAppSelector(state => state.subscriptions);
+  const { user } = useAppSelector(state => state.auth);
   const { toast } = useToast();
+
+  // Check if user is admin (can bypass subscription check)
+  const userIsAdmin = isAdmin(user);
 
   // Check subscription on mount (but only after loading completes)
   useEffect(() => {
     // Don't redirect while loading
     if (loading) return;
+
+    // Admins can bypass subscription check
+    if (userIsAdmin) return;
 
     if (!subscription || subscription.status !== 'active') {
       toast({
@@ -23,10 +31,10 @@ const ClassDetailPage: React.FC = () => {
       });
       setTimeout(() => navigate('/teacher/subscriptions'), 1500);
     }
-  }, [subscription, loading, navigate, toast]);
+  }, [subscription, loading, navigate, toast, userIsAdmin]);
 
-  // If no active subscription AND not loading, don't render the component
-  if (!loading && (!subscription || subscription.status !== 'active')) {
+  // If no active subscription AND not loading AND not admin, don't render the component
+  if (!loading && !userIsAdmin && (!subscription || subscription.status !== 'active')) {
     return null;
   }
 
