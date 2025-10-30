@@ -5,6 +5,7 @@ import { AuthUser } from '@/features/auth/types';
 // List of admin emails who can bypass subscription checks
 const ADMIN_EMAILS = [
   'tavasyag@gmail.com',
+  'jessie@nativespeaking.ai'
   // Add more admin emails here as needed
 ];
 
