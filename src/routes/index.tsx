@@ -35,7 +35,6 @@ import { useAppSelector } from '@/app/hooks'
 import { isProfileComplete } from '@/utils/profileValidation'
 import ForgotPassword from '@/pages/auth/ForgotPassword'
 import ResetPassword from '@/pages/auth/ResetPassword'
-import LunaApp from '@/pages/luna/App'
 
 // Lazy load less frequently visited components
 const StudentSubmission = lazy(() => import("@/pages/student/Submission"))
@@ -100,10 +99,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Index />} />
         <Route path="/legal/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
-        
-        {/* Luna route - accessible to anyone */}
-        <Route path="/luna/*" element={<LunaApp />} />
-        
+
         {/* Redirect old library template URLs to new format */}
         <Route path="/library/template/:templateId" element={<LibraryTemplateRedirect />} />
         
