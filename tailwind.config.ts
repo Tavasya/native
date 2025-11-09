@@ -64,10 +64,19 @@ export default {
         },
         brand: {
           primary: '#EF5136',
-          secondary: '#282969',
+          secondary: '#272A69',
           text: '#2D2D2D',
           light: '#F7F7F7'
-        }
+        },
+        // Dark mode color mappings
+        'dark-card': '#1f2937',
+        'dark-card-hover': '#374151',
+        'dark-bg': '#111827',
+        'dark-bg-secondary': '#1f2937',
+        'dark-border': '#374151',
+        'dark-text': '#f9fafb',
+        'dark-text-secondary': '#d1d5db',
+        'dark-text-muted': '#9ca3af'
       },
       borderRadius: {
         lg: 'var(--radius)',

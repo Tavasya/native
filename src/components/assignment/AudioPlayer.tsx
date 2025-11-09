@@ -112,19 +112,28 @@ const CustomAudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(
 
     return (
       <div className="flex justify-center w-full">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 flex items-center min-w-[280px] sm:min-w-[600px] min-h-16 w-full max-w-[600px]">
+        <div className="bg-white dark:bg-dark-card rounded-lg p-4 shadow-sm border border-gray-100 dark:border-dark-border flex items-center min-w-[280px] sm:min-w-[600px] min-h-16 w-full max-w-[600px]">
           <style>
             {`
               .rhap_time {
                 color: #272A69 !important;
               }
+              .dark .rhap_time {
+                color: #93c5fd !important;
+              }
               .rhap_progress-filled {
                 background-color: #272A69 !important;
+              }
+              .dark .rhap_progress-filled {
+                background-color: #3b82f6 !important;
               }
               .rhap_progress-indicator {
                 background-color: #272A69 !important;
                 top: 50% !important;
                 transform: translate(-50%, -50%) !important;
+              }
+              .dark .rhap_progress-indicator {
+                background-color: #3b82f6 !important;
               }
               .rhap_container {
                 box-shadow: none !important;
@@ -162,7 +171,7 @@ const CustomAudioPlayer = forwardRef<HTMLAudioElement, AudioPlayerProps>(
                   }
                 }
               }}
-              className="p-2 bg-[#272A69] text-white hover:bg-[#1f2159] transition-colors flex items-center justify-center rounded-full w-10 h-10"
+              className="p-2 bg-brand-secondary dark:bg-blue-600 text-white hover:bg-brand-secondary/90 dark:hover:bg-blue-700 transition-colors flex items-center justify-center rounded-full w-10 h-10"
             >
               {isPlaying ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

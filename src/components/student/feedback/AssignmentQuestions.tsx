@@ -40,9 +40,9 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
 
   if (!currentQuestion) {
     return (
-      <Card className="shadow-sm border border-slate-200 bg-white">
+      <Card className="shadow-sm border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card">
         <CardContent className="p-4">
-          <p className="text-gray-500">No question available</p>
+          <p className="text-gray-500 dark:text-gray-400">No question available</p>
         </CardContent>
       </Card>
     );
@@ -173,13 +173,13 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
   });
 
   return (
-    <Card className="shadow-sm border border-slate-200 bg-white">
+    <Card className="shadow-sm border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card">
       <CardContent className="p-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 mr-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-slate-900 font-medium leading-relaxed">
+                <p className="text-slate-900 dark:text-gray-100 font-medium leading-relaxed">
                   {(currentQuestion.question || 'No question text available').replace(/^[•\-*]\s*/, '')}
                 </p>
               </div>
@@ -188,28 +188,28 @@ const AssignmentQuestions: React.FC<AssignmentQuestionsProps> = ({ assignment, s
               { <Button
                 variant="default"
                 size="sm"
-                className="bg-orange-500 text-white hover:bg-orange-600"
+                className="bg-orange-500 dark:bg-orange-600 text-white hover:bg-orange-600 dark:hover:bg-orange-700"
                 onClick={handlePracticeQuestion}
               >
                 Practice
               </Button> }
             </div>
           </div>
-          
+
           {currentQuestion.bulletPoints && currentQuestion.bulletPoints.length > 0 && (
-            <div className="bg-slate-50 rounded-lg p-3">
-              <ul className="list-disc list-inside text-slate-700 space-y-1">
+            <div className="bg-slate-50 dark:bg-gray-600 rounded-lg p-3">
+              <ul className="list-disc list-inside text-slate-700 dark:text-gray-200 space-y-1">
                 {currentQuestion.bulletPoints.map((bullet, bulletIndex) => (
                   <li key={bulletIndex} className="text-sm leading-relaxed">{bullet || 'Empty bullet point'}</li>
                 ))}
               </ul>
             </div>
           )}
-          
+
           {currentQuestion.speakAloud && (
-            <div className="flex gap-4 text-xs text-slate-500 pt-2 border-t border-slate-200">
-              <span className="flex items-center gap-1 text-slate-600">
-                <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+            <div className="flex gap-4 text-xs text-slate-500 dark:text-gray-400 pt-2 border-t border-slate-200 dark:border-dark-border">
+              <span className="flex items-center gap-1 text-slate-600 dark:text-gray-300">
+                <div className="w-2 h-2 bg-slate-800 dark:bg-gray-300 rounded-full"></div>
                 Speak Aloud
               </span>
             </div>

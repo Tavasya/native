@@ -586,11 +586,11 @@ const ClassDetail: React.FC<ClassDetailProps> = ({ onBack }) => {
                 <div className="flex-1">
                   <CardTitle className="flex items-center gap-2 text-lg font-semibold">
                     {a.name}
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-gray-200 dark:bg-dark-card text-gray-700 dark:text-gray-300 px-2 py-1 rounded-full">
                       {a.submitted}/{a.totalStudents} completed
                     </span>
                   </CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">Due: {a.dueDate}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Due: {a.dueDate}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button

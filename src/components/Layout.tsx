@@ -14,6 +14,14 @@ const LayoutContainer = styled.div`
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background-color: var(--background-color, #ffffff);
+  color: var(--text-color, #000000);
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  .dark & {
+    background-color: #111827;
+    color: #f9fafb;
+  }
 `;
 
 const MainContent = styled.main`

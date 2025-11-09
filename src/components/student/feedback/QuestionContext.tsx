@@ -46,7 +46,7 @@ const QuestionContent: React.FC<QuestionContentProps> = ({
   });
 
   return (
-    <Card className="shadow-sm border-0 bg-white">
+    <Card className="shadow-sm border-0 bg-white dark:bg-dark-card">
       <CardContent className="p-4">
         <QuestionSelector
           questions={questions}

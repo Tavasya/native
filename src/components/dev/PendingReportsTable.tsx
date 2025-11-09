@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink, Play, Pause } from 'lucide-react';
 import { submissionService } from '@/features/submissions/submissionsService';
 import type { Submission } from '@/features/submissions/types';
 
@@ -11,14 +11,19 @@ interface PendingReportsTableProps {
   refreshTrigger?: number;
 }
 
-const PendingReportsTable: React.FC<PendingReportsTableProps> = ({ 
+const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   onSelectReports,
-  refreshTrigger = 0 
+  refreshTrigger = 0
 }) => {
   const [pendingReports, setPendingReports] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [autoPilotActive, setAutoPilotActive] = useState(false);
+  const [intervalSeconds, setIntervalSeconds] = useState(30);
+  const [processedInSession, setProcessedInSession] = useState<Set<string>>(new Set());
+  const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null);
+  const autoPilotInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchPendingReports = async () => {
     setLoading(true);
@@ -41,6 +46,82 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   useEffect(() => {
     fetchPendingReports();
   }, [refreshTrigger]);
+
+  // Cleanup autopilot on unmount
+  useEffect(() => {
+    return () => {
+      if (autoPilotInterval.current) {
+        clearInterval(autoPilotInterval.current);
+      }
+    };
+  }, []);
+
+  const processNextSubmission = async () => {
+    // Get unprocessed submissions (not in processedInSession)
+    const unprocessed = pendingReports.filter(r => !processedInSession.has(r.id));
+
+    if (unprocessed.length === 0) {
+      console.log('No more unprocessed submissions');
+      return;
+    }
+
+    // Get the first unprocessed submission
+    const nextSubmission = unprocessed[0];
+    setCurrentlyProcessing(nextSubmission.id);
+
+    try {
+      console.log(`Processing submission: ${nextSubmission.id}`);
+
+      const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
+        method: "POST",
+        mode: "cors",
+        cache: "no-cache",
+        credentials: "omit",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          submission_uid: nextSubmission.id
+        })
+      });
+
+      if (response.ok) {
+        console.log(`Successfully sent ${nextSubmission.id} for processing`);
+        // Mark as processed
+        setProcessedInSession(prev => new Set([...prev, nextSubmission.id]));
+        // Move to bottom by removing from pending list
+        setPendingReports(prev => prev.filter(r => r.id !== nextSubmission.id));
+      } else {
+        console.error(`Failed to process ${nextSubmission.id}`);
+      }
+    } catch (error) {
+      console.error(`Error processing ${nextSubmission.id}:`, error);
+    } finally {
+      setCurrentlyProcessing(null);
+    }
+  };
+
+  const startAutoPilot = () => {
+    setAutoPilotActive(true);
+    setProcessedInSession(new Set()); // Reset processed set
+
+    // Process first one immediately
+    processNextSubmission();
+
+    // Then process every X seconds
+    autoPilotInterval.current = setInterval(() => {
+      processNextSubmission();
+    }, intervalSeconds * 1000);
+  };
+
+  const stopAutoPilot = () => {
+    setAutoPilotActive(false);
+    if (autoPilotInterval.current) {
+      clearInterval(autoPilotInterval.current);
+      autoPilotInterval.current = null;
+    }
+    setCurrentlyProcessing(null);
+  };
 
   const handleSelectAll = () => {
     if (selectedIds.size === pendingReports.length) {
@@ -108,11 +189,16 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                 {selectedIds.size} selected
               </Badge>
             )}
+            {autoPilotActive && (
+              <Badge variant="default" className="bg-green-600">
+                Auto-Pilot Active
+              </Badge>
+            )}
             <Button
               variant="outline"
               size="sm"
               onClick={fetchPendingReports}
-              disabled={loading}
+              disabled={loading || autoPilotActive}
               className="flex items-center gap-1"
             >
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
@@ -140,6 +226,57 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Auto-Pilot Controls */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">Auto-Pilot Mode</h4>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700">Interval:</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="300"
+                    value={intervalSeconds}
+                    onChange={(e) => setIntervalSeconds(Number(e.target.value))}
+                    disabled={autoPilotActive}
+                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                  />
+                  <span className="text-sm text-gray-600">seconds</span>
+                </div>
+
+                {!autoPilotActive ? (
+                  <Button
+                    onClick={startAutoPilot}
+                    disabled={pendingReports.length === 0}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    Start Auto-Pilot
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={stopAutoPilot}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Pause className="h-4 w-4 mr-1" />
+                    Stop Auto-Pilot
+                  </Button>
+                )}
+
+                {autoPilotActive && (
+                  <div className="text-sm text-gray-700">
+                    Processed: <strong>{processedInSession.size}</strong> |
+                    Remaining: <strong>{pendingReports.filter(r => !processedInSession.has(r.id)).length}</strong>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Auto-pilot will process one submission every {intervalSeconds} seconds, even if the previous one hasn't finished.
+              </p>
+            </div>
+
             {/* Bulk Actions */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2">
@@ -201,6 +338,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         key={report.id}
                         className={`hover:bg-gray-50 ${
                           selectedIds.has(report.id) ? 'bg-blue-50' : ''
+                        } ${currentlyProcessing === report.id ? 'bg-yellow-100' : ''} ${
+                          processedInSession.has(report.id) ? 'opacity-50' : ''
                         }`}
                       >
                         <td className="px-4 py-3">
