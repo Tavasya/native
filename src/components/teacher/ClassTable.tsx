@@ -88,12 +88,12 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
   return (
     <TooltipProvider>
       {classes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg border shadow-subtle">
+        <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-dark-card rounded-lg border dark:border-dark-border shadow-subtle">
           <div className="text-center max-w-md">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
               No Classes Yet
             </h3>
-            <p className="text-gray-500 mb-6">
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
               Get started by creating your first class, or watch our help video to learn how to use the platform effectively.
             </p>
             <Button 
@@ -110,7 +110,7 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
           {classes.map((classItem) => (
             <Card
               key={classItem.id}
-              className="overflow-hidden hover:shadow-md transition-shadow duration-200 rounded-md cursor-pointer relative"
+              className="overflow-hidden hover:shadow-md transition-shadow duration-200 rounded-md cursor-pointer relative bg-white dark:bg-dark-card"
             >
               <Link
                 to={`/class/${classItem.id}`}
@@ -121,8 +121,8 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg text-gray-800">{classItem.name}</h3>
-                        <div className="flex items-center gap-3 text-gray-500">
+                        <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-100">{classItem.name}</h3>
+                        <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="flex items-center gap-1">
@@ -164,9 +164,9 @@ const ClassTable: React.FC<ClassTableProps> = ({ classes, onDelete }) => {
               >
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge 
-                      variant="outline" 
-                      className="font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors cursor-pointer"
+                    <Badge
+                      variant="outline"
+                      className="font-semibold bg-gray-100 dark:bg-dark-card text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 border-gray-300 dark:border-dark-border transition-colors cursor-pointer"
                     >
                       {classItem.code}
                     </Badge>

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -151,7 +151,10 @@
 <a name='L86'></a><a href='#L86'>86</a>
 <a name='L87'></a><a href='#L87'>87</a>
 <a name='L88'></a><a href='#L88'>88</a>
-<a name='L89'></a><a href='#L89'>89</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -174,27 +177,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -210,6 +192,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -239,7 +231,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react';
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import React from 'react';</span>
 <span class="cstat-no" title="statement not covered" >import { Card, CardContent } from "@/components/ui/card";</span>
 <span class="cstat-no" title="statement not covered" >import QuestionSelector from '@/components/student/feedback/QuestionSelector';</span>
 <span class="cstat-no" title="statement not covered" >import AudioPlayer from '@/components/assignment/AudioPlayer';</span>
@@ -252,9 +258,10 @@ interface QuestionContentProps {
   questions: QuestionFeedback[];
   selectedQuestionIndex: number;
   onSelectQuestion: (index: number) =&gt; void;
-  audioRef: React.RefObject&lt;HTMLAudioElement&gt;;
+  audioRef: React.RefObject&lt;HTMLAudioElement | null&gt;;
   audioUrl: string;
   transcript: string;
+  cleanTranscript?: string;
   currentFeedback: SectionFeedback | null;
   highlightType: 'none' | 'grammar' | 'vocabulary';
   openPopover: string | null;
@@ -269,6 +276,7 @@ const QuestionContent: React.FC&lt;QuestionContentProps&gt; = <span class="cstat
   audioRef,
   audioUrl,
   transcript,
+  cleanTranscript,
   currentFeedback,
   highlightType,
   openPopover,
@@ -285,7 +293,7 @@ const QuestionContent: React.FC&lt;QuestionContentProps&gt; = <span class="cstat
   });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
-    &lt;Card className="shadow-sm border-0 bg-white"&gt;
+    &lt;Card className="shadow-sm border-0 bg-white dark:bg-dark-card"&gt;
       &lt;CardContent className="p-4"&gt;
         &lt;QuestionSelector
           questions={questions}
@@ -305,7 +313,7 @@ const QuestionContent: React.FC&lt;QuestionContentProps&gt; = <span class="cstat
         &lt;div className="mt-6"&gt;
           {audioUrl &amp;&amp; (
             &lt;AudioPlayer
-              ref={audioRef}
+              ref={audioRef as any}
               audioUrl={audioUrl}
               hasRecorded={true}
               isRecording={false}
@@ -316,6 +324,7 @@ const QuestionContent: React.FC&lt;QuestionContentProps&gt; = <span class="cstat
 &nbsp;
         &lt;Transcript
           transcript={transcript}
+          cleanTranscript={cleanTranscript}
           currentFeedback={currentFeedback}
           highlightType={highlightType}
           selectedQuestionIndex={selectedQuestionIndex}
@@ -334,7 +343,7 @@ const QuestionContent: React.FC&lt;QuestionContentProps&gt; = <span class="cstat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-11-09T19:09:00.978Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

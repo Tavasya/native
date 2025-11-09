@@ -63,11 +63,11 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
   };
 
   return (
-    <Card className="shadow-sm border-0 bg-white">
+    <Card className="shadow-sm border-0 bg-white dark:bg-dark-card">
       <CardContent className="p-6">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-bold text-gray-900">{assignmentTitle}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{assignmentTitle}</h1>
             {audioUrl && (
               <a
                 href={audioUrl}
@@ -86,7 +86,7 @@ const SubmissionInfo: React.FC<SubmissionInfoProps> = ({
               </a>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Submitted by {studentName} on {new Date(submittedAt || Date.now()).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',

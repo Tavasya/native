@@ -1,10 +1,10 @@
 // src/components/DashboardHeader.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Play, X, MessageCircle } from 'lucide-react';
+import { Play, X, MessageCircle, Moon, Sun } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { signOut } from '@/features/auth/authThunks';
 import { SupportTicketModal } from '@/components/support/SupportTicketModal';
@@ -13,7 +13,7 @@ import NativeLogo from '@/lib/images/Native Logo.png';
 
 const Navbar: React.FC = () => {
   /* ------------------------------------------------------ hooks ---- */
-  const { user, role } = useAppSelector((s) => s.auth);   
+  const { user, role } = useAppSelector((s) => s.auth);
   const dispatch        = useAppDispatch();
   const navigate        = useNavigate();
 
@@ -22,6 +22,9 @@ const Navbar: React.FC = () => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('darkMode') === 'true';
+  });
   const initials = user?.name
     ?.split(' ')
     .map((n) => n[0])
@@ -45,40 +48,51 @@ const Navbar: React.FC = () => {
     setMenuOpen(false);
   };
 
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('darkMode', String(newMode));
+    document.documentElement.classList.toggle('dark', newMode);
+  };
+
+  // Apply dark mode on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
 
   /* ----------------------------------------------------- render ---- */
   return (
     <>
-      <header className="bg-white border-b border-gray-200 py-4 fixed top-0 left-0 right-0 z-50">
+      <header className="bg-white dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border py-4 fixed top-0 left-0 right-0 z-50">
         <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
 
           {/* ----------------------------------------------------------------
              *  LEFT — brand + nav links
              * ---------------------------------------------------------------- */}
           <div className="flex items-end gap-6">
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               <img src={NativeLogo} alt="Native" className="h-6" />
             </h1>
 
             {user && role === 'teacher' && (
-              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-[#272A69]">
+              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-brand-secondary dark:text-dark-text-secondary">
                 <Link
                   to="/teacher/dashboard"
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Classes
                 </Link>
                 <Link
                   to="/teacher/usage"
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Usage
                 </Link>
                 <Link
                   to="/teacher/subscriptions"
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Billing
@@ -87,7 +101,7 @@ const Navbar: React.FC = () => {
                   href="https://nativespeaking.ai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Practice
@@ -96,19 +110,19 @@ const Navbar: React.FC = () => {
             )}
 
             {user && role === 'student' && (
-              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-[#272A69]">
-                <Link 
-                  to="/student/dashboard" 
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+              <nav className="hidden md:flex items-center gap-4 text-sm font-semibold text-brand-secondary dark:text-dark-text-secondary">
+                <Link
+                  to="/student/dashboard"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
-                <a 
-                  href="https://nativespeaking.ai" 
+                <a
+                  href="https://nativespeaking.ai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-gray-900 transition-colors duration-200 cursor-pointer"
+                  className="hover:text-gray-900 dark:hover:text-white transition-colors duration-200 cursor-pointer"
                   onClick={() => setMenuOpen(false)}
                 >
                   Practice
@@ -125,7 +139,7 @@ const Navbar: React.FC = () => {
               {/* Support Button */}
               <button
                 onClick={handleSupportClick}
-                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-[#272A69] hover:text-gray-900 transition-colors duration-200 rounded-lg hover:bg-gray-50"
+                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-brand-secondary dark:text-dark-text-secondary hover:text-gray-900 dark:hover:text-white transition-colors duration-200 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-card"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span className="hidden md:block">Need Help?</span>
@@ -137,36 +151,54 @@ const Navbar: React.FC = () => {
                   onClick={toggleMenu}
                   className="flex items-center space-x-2 select-none focus:outline-none"
                 >
-                  <span className="hidden md:block text-sm font-medium text-[#272A69]">
+                  <span className="hidden md:block text-sm font-medium text-brand-secondary dark:text-dark-text-secondary">
                     {user.name}
                   </span>
 
                   <Avatar className="h-9 w-9">
                     {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-                    <AvatarFallback className="bg-[#EF5136] text-white">
+                    <AvatarFallback className="bg-brand-primary text-white">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                 </button>
 
               {menuOpen && (
-          
-               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg overflow-hidden shadow-lg z-10">
-                
+
+               <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden shadow-lg z-10">
+
+                  {/* Dark Mode Toggle */}
+                  <button
+                    onClick={toggleDarkMode}
+                    className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {darkMode ? (
+                      <>
+                        <Sun className="h-4 w-4" />
+                        Light Mode
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="h-4 w-4" />
+                        Dark Mode
+                      </>
+                    )}
+                  </button>
+
                   {/* Help Video Button - Only for Teachers */}
                   {role === 'teacher' && (
                     <button
                       onClick={handleHelpClick}
-                      className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       <Play className="h-4 w-4" />
                       Watch Tutorial Video
                     </button>
                   )}
-                  
+
                   <button
                     onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Log&nbsp;out
                   </button>

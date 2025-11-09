@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">5.74% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/87</span>
+                <span class='fraction'>5/87</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">5.88% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/85</span>
+                <span class='fraction'>5/85</span>
             </div>
         
             
@@ -293,10 +293,19 @@
 <a name='L228'></a><a href='#L228'>228</a>
 <a name='L229'></a><a href='#L229'>229</a>
 <a name='L230'></a><a href='#L230'>230</a>
-<a name='L231'></a><a href='#L231'>231</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L231'></a><a href='#L231'>231</a>
+<a name='L232'></a><a href='#L232'>232</a>
+<a name='L233'></a><a href='#L233'>233</a>
+<a name='L234'></a><a href='#L234'>234</a>
+<a name='L235'></a><a href='#L235'>235</a>
+<a name='L236'></a><a href='#L236'>236</a>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -306,7 +315,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -406,6 +415,15 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -523,10 +541,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// 📁 src/components/assignment/AudioPlayer.tsx
-<span class="cstat-no" title="statement not covered" >import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';</span>
-<span class="cstat-no" title="statement not covered" >import AudioPlayer, { RHAP_UI } from 'react-h5-audio-player';</span>
-<span class="cstat-no" title="statement not covered" >import 'react-h5-audio-player/lib/styles.css';</span>
+<span class="cline-any cline-yes">1x</span></td><td class="text"><pre class="prettyprint lang-js">// 📁 src/components/assignment/AudioPlayer.tsx
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import AudioPlayer, { RHAP_UI } from 'react-h5-audio-player';
+import 'react-h5-audio-player/lib/styles.css';
 &nbsp;
 interface AudioPlayerProps {
   hasRecorded: boolean;
@@ -536,12 +554,12 @@ interface AudioPlayerProps {
 }
 &nbsp;
 &nbsp;
-const CustomAudioPlayer = <span class="cstat-no" title="statement not covered" >forwardRef&lt;any, AudioPlayerProps&gt;(</span>
+const CustomAudioPlayer = forwardRef&lt;HTMLAudioElement, AudioPlayerProps&gt;(
 <span class="fstat-no" title="function not covered" >  ({</span> hasRecorded, isRecording, onTimeUpdate, audioUrl }, ref) =&gt; {
     const localAudioRef = <span class="cstat-no" title="statement not covered" >useRef&lt;any&gt;(null);</span>
-<span class="cstat-no" title="statement not covered" >    useImperativeHandle(ref, <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >localAudioRef.current)</span>;</span>
-    const [_isLoading, setIsLoading] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
-    const [_loadProgress, setLoadProgress] = <span class="cstat-no" title="statement not covered" >useState(0);</span>
+<span class="cstat-no" title="statement not covered" >    useImperativeHandle(ref, <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >localAudioRef.current?.audio?.current!)</span>;</span>
+    const [, setIsLoading] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
+    const [, setLoadProgress] = <span class="cstat-no" title="statement not covered" >useState(0);</span>
     const [isPlaying, setIsPlaying] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
     const hasLoaded = <span class="cstat-no" title="statement not covered" >useRef(false);</span>
 &nbsp;
@@ -637,19 +655,28 @@ const CustomAudioPlayer = <span class="cstat-no" title="statement not covered" >
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return (</span>
       &lt;div className="flex justify-center w-full"&gt;
-        &lt;div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 flex items-center min-w-[280px] sm:min-w-[600px] min-h-16 w-full max-w-[600px]"&gt;
+        &lt;div className="bg-white dark:bg-dark-card rounded-lg p-4 shadow-sm border border-gray-100 dark:border-dark-border flex items-center min-w-[280px] sm:min-w-[600px] min-h-16 w-full max-w-[600px]"&gt;
           &lt;style&gt;
             {`
               .rhap_time {
                 color: #272A69 !important;
               }
+              .dark .rhap_time {
+                color: #93c5fd !important;
+              }
               .rhap_progress-filled {
                 background-color: #272A69 !important;
+              }
+              .dark .rhap_progress-filled {
+                background-color: #3b82f6 !important;
               }
               .rhap_progress-indicator {
                 background-color: #272A69 !important;
                 top: 50% !important;
                 transform: translate(-50%, -50%) !important;
+              }
+              .dark .rhap_progress-indicator {
+                background-color: #3b82f6 !important;
               }
               .rhap_container {
                 box-shadow: none !important;
@@ -687,7 +714,7 @@ const CustomAudioPlayer = <span class="cstat-no" title="statement not covered" >
                   }
                 }
               }}
-              className="p-2 bg-[#272A69] text-white hover:bg-[#1f2159] transition-colors flex items-center justify-center rounded-full w-10 h-10"
+              className="p-2 bg-brand-secondary dark:bg-blue-600 text-white hover:bg-brand-secondary/90 dark:hover:bg-blue-700 transition-colors flex items-center justify-center rounded-full w-10 h-10"
             &gt;
               {isPlaying ? (
                 &lt;svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"&gt;
@@ -753,14 +780,14 @@ const CustomAudioPlayer = <span class="cstat-no" title="statement not covered" >
   }
 );
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export default CustomAudioPlayer;</span></pre></td></tr></table></pre>
+export default CustomAudioPlayer;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-11-09T19:09:00.978Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

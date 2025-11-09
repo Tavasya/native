@@ -5,7 +5,8 @@ import { AuthUser } from '@/features/auth/types';
 // List of admin emails who can bypass subscription checks
 const ADMIN_EMAILS = [
   'tavasyag@gmail.com',
-  'jessie@nativespeaking.ai'
+  'jessie@nativespeaking.ai',
+  'rexjordonez@gmail.com'
   // Add more admin emails here as needed
 ];
 
@@ -25,6 +26,7 @@ export function isAdmin(user: AuthUser | null): boolean {
  * @param subscription - The subscription object
  * @returns true if user can proceed (is admin OR has active subscription)
  */
+
 export function canBypassSubscription(
   user: AuthUser | null,
   subscription: any

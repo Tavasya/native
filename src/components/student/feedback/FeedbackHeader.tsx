@@ -166,7 +166,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
           Back
         </Button>
         {attempt && (
-          <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+          <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded">
             Attempt {attempt}
           </span>
         )}
@@ -175,7 +175,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
         {isPractice && (
           <Button
             variant="outline"
-            className="flex items-center gap-2 bg-[#272A69] text-white hover:bg-[#272A69]/90"
+            className="flex items-center gap-2 bg-brand-secondary dark:bg-blue-600 text-white hover:bg-brand-secondary/90 dark:hover:bg-blue-700"
             onClick={handleStartPractice}
           >
             <BookOpen className="h-4 w-4" />
@@ -216,11 +216,11 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
                       {isStudent && submission.status === 'in_progress' && ' (Continue)'}
                     </span>
                     <span className={`text-xs px-2 py-1 rounded ${
-                      submission.status === 'graded' ? 'bg-green-100 text-green-700' :
-                      submission.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      submission.status === 'awaiting_review' ? 'bg-blue-100 text-blue-700' :
-                      submission.status === 'in_progress' ? 'bg-orange-100 text-orange-700' :
-                      'bg-gray-100 text-gray-700'
+                      submission.status === 'graded' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                      submission.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                      submission.status === 'awaiting_review' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                      submission.status === 'in_progress' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' :
+                      'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}>
                       {submission.status === 'graded' ? 'Graded' :
                        submission.status === 'pending' ? 'Pending' :
@@ -229,7 +229,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
                        submission.status}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {formatDate(submission.submitted_at)}
                   </span>
                 </DropdownMenuItem>
@@ -239,7 +239,7 @@ const FeedbackHeader: React.FC<FeedbackHeaderProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={onRedo}
-                    className="text-blue-600 font-medium"
+                    className="text-blue-600 dark:text-blue-400 font-medium"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Start New Attempt

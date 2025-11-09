@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/84</span>
+                <span class='fraction'>0/86</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/30</span>
+                <span class='fraction'>0/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/76</span>
+                <span class='fraction'>0/78</span>
             </div>
         
             
@@ -309,7 +309,12 @@
 <a name='L244'></a><a href='#L244'>244</a>
 <a name='L245'></a><a href='#L245'>245</a>
 <a name='L246'></a><a href='#L246'>246</a>
-<a name='L247'></a><a href='#L247'>247</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L247'></a><a href='#L247'>247</a>
+<a name='L248'></a><a href='#L248'>248</a>
+<a name='L249'></a><a href='#L249'>249</a>
+<a name='L250'></a><a href='#L250'>250</a>
+<a name='L251'></a><a href='#L251'>251</a>
+<a name='L252'></a><a href='#L252'>252</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -330,6 +335,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -432,6 +438,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -460,7 +467,9 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -500,6 +509,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -568,6 +578,7 @@
   startEditing,
   stopEditing,
   setSelectedQuestionIndex,
+  syncFeedbackForCurrentQuestion,
   setActiveTab,
   setOpenPopover,
   togglePopover,
@@ -681,6 +692,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
       question_id: question.question_id,
       audio_url: audioUrl,
       transcript: question.transcript || '',
+      clean_transcript: question.clean_transcript || '',
       section_feedback: question.section_feedback,
       duration_feedback: question.duration_feedback
     };
@@ -694,7 +706,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
   // ✅ Computed values
   const isGraded = <span class="cstat-no" title="statement not covered" >selectedSubmission?.status === 'graded';</span>
   const isAwaitingReview = <span class="cstat-no" title="statement not covered" >selectedSubmission?.status === 'awaiting_review';</span>
-  const canEdit = <span class="cstat-no" title="statement not covered" >isAwaitingReview &amp;&amp; role === 'teacher';</span>
+  const canEdit = <span class="cstat-no" title="statement not covered" >role === 'teacher';</span>
   
   // Get current assignment
   const currentAssignment = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
@@ -706,6 +718,8 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
 <span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (submissionId) {</span>
 <span class="cstat-no" title="statement not covered" >      console.log('Fetching submission:', submissionId);</span>
+      // Clear TTS audio cache when switching submissions to prevent stale audio from previous recordings
+<span class="cstat-no" title="statement not covered" >      dispatch(clearTTSAudio());</span>
 <span class="cstat-no" title="statement not covered" >      dispatch(fetchSubmissionById(submissionId));</span>
     }
   }, [submissionId, dispatch]);
@@ -721,10 +735,10 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
     }
   }, [selectedSubmission?.assignment_id, assignments, dispatch]);
 &nbsp;
-  // ✅ Cleanup TTS on unmount
+  // ✅ Cleanup TTS on unmount only (don't clear on tab switching)
 <span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      console.log('Cleaning up TTS audio resources');</span>
+<span class="cstat-no" title="statement not covered" >      console.log('Cleaning up TTS audio resources on component unmount');</span>
 <span class="cstat-no" title="statement not covered" >      dispatch(clearTTSAudio());</span>
     };
   }, [dispatch]);
@@ -747,6 +761,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
     
     // UI actions
     setSelectedQuestionIndex: <span class="fstat-no" title="function not covered" >(i</span>ndex: number) =&gt; <span class="cstat-no" title="statement not covered" >dispatch(setSelectedQuestionIndex(index)),</span>
+    syncFeedbackForCurrentQuestion: <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >dispatch(syncFeedbackForCurrentQuestion()),</span>
     setActiveTab: <span class="fstat-no" title="function not covered" >(t</span>ab: string) =&gt; <span class="cstat-no" title="statement not covered" >dispatch(setActiveTab(tab)),</span>
     setOpenPopover: <span class="fstat-no" title="function not covered" >(p</span>opover: string | null) =&gt; <span class="cstat-no" title="statement not covered" >dispatch(setOpenPopover(popover)),</span>
     togglePopover: <span class="fstat-no" title="function not covered" >(p</span>opover: string) =&gt; <span class="cstat-no" title="statement not covered" >dispatch(togglePopover(popover)),</span>
@@ -808,7 +823,7 @@ export const <span class="cstat-no" title="statement not covered" >useSubmission
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-17T23:31:02.262Z
+                at 2025-11-09T19:09:00.978Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

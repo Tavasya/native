@@ -16,7 +16,6 @@ import {
   clearSelectedTeacher,
 } from '@/features/metrics/metricsSlice';
 import { fetchClasses, fetchClassStatsByTeacher } from '@/features/class/classThunks';
-import { submissionService } from '@/features/submissions/submissionsService';
 import type { RootState, AppDispatch } from '@/app/store';
 import type {
   LastLogin,
@@ -26,8 +25,7 @@ import AssignmentAnalyticsGraph from '@/components/dev/AssignmentAnalyticsGraph'
 import AssignmentListModal from '@/components/dev/AssignmentListModal';
 import UserGrowthGraph from '@/components/dev/UserGrowthGraph';
 import SubmissionTrendsGraph from '@/components/dev/SubmissionTrendsGraph';
-import ReportsProcessor from '@/components/dev/ReportsProcessor';
-import RedoV2 from '@/components/dev/RedoV2';
+import PendingReportsTable from '@/components/dev/PendingReportsTable';
 import { SupportTicketList } from '@/components/support/SupportTicketList';
 import { getTeacherUsageMetrics } from '@/features/metrics/metricsService';
 import { supabase } from '@/integrations/supabase/client';
@@ -173,16 +171,19 @@ export default function DashboardPage() {
     return sessionStorage.getItem('devDashActiveTab') || 'overview';
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [submissionId, setSubmissionId] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [devMessage, setDevMessage] = useState('');
-  const [devError, setDevError] = useState('');
-  const [devMode, setDevMode] = useState<'localhost' | 'trigger'>('localhost');
   const [selectedUsageTeacherId, setSelectedUsageTeacherId] = useState('');
   const [usageMetrics, setUsageMetrics] = useState<any>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageTeacher, setUsageTeacher] = useState<any>(null);
   const [usageSubscription, setUsageSubscription] = useState<any>(null);
+  const [latestSubmissions, setLatestSubmissions] = useState<any[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsPage, setSubmissionsPage] = useState(1);
+  const [hasMoreSubmissions, setHasMoreSubmissions] = useState(true);
+  const [submissionsFilter, setSubmissionsFilter] = useState<string>('graded');
+  const [deletingSubmission, setDeletingSubmission] = useState<string | null>(null);
+  const submissionsPerPage = 20;
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
@@ -222,6 +223,72 @@ export default function DashboardPage() {
   useEffect(() => {
     sessionStorage.setItem('devDashActiveTab', activeTab);
   }, [activeTab]);
+
+  // Fetch latest submissions when dev tab is active
+  useEffect(() => {
+    if (activeTab === 'dev') {
+      fetchLatestSubmissions();
+    }
+  }, [activeTab, submissionsPage, submissionsFilter]);
+
+  const fetchLatestSubmissions = async () => {
+    try {
+      setSubmissionsLoading(true);
+      let query = supabase
+        .from('submissions')
+        .select(`
+          id,
+          status,
+          submitted_at,
+          assignment:assignments(title),
+          student:users!submissions_student_id_fkey(name, email)
+        `);
+
+      // Apply status filter
+      if (submissionsFilter !== 'all') {
+        query = query.eq('status', submissionsFilter);
+      }
+
+      const { data, error } = await query
+        .order('submitted_at', { ascending: false })
+        .range((submissionsPage - 1) * submissionsPerPage, submissionsPage * submissionsPerPage - 1);
+
+      if (error) throw error;
+
+      if (data) {
+        setLatestSubmissions(data);
+        setHasMoreSubmissions(data.length === submissionsPerPage);
+      }
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId: string) => {
+    if (!confirm('Are you sure you want to delete this submission? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingSubmission(submissionId);
+      const { error } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('id', submissionId);
+
+      if (error) throw error;
+
+      // Refresh the list after deletion
+      fetchLatestSubmissions();
+    } catch (error: any) {
+      console.error('Error deleting submission:', error);
+      alert(`Failed to delete submission: ${error.message}`);
+    } finally {
+      setDeletingSubmission(null);
+    }
+  };
 
   // Fetch usage metrics when teacher is selected
   useEffect(() => {
@@ -340,100 +407,6 @@ export default function DashboardPage() {
     return 'No Teacher';
   };
 
-  // Dev functions for handling submission reprocessing
-  const handleRedoReport = async () => {
-    if (!submissionId.trim()) {
-      setDevError('Please enter a submission ID');
-      return;
-    }
-
-    setIsProcessing(true);
-    setDevMessage('');
-    setDevError('');
-
-    try {
-      // First, get the submission details
-      const submission = await submissionService.getSubmissionById(submissionId.trim());
-      
-      if (!submission) {
-        throw new Error('Submission not found');
-      }
-
-      if (devMode === 'localhost') {
-        // Localhost Mode: Only call API with audio URLs (don't change status)
-        if (!submission.recordings || submission.recordings.length === 0) {
-          throw new Error('No recordings found for this submission');
-        }
-
-        // Format recordings to match the required format
-        const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
-
-        // Call the API to redo the report (don't change status)
-        const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({ 
-            audio_urls: audioUrls,
-            submission_url: submissionId.trim()
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to reprocess submission');
-        }
-
-        setDevMessage(`Successfully called localhost API for submission ${submissionId.trim()}. API will handle status changes.`);
-      } else {
-        // Trigger Mode: Call staging API with same schema as localhost
-        if (!submission.recordings || submission.recordings.length === 0) {
-          throw new Error('No recordings found for this submission');
-        }
-
-        // Format recordings to match the required format
-        const audioUrls = submission.recordings.map((recording: any) => recording.audioUrl);
-
-        const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            audio_urls: audioUrls,
-            submission_url: submissionId.trim()
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to reprocess submission');
-        }
-        
-        setDevMessage(`Successfully called staging API for submission ${submissionId.trim()}.`);
-      }
-
-      // setSubmissionId(''); // Keep ID for potential "View Report" use
-    } catch (error: any) {
-      setDevError(`Error: ${error.message || 'Unknown error occurred'}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleViewReport = () => {
-    if (!submissionId.trim()) {
-      setDevError('Please enter a submission ID');
-      return;
-    }
-
-    // Open the submission feedback page in a new tab
-    const url = `/student/submission/${submissionId.trim()}/feedback`;
-    window.open(url, '_blank');
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -724,134 +697,221 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-gray-900">Dev Tools</h2>
             </div>
 
-            {/* Reports Processor Section */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Batch Reports Processing</h3>
-              <ReportsProcessor />
-            </div>
-
-            {/* Individual Report Management */}
+            {/* Latest Submissions Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Individual Report Management</h3>
-                
-                <div className="space-y-4">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label htmlFor="devMode" className="block text-sm font-medium text-gray-700 mb-2">
-                      Processing Mode
+                    <h3 className="text-lg font-medium text-gray-900">Latest Submissions</h3>
+                    <p className="text-sm text-gray-500 mt-1">Recent submissions with timestamps</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700">
+                      Status:
                     </label>
                     <select
-                      id="devMode"
-                      value={devMode}
+                      id="statusFilter"
+                      value={submissionsFilter}
                       onChange={(e) => {
-                        setDevMode(e.target.value as 'localhost' | 'trigger');
-                        setDevMessage('');
-                        setDevError('');
+                        setSubmissionsFilter(e.target.value);
+                        setSubmissionsPage(1); // Reset to page 1 when filter changes
                       }}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="localhost">Localhost Mode (Call API)</option>
-                      <option value="trigger">Trigger Mode (Supabase Trigger)</option>
+                      <option value="all">All</option>
+                      <option value="graded">Graded</option>
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Failed</option>
                     </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="submissionId" className="block text-sm font-medium text-gray-700 mb-2">
-                      Submission ID
-                    </label>
-                    <input
-                      type="text"
-                      id="submissionId"
-                      value={submissionId}
-                      onChange={(e) => {
-                        setSubmissionId(e.target.value);
-                        setDevMessage('');
-                        setDevError('');
-                      }}
-                      placeholder="Enter submission ID..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="flex space-x-4">
-                    <button
-                      onClick={handleRedoReport}
-                      disabled={isProcessing || !submissionId.trim()}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                        isProcessing || !submissionId.trim()
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {isProcessing ? 'Processing...' : 'Redo Report'}
-                    </button>
-
-                    <button
-                      onClick={handleViewReport}
-                      disabled={!submissionId.trim()}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                        !submissionId.trim()
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      View Report
-                    </button>
-                  </div>
-
-                  {devMessage && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex">
-                        <div className="text-green-700">{devMessage}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {devError && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <div className="flex">
-                        <AlertIcon className="text-red-500 mr-2 h-5 w-5" />
-                        <div className="text-red-700">{devError}</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Processing Modes:</h4>
-                  <div className="space-y-3 text-sm text-gray-600">
-                    <div>
-                      <strong className="text-blue-700">Localhost Mode:</strong>
-                      <ul className="ml-4 mt-1 space-y-1">
-                        <li>• Fetches submission recordings and extracts audio URLs</li>
-                        <li>• Sets submission status to "pending"</li>
-                        <li>• Calls localhost:8080 API with audio URLs</li>
-                        <li>• Best for developers with local API running</li>
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <strong className="text-green-700">Trigger Mode:</strong>
-                      <ul className="ml-4 mt-1 space-y-1">
-                        <li>• Fetches submission recordings and extracts audio URLs</li>
-                        <li>• Calls staging API with audio URLs</li>
-                        <li>• Perfect for non-developers or when localhost isn't available</li>
-                        <li>• Uses production-ready staging environment</li>
-                      </ul>
-                    </div>
-                    
-                    <div className="pt-2 border-t border-gray-200">
-                      <strong>View Report:</strong> Opens the submission feedback page in a new tab
-                    </div>
                   </div>
                 </div>
               </div>
+
+              {submissionsLoading ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+                  <span className="ml-2 text-gray-600">Loading submissions...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assignment</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Submitted At</th>
+                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {latestSubmissions.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center text-gray-500 italic">
+                              No submissions found
+                            </td>
+                          </tr>
+                        ) : (
+                          latestSubmissions.map((submission: any) => (
+                            <tr key={submission.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4">
+                                <div className="font-mono text-sm text-gray-900">{submission.id.slice(0, 8)}...</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900">{submission.student?.name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{submission.student?.email || 'N/A'}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900">{submission.assignment?.title || 'N/A'}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  submission.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  submission.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  submission.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {submission.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900">
+                                  {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center space-x-3">
+                                  <button
+                                    onClick={() => {
+                                      const url = `/student/submission/${submission.id}/feedback`;
+                                      window.open(url, '_blank');
+                                    }}
+                                    className="text-green-600 hover:text-green-800 text-sm font-medium"
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm('Process this submission?')) return;
+
+                                      try {
+                                        setIsProcessing(true);
+                                        console.log('Processing submission:', submission.id);
+
+                                        const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
+                                          method: "POST",
+                                          mode: "cors",
+                                          cache: "no-cache",
+                                          credentials: "omit",
+                                          headers: {
+                                            "Content-Type": "application/json"
+                                          },
+                                          body: JSON.stringify({
+                                            submission_uid: submission.id
+                                          })
+                                        });
+
+                                        console.log('Response status:', response.status);
+
+                                        if (response.ok) {
+                                          const data = await response.json();
+                                          console.log('Success:', data);
+                                          alert(`Submission ${submission.id.slice(0, 8)}... sent for processing successfully!`);
+                                          fetchLatestSubmissions();
+                                        } else {
+                                          const errorText = await response.text();
+                                          console.error('Error response:', errorText);
+                                          let errorMsg = 'Failed to process submission';
+                                          try {
+                                            const errorData = JSON.parse(errorText);
+                                            errorMsg = errorData.detail || errorData.error || errorData.message || errorMsg;
+                                          } catch {
+                                            errorMsg = errorText || `Server error (${response.status})`;
+                                          }
+                                          alert(`Error: ${errorMsg}`);
+                                        }
+                                      } catch (error: any) {
+                                        console.error('Processing error:', error);
+                                        alert(`Error: ${error.message || 'Unknown error occurred'}`);
+                                      } finally {
+                                        setIsProcessing(false);
+                                      }
+                                    }}
+                                    disabled={isProcessing}
+                                    className={`text-sm font-medium ${
+                                      isProcessing
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-blue-600 hover:text-blue-800'
+                                    }`}
+                                  >
+                                    Process
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSubmission(submission.id)}
+                                    disabled={deletingSubmission === submission.id}
+                                    className={`text-sm font-medium ${
+                                      deletingSubmission === submission.id
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-red-600 hover:text-red-800'
+                                    }`}
+                                  >
+                                    {deletingSubmission === submission.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      Page {submissionsPage} • Showing {latestSubmissions.length} submissions
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setSubmissionsPage(prev => Math.max(1, prev - 1))}
+                        disabled={submissionsPage === 1}
+                        className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                          submissionsPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setSubmissionsPage(prev => prev + 1)}
+                        disabled={!hasMoreSubmissions}
+                        className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                          !hasMoreSubmissions
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* RedoV2 Section */}
-            <div>
-              <RedoV2 />
+            {/* Pending Reports Table */}
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Reports</h3>
+              <PendingReportsTable
+                onSelectReports={() => {}}
+                refreshTrigger={0}
+              />
             </div>
+
           </div>
         )}
 

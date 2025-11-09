@@ -1,5 +1,18 @@
 import '@testing-library/jest-dom';
 
+// Mock import.meta.env for Vite environment variables
+(global as any).importMeta = {
+  env: {
+    VITE_SUPABASE_URL: 'https://test.supabase.co',
+    VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    VITE_GOOGLE_APPLICATION_CREDENTIALS: '',
+    MODE: 'test',
+    DEV: false,
+    PROD: false,
+    SSR: false,
+  },
+};
+
 // Add TextEncoder/TextDecoder polyfill for Node.js testing environment
 if (!global.TextEncoder) {
   const { TextEncoder, TextDecoder } = require('util');

@@ -63,27 +63,6 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
     };
   }, [submission.id, isPolling, currentSubmission.status]);
 
-  const getStatusMessage = () => {
-    switch (currentSubmission.status) {
-      case 'pending':
-        return {
-          title: 'Processing Your Submission',
-          description: 'We are analyzing your recordings. This may take a few moments.'
-        };
-      case 'awaiting_review':
-        return {
-          title: 'Awaiting Teacher Review',
-          description: 'Your submission has been processed and is waiting for teacher review.'
-        };
-      default:
-        return {
-          title: 'Processing Your Submission',
-          description: 'Please wait while we process your submission.'
-        };
-    }
-  };
-
-  const statusInfo = getStatusMessage();
 
   // Helper function to get audio URL from recording
   const getAudioUrl = (recording: string | { audioUrl: string } | unknown): string => {
@@ -121,32 +100,18 @@ const PendingSubmission: React.FC<PendingSubmissionProps> = ({ submission, onBac
             </p>
           </div>
 
-          {/* Status Section */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium text-blue-900 mb-2">
-                  {statusInfo.title}
-                </h3>
-                <p className="text-blue-700">
-                  {statusInfo.description}
-                </p>
-                {error && (
-                  <p className="text-sm text-red-600 mt-2">
-                    {error}
-                  </p>
-                )}
-              </div>
-              {currentSubmission.status === 'pending' && (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800"></div>
-              )}
-            </div>
-          </div>
-
           {/* Analysis Status Section */}
           {currentSubmission.status === 'pending' && (
             <div className="mb-6">
               <AnalysisStatus submissionUrl={currentSubmission.id} />
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-600">
+                {error}
+              </p>
             </div>
           )}
 

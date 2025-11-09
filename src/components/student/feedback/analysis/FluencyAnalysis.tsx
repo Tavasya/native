@@ -17,30 +17,30 @@ const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
   return (
     <div className={cn(
       "space-y-4",
-      isEditing && "bg-gray-50 rounded-lg p-6"
+      isEditing && "bg-gray-50 dark:bg-dark-card rounded-lg p-6"
     )}>
       {/* Top Metrics Row */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-gray-50 p-4 rounded-lg text-center">
-          <div className="text-sm font-medium text-gray-900 mb-2">Cohesive Devices</div>
-          <div className="text-xs text-black mt-1">
+        <div className="bg-gray-50 dark:bg-dark-card p-4 rounded-lg text-center">
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Cohesive Devices</div>
+          <div className="text-xs text-black dark:text-gray-300 mt-1">
             {currentFeedback?.fluency?.cohesive_device_feedback || 'No data available'}
           </div>
         </div>
-        <div className="bg-gray-50 p-4 rounded-lg text-center">
-          <div className="text-sm font-medium text-gray-900 mb-2">Filler Words</div>
-          <div className="text-xs text-black mt-1">
+        <div className="bg-gray-50 dark:bg-dark-card p-4 rounded-lg text-center">
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Filler Words</div>
+          <div className="text-xs text-black dark:text-gray-300 mt-1">
             {currentFeedback?.fluency?.filler_word_count ? `${currentFeedback.fluency.filler_word_count} filler words used` : 'No data available'}
           </div>
         </div>
       </div>
 
       {/* Speech Speed Analysis */}
-      <div className="bg-gray-50 p-3 rounded-lg mb-4">
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Speech Speed Analysis</h4>
+      <div className="bg-gray-50 dark:bg-dark-card p-3 rounded-lg mb-4">
+        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Speech Speed Analysis</h4>
 
         <div className="relative">
-          <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="relative h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
             <div className="absolute inset-0 flex">
               {/* Too Slow: 0-69 */}
               <div className="w-[17.5%] bg-[#ef5136]"></div>
@@ -72,8 +72,8 @@ const FluencyAnalysis: React.FC<FluencyAnalysisProps> = ({
 
       {/* Pause Analysis */}
       <div>
-        <h4 className="text-sm font-medium text-gray-900 mb-2">Pause Analysis</h4>
-        <p className="text-sm text-gray-600">
+        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Pause Analysis</h4>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
           {currentFeedback?.fluency?.issues?.find(issue => issue.toLowerCase().includes('pause')) || 'No pause analysis available.'}
         </p>
       </div>
