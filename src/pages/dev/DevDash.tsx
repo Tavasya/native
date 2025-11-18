@@ -183,6 +183,8 @@ export default function DashboardPage() {
   const [hasMoreSubmissions, setHasMoreSubmissions] = useState(true);
   const [submissionsFilter, setSubmissionsFilter] = useState<string>('graded');
   const [deletingSubmission, setDeletingSubmission] = useState<string | null>(null);
+  const [selectedSubmissionTeacherId, setSelectedSubmissionTeacherId] = useState<string>('all');
+  const [selectedSubmissions, setSelectedSubmissions] = useState<Set<string>>(new Set());
   const submissionsPerPage = 20;
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
@@ -229,18 +231,20 @@ export default function DashboardPage() {
     if (activeTab === 'dev') {
       fetchLatestSubmissions();
     }
-  }, [activeTab, submissionsPage, submissionsFilter]);
+  }, [activeTab, submissionsPage, submissionsFilter, selectedSubmissionTeacherId]);
 
   const fetchLatestSubmissions = async () => {
     try {
       setSubmissionsLoading(true);
+      setSelectedSubmissions(new Set()); // Clear selections when fetching new data
+
       let query = supabase
         .from('submissions')
         .select(`
           id,
           status,
           submitted_at,
-          assignment:assignments(title),
+          assignment:assignments(title, created_by),
           student:users!submissions_student_id_fkey(name, email)
         `);
 
@@ -256,7 +260,15 @@ export default function DashboardPage() {
       if (error) throw error;
 
       if (data) {
-        setLatestSubmissions(data);
+        // Filter by teacher if selected
+        let filteredData = data;
+        if (selectedSubmissionTeacherId !== 'all') {
+          filteredData = data.filter((submission: any) =>
+            submission.assignment?.created_by === selectedSubmissionTeacherId
+          );
+        }
+
+        setLatestSubmissions(filteredData);
         setHasMoreSubmissions(data.length === submissionsPerPage);
       }
     } catch (error) {
@@ -287,6 +299,98 @@ export default function DashboardPage() {
       alert(`Failed to delete submission: ${error.message}`);
     } finally {
       setDeletingSubmission(null);
+    }
+  };
+
+  const toggleSubmissionSelection = (submissionId: string) => {
+    setSelectedSubmissions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(submissionId)) {
+        newSet.delete(submissionId);
+      } else {
+        newSet.add(submissionId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllSubmissions = () => {
+    if (selectedSubmissions.size === latestSubmissions.length) {
+      setSelectedSubmissions(new Set());
+    } else {
+      setSelectedSubmissions(new Set(latestSubmissions.map(s => s.id)));
+    }
+  };
+
+  const exportSelectedToCSV = async () => {
+    if (selectedSubmissions.size === 0) {
+      alert('Please select at least one submission to export');
+      return;
+    }
+
+    try {
+      // Fetch full details for selected submissions including teacher info
+      const { data, error } = await supabase
+        .from('submissions')
+        .select(`
+          id,
+          status,
+          submitted_at,
+          grade,
+          assignment:assignments(title, created_by),
+          student:users!submissions_student_id_fkey(name, email)
+        `)
+        .in('id', Array.from(selectedSubmissions));
+
+      if (error) throw error;
+
+      // Fetch teacher names for the submissions
+      const teacherIds = [...new Set(data.map((s: any) => s.assignment?.created_by).filter(Boolean))];
+      const { data: teachers } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .in('id', teacherIds);
+
+      const teacherMap = new Map(teachers?.map(t => [t.id, t]) || []);
+
+      // Create CSV content
+      const headers = ['Submission ID', 'Student Name', 'Student Email', 'Teacher Name', 'Teacher Email', 'Assignment', 'Status', 'Grade', 'Submitted At'];
+      const rows = data.map((submission: any) => {
+        const teacher = teacherMap.get(submission.assignment?.created_by);
+        return [
+          submission.id,
+          submission.student?.name || 'N/A',
+          submission.student?.email || 'N/A',
+          teacher?.name || 'N/A',
+          teacher?.email || 'N/A',
+          submission.assignment?.title || 'N/A',
+          submission.status,
+          submission.grade || 'N/A',
+          submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : 'N/A'
+        ];
+      });
+
+      // Convert to CSV format
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `submissions_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert(`Successfully exported ${selectedSubmissions.size} submission(s) to CSV`);
+    } catch (error: any) {
+      console.error('Error exporting submissions:', error);
+      alert(`Failed to export submissions: ${error.message}`);
     }
   };
 
@@ -700,10 +804,50 @@ export default function DashboardPage() {
             {/* Latest Submissions Section */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Latest Submissions</h3>
                     <p className="text-sm text-gray-500 mt-1">Recent submissions with timestamps</p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={exportSelectedToCSV}
+                      disabled={selectedSubmissions.size === 0}
+                      className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                        selectedSubmissions.size === 0
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      Export Selected ({selectedSubmissions.size})
+                    </button>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <label htmlFor="teacherFilter" className="text-sm font-medium text-gray-700">
+                      Teacher:
+                    </label>
+                    <select
+                      id="teacherFilter"
+                      value={selectedSubmissionTeacherId}
+                      onChange={(e) => {
+                        setSelectedSubmissionTeacherId(e.target.value);
+                        setSubmissionsPage(1);
+                      }}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Teachers</option>
+                      {allLastLogins
+                        .filter(user => user.role === 'teacher' && user.view !== false)
+                        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                        .map(teacher => (
+                          <option key={teacher.user_id} value={teacher.user_id}>
+                            {teacher.name}
+                          </option>
+                        ))
+                      }
+                    </select>
                   </div>
                   <div className="flex items-center space-x-2">
                     <label htmlFor="statusFilter" className="text-sm font-medium text-gray-700">
@@ -739,6 +883,14 @@ export default function DashboardPage() {
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                          <th className="px-4 py-4 text-left">
+                            <input
+                              type="checkbox"
+                              checked={selectedSubmissions.size === latestSubmissions.length && latestSubmissions.length > 0}
+                              onChange={toggleAllSubmissions}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                            />
+                          </th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Student</th>
                           <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assignment</th>
@@ -750,13 +902,21 @@ export default function DashboardPage() {
                       <tbody className="divide-y divide-gray-200">
                         {latestSubmissions.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center text-gray-500 italic">
+                            <td colSpan={7} className="px-6 py-12 text-center text-gray-500 italic">
                               No submissions found
                             </td>
                           </tr>
                         ) : (
                           latestSubmissions.map((submission: any) => (
                             <tr key={submission.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedSubmissions.has(submission.id)}
+                                  onChange={() => toggleSubmissionSelection(submission.id)}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                                />
+                              </td>
                               <td className="px-6 py-4">
                                 <div className="font-mono text-sm text-gray-900">{submission.id.slice(0, 8)}...</div>
                               </td>
