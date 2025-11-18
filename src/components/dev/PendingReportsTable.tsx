@@ -24,21 +24,24 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   const [processedInSession, setProcessedInSession] = useState<Map<string, { timestamp: number; status: string }>>(new Map());
   const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null);
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const autoPilotInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchPendingReports = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const submissions = await submissionService.getSubmissionsByStatus('pending');
       // Sort by most recent first
-      const sortedSubmissions = submissions.sort((a, b) => 
+      const sortedSubmissions = submissions.sort((a, b) =>
         new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
       );
       setPendingReports(sortedSubmissions);
+      return sortedSubmissions; // Return the fresh data
     } catch (err: any) {
       setError(err.message || 'Failed to fetch pending reports');
+      return [];
     } finally {
       setLoading(false);
     }
@@ -58,34 +61,19 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   }, []);
 
   const processNextSubmission = async () => {
-    // First, refresh the pending reports to get latest status
-    await fetchPendingReports();
-
-    // Get unprocessed submissions (not in processedInSession or processed more than 30 seconds ago)
-    const now = Date.now();
-    const unprocessed = pendingReports.filter(r => {
-      const processed = processedInSession.get(r.id);
-      if (!processed) return true; // Never processed
-
-      // If it was processed more than 30 seconds ago and still pending, try again
-      const timeSinceProcessing = now - processed.timestamp;
-      return timeSinceProcessing > 30000;
-    });
-
-    if (unprocessed.length === 0) {
-      console.log('No more unprocessed submissions');
-      // Refresh one more time to update the list
-      await fetchPendingReports();
+    // Check if we've reached the end of the list
+    if (currentIndex >= pendingReports.length) {
+      console.log('Reached end of list. All submissions processed!');
+      setCurrentIndex(0); // Reset for next round
       return;
     }
 
-    // Get the first unprocessed submission
-    const nextSubmission = unprocessed[0];
+    const nextSubmission = pendingReports[currentIndex];
     setCurrentlyProcessing(nextSubmission.id);
     setLastProcessedId(nextSubmission.id);
 
     try {
-      console.log(`Processing submission: ${nextSubmission.id}`);
+      console.log(`Processing submission ${currentIndex + 1}/${pendingReports.length}: ${nextSubmission.id}`);
 
       const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
         method: "POST",
@@ -101,7 +89,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       });
 
       if (response.ok) {
-        console.log(`Successfully sent ${nextSubmission.id} for processing`);
+        console.log(`✓ Successfully sent ${nextSubmission.id} for processing`);
         // Mark as processed with timestamp
         setProcessedInSession(prev => {
           const newMap = new Map(prev);
@@ -112,7 +100,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
           return newMap;
         });
       } else {
-        console.error(`Failed to process ${nextSubmission.id}`);
+        console.error(`✗ Failed to process ${nextSubmission.id}`);
         setProcessedInSession(prev => {
           const newMap = new Map(prev);
           newMap.set(nextSubmission.id, {
@@ -123,7 +111,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
         });
       }
     } catch (error) {
-      console.error(`Error processing ${nextSubmission.id}:`, error);
+      console.error(`✗ Error processing ${nextSubmission.id}:`, error);
       setProcessedInSession(prev => {
         const newMap = new Map(prev);
         newMap.set(nextSubmission.id, {
@@ -134,6 +122,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       });
     } finally {
       setCurrentlyProcessing(null);
+      // Move to next submission
+      setCurrentIndex(prev => prev + 1);
     }
   };
 
@@ -141,6 +131,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
     setAutoPilotActive(true);
     setProcessedInSession(new Map()); // Reset processed map
     setLastProcessedId(null);
+    setCurrentIndex(0); // Start from the beginning
 
     // Process first one immediately
     processNextSubmission();
@@ -158,6 +149,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       autoPilotInterval.current = null;
     }
     setCurrentlyProcessing(null);
+    setCurrentIndex(0); // Reset index when stopping
   };
 
   const handleSelectAll = () => {
@@ -304,8 +296,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
                 {autoPilotActive && (
                   <div className="text-sm text-gray-700">
-                    Sent for Processing: <strong>{processedInSession.size}</strong> |
-                    Not Yet Sent: <strong>{pendingReports.filter(r => !processedInSession.has(r.id)).length}</strong>
+                    Progress: <strong>{currentIndex}/{pendingReports.length}</strong> |
+                    Processed: <strong>{processedInSession.size}</strong>
                     {lastProcessedId && (
                       <span className="ml-2 text-blue-600">
                         | Last: {lastProcessedId.slice(0, 8)}...
@@ -315,7 +307,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                 )}
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                Auto-pilot will process one submission every {intervalSeconds} seconds. If a submission is still pending after 30 seconds, it will be skipped and retried later.
+                Auto-pilot will process submissions sequentially, one every {intervalSeconds} seconds, moving down the list.
               </p>
             </div>
 
