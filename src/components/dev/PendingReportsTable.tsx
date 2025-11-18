@@ -25,6 +25,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null);
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const currentIndexRef = useRef(0); // Use ref to avoid stale closure
   const autoPilotInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchPendingReports = async () => {
@@ -62,18 +63,21 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
   const processNextSubmission = async () => {
     // Check if we've reached the end of the list
-    if (currentIndex >= pendingReports.length) {
+    if (currentIndexRef.current >= pendingReports.length) {
       console.log('Reached end of list. All submissions processed!');
-      setCurrentIndex(0); // Reset for next round
+      currentIndexRef.current = 0;
+      setCurrentIndex(0);
       return;
     }
 
-    const nextSubmission = pendingReports[currentIndex];
+    const idx = currentIndexRef.current;
+    const nextSubmission = pendingReports[idx];
+
     setCurrentlyProcessing(nextSubmission.id);
     setLastProcessedId(nextSubmission.id);
 
     try {
-      console.log(`Processing submission ${currentIndex + 1}/${pendingReports.length}: ${nextSubmission.id}`);
+      console.log(`Processing submission ${idx + 1}/${pendingReports.length}: ${nextSubmission.id}`);
 
       const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
         method: "POST",
@@ -90,7 +94,6 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
       if (response.ok) {
         console.log(`✓ Successfully sent ${nextSubmission.id} for processing`);
-        // Mark as processed with timestamp
         setProcessedInSession(prev => {
           const newMap = new Map(prev);
           newMap.set(nextSubmission.id, {
@@ -122,8 +125,9 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       });
     } finally {
       setCurrentlyProcessing(null);
-      // Move to next submission
-      setCurrentIndex(prev => prev + 1);
+      // Move to next submission using ref to avoid closure issues
+      currentIndexRef.current = idx + 1;
+      setCurrentIndex(idx + 1);
     }
   };
 
@@ -132,6 +136,7 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
     setProcessedInSession(new Map()); // Reset processed map
     setLastProcessedId(null);
     setCurrentIndex(0); // Start from the beginning
+    currentIndexRef.current = 0; // Reset ref
 
     // Process first one immediately
     processNextSubmission();
@@ -149,7 +154,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       autoPilotInterval.current = null;
     }
     setCurrentlyProcessing(null);
-    setCurrentIndex(0); // Reset index when stopping
+    setCurrentIndex(0);
+    currentIndexRef.current = 0; // Reset ref
   };
 
   const handleSelectAll = () => {
