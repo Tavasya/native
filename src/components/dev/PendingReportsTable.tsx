@@ -21,8 +21,9 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [autoPilotActive, setAutoPilotActive] = useState(false);
   const [intervalSeconds, setIntervalSeconds] = useState(30);
-  const [processedInSession, setProcessedInSession] = useState<Set<string>>(new Set());
+  const [processedInSession, setProcessedInSession] = useState<Map<string, { timestamp: number; status: string }>>(new Map());
   const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null);
+  const [lastProcessedId, setLastProcessedId] = useState<string | null>(null);
   const autoPilotInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchPendingReports = async () => {
@@ -57,17 +58,31 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   }, []);
 
   const processNextSubmission = async () => {
-    // Get unprocessed submissions (not in processedInSession)
-    const unprocessed = pendingReports.filter(r => !processedInSession.has(r.id));
+    // First, refresh the pending reports to get latest status
+    await fetchPendingReports();
+
+    // Get unprocessed submissions (not in processedInSession or processed more than 30 seconds ago)
+    const now = Date.now();
+    const unprocessed = pendingReports.filter(r => {
+      const processed = processedInSession.get(r.id);
+      if (!processed) return true; // Never processed
+
+      // If it was processed more than 30 seconds ago and still pending, try again
+      const timeSinceProcessing = now - processed.timestamp;
+      return timeSinceProcessing > 30000;
+    });
 
     if (unprocessed.length === 0) {
       console.log('No more unprocessed submissions');
+      // Refresh one more time to update the list
+      await fetchPendingReports();
       return;
     }
 
     // Get the first unprocessed submission
     const nextSubmission = unprocessed[0];
     setCurrentlyProcessing(nextSubmission.id);
+    setLastProcessedId(nextSubmission.id);
 
     try {
       console.log(`Processing submission: ${nextSubmission.id}`);
@@ -87,15 +102,36 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
       if (response.ok) {
         console.log(`Successfully sent ${nextSubmission.id} for processing`);
-        // Mark as processed
-        setProcessedInSession(prev => new Set([...prev, nextSubmission.id]));
-        // Move to bottom by removing from pending list
-        setPendingReports(prev => prev.filter(r => r.id !== nextSubmission.id));
+        // Mark as processed with timestamp
+        setProcessedInSession(prev => {
+          const newMap = new Map(prev);
+          newMap.set(nextSubmission.id, {
+            timestamp: Date.now(),
+            status: 'processing'
+          });
+          return newMap;
+        });
       } else {
         console.error(`Failed to process ${nextSubmission.id}`);
+        setProcessedInSession(prev => {
+          const newMap = new Map(prev);
+          newMap.set(nextSubmission.id, {
+            timestamp: Date.now(),
+            status: 'failed'
+          });
+          return newMap;
+        });
       }
     } catch (error) {
       console.error(`Error processing ${nextSubmission.id}:`, error);
+      setProcessedInSession(prev => {
+        const newMap = new Map(prev);
+        newMap.set(nextSubmission.id, {
+          timestamp: Date.now(),
+          status: 'error'
+        });
+        return newMap;
+      });
     } finally {
       setCurrentlyProcessing(null);
     }
@@ -103,7 +139,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
   const startAutoPilot = () => {
     setAutoPilotActive(true);
-    setProcessedInSession(new Set()); // Reset processed set
+    setProcessedInSession(new Map()); // Reset processed map
+    setLastProcessedId(null);
 
     // Process first one immediately
     processNextSubmission();
@@ -267,15 +304,51 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
 
                 {autoPilotActive && (
                   <div className="text-sm text-gray-700">
-                    Processed: <strong>{processedInSession.size}</strong> |
-                    Remaining: <strong>{pendingReports.filter(r => !processedInSession.has(r.id)).length}</strong>
+                    Sent for Processing: <strong>{processedInSession.size}</strong> |
+                    Not Yet Sent: <strong>{pendingReports.filter(r => !processedInSession.has(r.id)).length}</strong>
+                    {lastProcessedId && (
+                      <span className="ml-2 text-blue-600">
+                        | Last: {lastProcessedId.slice(0, 8)}...
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                Auto-pilot will process one submission every {intervalSeconds} seconds, even if the previous one hasn't finished.
+                Auto-pilot will process one submission every {intervalSeconds} seconds. If a submission is still pending after 30 seconds, it will be skipped and retried later.
               </p>
             </div>
+
+            {/* Processed Submissions Log */}
+            {processedInSession.size > 0 && (
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                  Processed in This Session ({processedInSession.size})
+                </h4>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {Array.from(processedInSession.entries())
+                    .sort((a, b) => b[1].timestamp - a[1].timestamp)
+                    .map(([id, info]) => (
+                      <div key={id} className="flex items-center justify-between text-xs py-1 px-2 bg-white rounded">
+                        <span className="font-mono text-gray-700">{id.slice(0, 16)}...</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded ${
+                            info.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                            info.status === 'failed' ? 'bg-red-100 text-red-700' :
+                            info.status === 'error' ? 'bg-orange-100 text-orange-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {info.status}
+                          </span>
+                          <span className="text-gray-500">
+                            {new Date(info.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
 
             {/* Bulk Actions */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

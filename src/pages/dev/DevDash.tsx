@@ -185,7 +185,7 @@ export default function DashboardPage() {
   const [deletingSubmission, setDeletingSubmission] = useState<string | null>(null);
   const [selectedSubmissionTeacherId, setSelectedSubmissionTeacherId] = useState<string>('all');
   const [selectedSubmissions, setSelectedSubmissions] = useState<Set<string>>(new Set());
-  const submissionsPerPage = 20;
+  const [submissionsPerPage, setSubmissionsPerPage] = useState(20);
   const { selectedTeacher } = useSelector((state: RootState) => state.metrics);
   const { classes, classStats } = useSelector((state: RootState) => state.classes);
 
@@ -231,7 +231,7 @@ export default function DashboardPage() {
     if (activeTab === 'dev') {
       fetchLatestSubmissions();
     }
-  }, [activeTab, submissionsPage, submissionsFilter, selectedSubmissionTeacherId]);
+  }, [activeTab, submissionsPage, submissionsFilter, selectedSubmissionTeacherId, submissionsPerPage]);
 
   const fetchLatestSubmissions = async () => {
     try {
@@ -1031,8 +1031,26 @@ export default function DashboardPage() {
 
                   {/* Pagination */}
                   <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      Page {submissionsPage} • Showing {latestSubmissions.length} submissions
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Page {submissionsPage} • Showing {latestSubmissions.length} submissions
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-600">Per page:</label>
+                        <select
+                          value={submissionsPerPage}
+                          onChange={(e) => {
+                            setSubmissionsPerPage(Number(e.target.value));
+                            setSubmissionsPage(1);
+                          }}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <button
