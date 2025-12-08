@@ -366,7 +366,7 @@ export const submissionService = {
         submission_url: submission_id
       });
       
-      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit-disabled", {
+      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
