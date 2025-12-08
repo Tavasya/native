@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, ExternalLink, Play, Pause } from 'lucide-react';
 import { submissionService } from '@/features/submissions/submissionsService';
+import { supabase } from '@/integrations/supabase/client';
 import type { Submission } from '@/features/submissions/types';
 
 interface PendingReportsTableProps {
@@ -79,16 +80,45 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
     try {
       console.log(`Processing submission ${idx + 1}/${pendingReports.length}: ${nextSubmission.id}`);
 
-      const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
+      // Fetch full submission data to get audio URLs
+      const { data: fullSubmission, error: fetchError } = await supabase
+        .from('submissions')
+        .select('id, recordings, section_feedback')
+        .eq('id', nextSubmission.id)
+        .single();
+
+      if (fetchError || !fullSubmission) {
+        throw new Error('Failed to fetch submission data');
+      }
+
+      // Extract audio URLs from recordings or section_feedback
+      let audioUrls: string[] = [];
+
+      if (fullSubmission.recordings && (fullSubmission.recordings as any[]).length > 0) {
+        // V1 format: recordings array
+        audioUrls = (fullSubmission.recordings as any[]).map((r: any) => r.audioUrl).filter(Boolean);
+      } else if (fullSubmission.section_feedback && (fullSubmission.section_feedback as any[]).length > 0) {
+        // V2 format: section_feedback array
+        const sorted = [...(fullSubmission.section_feedback as any[])]
+          .filter((item: any) => item.audio_url)
+          .sort((a: any, b: any) => (a.question_id || 0) - (b.question_id || 0));
+        audioUrls = sorted.map((item: any) => item.audio_url);
+      }
+
+      if (audioUrls.length === 0) {
+        throw new Error('No audio URLs found in submission');
+      }
+
+      // Call the actual processing endpoint
+      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
         method: "POST",
-        mode: "cors",
-        cache: "no-cache",
-        credentials: "omit",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({
-          submission_uid: nextSubmission.id
+          audio_urls: audioUrls,
+          submission_url: nextSubmission.id
         })
       });
 
