@@ -21,13 +21,12 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [autoPilotActive, setAutoPilotActive] = useState(false);
-  const [intervalSeconds, setIntervalSeconds] = useState(30);
   const [processedInSession, setProcessedInSession] = useState<Map<string, { timestamp: number; status: string }>>(new Map());
   const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null);
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0); // Use ref to avoid stale closure
-  const autoPilotInterval = useRef<NodeJS.Timeout | null>(null);
+  const autoPilotActiveRef = useRef(false); // Use ref to check if autopilot should continue
 
   const fetchPendingReports = async () => {
     setLoading(true);
@@ -56,16 +55,72 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
   // Cleanup autopilot on unmount
   useEffect(() => {
     return () => {
-      if (autoPilotInterval.current) {
-        clearInterval(autoPilotInterval.current);
-      }
+      autoPilotActiveRef.current = false;
     };
   }, []);
 
+  // Poll submission status until it's graded or failed
+  const waitForSubmissionComplete = async (submissionId: string): Promise<string> => {
+    const maxAttempts = 60; // 30 minutes max (30 second intervals)
+    let attempts = 0;
+
+    while (attempts < maxAttempts && autoPilotActiveRef.current) {
+      const { data, error } = await supabase
+        .from('submissions')
+        .select('status, grade')
+        .eq('id', submissionId)
+        .single();
+
+      if (error) {
+        console.error(`Error checking status for ${submissionId}:`, error);
+        return 'error';
+      }
+
+      // Update the status in real-time so user can see current state
+      setProcessedInSession(prev => {
+        const newMap = new Map(prev);
+        newMap.set(submissionId, {
+          timestamp: Date.now(),
+          status: data.status // Show actual status: pending, in_progress, graded, failed
+        });
+        return newMap;
+      });
+
+      if (data.status === 'graded') {
+        console.log(`✓ Submission ${submissionId} graded with score: ${data.grade}`);
+        return 'graded';
+      }
+
+      if (data.status === 'failed') {
+        console.log(`✗ Submission ${submissionId} failed`);
+        return 'failed';
+      }
+
+      // Wait 30 seconds before checking again
+      await new Promise(resolve => setTimeout(resolve, 30000));
+      attempts++;
+
+      if (attempts % 2 === 0) { // Log every minute
+        console.log(`Still waiting for ${submissionId}... (${attempts * 30}s elapsed, status: ${data.status})`);
+      }
+    }
+
+    // Return timeout if we exceeded max attempts, stopped if user stopped autopilot
+    return attempts >= maxAttempts ? 'timeout' : 'stopped';
+  };
+
   const processNextSubmission = async () => {
+    // Check if autopilot is still active
+    if (!autoPilotActiveRef.current) {
+      console.log('Auto-pilot stopped');
+      return;
+    }
+
     // Check if we've reached the end of the list
     if (currentIndexRef.current >= pendingReports.length) {
       console.log('Reached end of list. All submissions processed!');
+      autoPilotActiveRef.current = false;
+      setAutoPilotActive(false);
       currentIndexRef.current = 0;
       setCurrentIndex(0);
       return;
@@ -123,22 +178,34 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       });
 
       if (response.ok) {
-        console.log(`✓ Successfully sent ${nextSubmission.id} for processing`);
+        console.log(`✓ Successfully sent ${nextSubmission.id} for processing, waiting for completion...`);
         setProcessedInSession(prev => {
           const newMap = new Map(prev);
           newMap.set(nextSubmission.id, {
             timestamp: Date.now(),
-            status: 'processing'
+            status: 'sending'
+          });
+          return newMap;
+        });
+
+        // Wait for the submission to be fully graded
+        const finalStatus = await waitForSubmissionComplete(nextSubmission.id);
+
+        setProcessedInSession(prev => {
+          const newMap = new Map(prev);
+          newMap.set(nextSubmission.id, {
+            timestamp: Date.now(),
+            status: finalStatus
           });
           return newMap;
         });
       } else {
-        console.error(`✗ Failed to process ${nextSubmission.id}`);
+        console.error(`✗ Failed to send ${nextSubmission.id} for processing`);
         setProcessedInSession(prev => {
           const newMap = new Map(prev);
           newMap.set(nextSubmission.id, {
             timestamp: Date.now(),
-            status: 'failed'
+            status: 'send_failed'
           });
           return newMap;
         });
@@ -155,34 +222,39 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
       });
     } finally {
       setCurrentlyProcessing(null);
-      // Move to next submission using ref to avoid closure issues
+      // Move to next submission
       currentIndexRef.current = idx + 1;
       setCurrentIndex(idx + 1);
+
+      // Process next submission after this one is fully done
+      if (autoPilotActiveRef.current && currentIndexRef.current < pendingReports.length) {
+        // Small delay before starting next submission
+        setTimeout(() => {
+          processNextSubmission();
+        }, 2000);
+      } else if (currentIndexRef.current >= pendingReports.length) {
+        console.log('All submissions processed!');
+        autoPilotActiveRef.current = false;
+        setAutoPilotActive(false);
+      }
     }
   };
 
   const startAutoPilot = () => {
     setAutoPilotActive(true);
+    autoPilotActiveRef.current = true;
     setProcessedInSession(new Map()); // Reset processed map
     setLastProcessedId(null);
     setCurrentIndex(0); // Start from the beginning
     currentIndexRef.current = 0; // Reset ref
 
-    // Process first one immediately
+    // Start sequential processing
     processNextSubmission();
-
-    // Then process every X seconds
-    autoPilotInterval.current = setInterval(() => {
-      processNextSubmission();
-    }, intervalSeconds * 1000);
   };
 
   const stopAutoPilot = () => {
     setAutoPilotActive(false);
-    if (autoPilotInterval.current) {
-      clearInterval(autoPilotInterval.current);
-      autoPilotInterval.current = null;
-    }
+    autoPilotActiveRef.current = false;
     setCurrentlyProcessing(null);
     setCurrentIndex(0);
     currentIndexRef.current = 0; // Reset ref
@@ -293,22 +365,8 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
           <div className="space-y-4">
             {/* Auto-Pilot Controls */}
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="text-sm font-semibold text-blue-900 mb-3">Auto-Pilot Mode</h4>
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">Auto-Pilot Mode (Sequential)</h4>
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-gray-700">Interval:</label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="300"
-                    value={intervalSeconds}
-                    onChange={(e) => setIntervalSeconds(Number(e.target.value))}
-                    disabled={autoPilotActive}
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                  />
-                  <span className="text-sm text-gray-600">seconds</span>
-                </div>
-
                 {!autoPilotActive ? (
                   <Button
                     onClick={startAutoPilot}
@@ -339,11 +397,16 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         | Last: {lastProcessedId.slice(0, 8)}...
                       </span>
                     )}
+                    {currentlyProcessing && (
+                      <span className="ml-2 text-yellow-600">
+                        | Processing: {currentlyProcessing.slice(0, 8)}...
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                Auto-pilot will process submissions sequentially, one every {intervalSeconds} seconds, moving down the list.
+                Auto-pilot processes submissions one at a time, waiting for each to be fully graded before moving to the next. Status updates every 30 seconds.
               </p>
             </div>
 
@@ -361,8 +424,13 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
                         <span className="font-mono text-gray-700">{id.slice(0, 16)}...</span>
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded ${
-                            info.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                            info.status === 'sending' ? 'bg-purple-100 text-purple-700' :
+                            info.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            info.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            info.status === 'graded' ? 'bg-green-100 text-green-700' :
                             info.status === 'failed' ? 'bg-red-100 text-red-700' :
+                            info.status === 'send_failed' ? 'bg-red-100 text-red-700' :
+                            info.status === 'stopped' ? 'bg-gray-100 text-gray-700' :
                             info.status === 'error' ? 'bg-orange-100 text-orange-700' :
                             'bg-gray-100 text-gray-700'
                           }`}>
