@@ -65,14 +65,14 @@ export const useSubmissionState = (submissionId: string | undefined) => {
     });
 
     // Ensure section_feedback is an array
-    const sectionFeedback = Array.isArray(selectedSubmission.section_feedback) 
-      ? selectedSubmission.section_feedback 
+    const sectionFeedback = Array.isArray(selectedSubmission.section_feedback)
+      ? selectedSubmission.section_feedback
       : [];
 
-    // Sort feedback by question_id
-    const sortedFeedback = [...sectionFeedback].sort((a, b) => 
-      (a.question_id || 0) - (b.question_id || 0)
-    );
+    // Filter out version markers and sort feedback by question_id
+    const sortedFeedback = [...sectionFeedback]
+      .filter((item: any) => item.question_id != null)
+      .sort((a, b) => (a.question_id || 0) - (b.question_id || 0));
     
     const question = sortedFeedback[ui.selectedQuestionIndex];
     if (!question) {
