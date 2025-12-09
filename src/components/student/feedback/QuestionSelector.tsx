@@ -14,7 +14,10 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   selectedIndex,
   onSelectQuestion
 }) => {
-  const sortedQuestions = [...questions].sort((a, b) => (a.question_id || 0) - (b.question_id || 0));
+  // Filter out version markers and other non-question items, then sort by question_id
+  const sortedQuestions = [...questions]
+    .filter((q: any) => q.question_id != null)
+    .sort((a, b) => (a.question_id || 0) - (b.question_id || 0));
 
   return (
     <div className="w-full">
