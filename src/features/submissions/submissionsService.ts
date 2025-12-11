@@ -365,7 +365,7 @@ export const submissionService = {
         submission_uid: submission_id
       });
 
-      const response = await fetch("https://native-back-rebuild-107872842385.us-west2.run.app/api/v1/submissions/process-by-uid", {
+      const response = await fetch("https://audio-analysis-api-tplvyztxfa-uc.a.run.app/api/v1/submissions/process-by-uid", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
