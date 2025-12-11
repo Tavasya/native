@@ -164,16 +164,15 @@ const PendingReportsTable: React.FC<PendingReportsTableProps> = ({
         throw new Error('No audio URLs found in submission');
       }
 
-      // Call the actual processing endpoint
-      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+      // Call the V2 processing endpoint
+      const response = await fetch("https://audio-analysis-api-tplvyztxfa-uc.a.run.app/api/v1/submissions/process-by-uid", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
         body: JSON.stringify({
-          audio_urls: audioUrls,
-          submission_url: nextSubmission.id
+          submission_uid: nextSubmission.id
         })
       });
 

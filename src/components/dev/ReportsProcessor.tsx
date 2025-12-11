@@ -94,42 +94,25 @@ const ReportsProcessor: React.FC<ReportsProcessorProps> = ({ onModeChange }) => 
         }
       }
 
-      if (mode === 'localhost') {
-        const response = await fetch("http://localhost:8080/api/v1/submission/submit", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            audio_urls: audioUrls,
-            submission_url: submissionId
-          })
-        });
+      // Call the V2 processing endpoint (same for both localhost and staging mode)
+      const apiUrl = mode === 'localhost'
+        ? "http://localhost:8080/api/v1/submissions/process-by-uid"
+        : "https://audio-analysis-api-tplvyztxfa-uc.a.run.app/api/v1/submissions/process-by-uid";
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to reprocess submission');
-        }
-      } else {
-        // Trigger Mode: Call staging API with same schema as localhost
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          submission_uid: submissionId
+        })
+      });
 
-        const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            audio_urls: audioUrls,
-            submission_url: submissionId
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to reprocess submission');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reprocess submission');
       }
 
       return {
