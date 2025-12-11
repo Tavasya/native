@@ -359,28 +359,26 @@ export const submissionService = {
       console.log('=== AUDIO ANALYSIS DEBUG START ===');
       console.log('Submission ID:', submission_id);
       console.log('Number of audio URLs:', urls.length);
-      console.log('Audio URLs:', urls);
-      
-      console.log('Sending to /submit endpoint:', {
-        audio_urls: urls,
-        submission_url: submission_id
+
+      // V2 backend - fetches audio_urls from database, only needs submission_uid
+      console.log('Sending to V2 /process-by-uid endpoint:', {
+        submission_uid: submission_id
       });
-      
-      const response = await fetch("https://classconnect-staging-107872842385.us-west2.run.app/api/v1/submission/submit", {
+
+      const response = await fetch("https://audio-analysis-api-115839253438.us-central1.run.app/api/v1/submissions/process-by-uid", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
         body: JSON.stringify({
-          audio_urls: urls,
-          submission_url: submission_id
+          submission_uid: submission_id
         }),
       });
 
       console.log('Analysis response status:', response.status);
       console.log('Analysis response headers:', Object.fromEntries(response.headers.entries()));
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Analysis request failed:', {
@@ -393,7 +391,7 @@ export const submissionService = {
 
       const data = await response.json();
       console.log('Analysis response data:', data);
-      
+
       console.log('=== AUDIO ANALYSIS DEBUG END ===');
       return {
         success: true,
