@@ -103,12 +103,31 @@ export async function getLastLogins(page: number = 1, perPage: number = 20): Pro
  */
 export async function getAllLastLogins(): Promise<LastLogin[]> {
   // First get all users with their last login
-  const { data: lastLoginsData, error: lastLoginsError } = await supabase
-    .from('last_logins')
-    .select('*')
-    .order('last_logged_in_at', { ascending: false });
+  // Note: Supabase has a default 1000 row limit, so we paginate to get all results
+  let allLastLoginsData: any[] = [];
+  let hasMore = true;
+  let offset = 0;
+  const pageBatchSize = 1000;
 
-  if (lastLoginsError) throw lastLoginsError;
+  while (hasMore) {
+    const { data: pageBatch, error: pageBatchError } = await supabase
+      .from('last_logins')
+      .select('*')
+      .order('last_logged_in_at', { ascending: false })
+      .range(offset, offset + pageBatchSize - 1);
+
+    if (pageBatchError) throw pageBatchError;
+
+    if (pageBatch) {
+      allLastLoginsData = [...allLastLoginsData, ...pageBatch];
+      hasMore = pageBatch.length === pageBatchSize;
+      offset += pageBatchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const lastLoginsData = allLastLoginsData;
   console.log('Raw last logins data:', lastLoginsData);
 
   // Get the view status for these users
@@ -555,14 +574,33 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   // Get all submissions for these assignments with audio duration
   // Starting from subscription period start (or last 30 days if no subscription)
-  const { data: submissions, error: submissionsError } = await supabase
-    .from('submissions')
-    .select('id, student_id, recordings, overall_assignment_score')
-    .in('assignment_id', assignmentIds)
-    .not('submitted_at', 'is', null)
-    .gte('submitted_at', startDate);
+  // Note: Supabase has a default 1000 row limit, so we paginate to get all results
+  let allSubmissions: any[] = [];
+  let hasMoreSubs = true;
+  let subOffset = 0;
+  const subBatchSize = 1000;
 
-  if (submissionsError) throw submissionsError;
+  while (hasMoreSubs) {
+    const { data: subBatch, error: subBatchError } = await supabase
+      .from('submissions')
+      .select('id, student_id, recordings, overall_assignment_score')
+      .in('assignment_id', assignmentIds)
+      .not('submitted_at', 'is', null)
+      .gte('submitted_at', startDate)
+      .range(subOffset, subOffset + subBatchSize - 1);
+
+    if (subBatchError) throw subBatchError;
+
+    if (subBatch) {
+      allSubmissions = [...allSubmissions, ...subBatch];
+      hasMoreSubs = subBatch.length === subBatchSize;
+      subOffset += subBatchSize;
+    } else {
+      hasMoreSubs = false;
+    }
+  }
+
+  const submissions = allSubmissions;
 
   // Calculate metrics from submissions in current billing period
   let totalRecordings = 0;
