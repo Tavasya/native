@@ -482,14 +482,11 @@ export async function getSubmissionTrends(): Promise<SubmissionTrend[]> {
  */
 export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   totalMinutes: number;
-  analysisCosts: number;
   totalSubmissions: number;
   totalRecordings: number;
   totalStudents: number;
   activeStudents: number;
   avgRecordingLength: number;
-  costPerMinute: number;
-  costPerSubmission: number;
   remainingHours: number;
 }> {
   // Get teacher's credits
@@ -538,14 +535,11 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   if (classIds.length === 0) {
     return {
       totalMinutes: 0,
-      analysisCosts: 0,
       totalSubmissions: 0,
       totalRecordings: 0,
       totalStudents: totalEnrolledStudents,
       activeStudents: 0,
       avgRecordingLength: 0,
-      costPerMinute: 0,
-      costPerSubmission: 0,
       remainingHours: credits,
     };
   }
@@ -563,14 +557,11 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   if (assignmentIds.length === 0) {
     return {
       totalMinutes: 0,
-      analysisCosts: 0,
       totalSubmissions: 0,
       totalRecordings: 0,
       totalStudents: totalEnrolledStudents,
       activeStudents: 0,
       avgRecordingLength: 0,
-      costPerMinute: 0,
-      costPerSubmission: 0,
       remainingHours: credits,
     };
   }
@@ -640,17 +631,7 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   const activeStudentCount = new Set(activeStudentsSubs?.map(s => s.student_id) || []).size;
 
-  // Cost estimation:
-  // - Transcription: ~$0.006 per minute (Deepgram)
-  // - AI Analysis: ~$0.01 per submission (OpenAI GPT-4)
-  const transcriptionCost = totalMinutes * 0.006;
-  const analysisPerSubmission = 0.01;
-  const totalAnalysisCost = (submissions?.length || 0) * analysisPerSubmission;
-  const totalCosts = transcriptionCost + totalAnalysisCost;
-
   const avgRecordingLength = totalRecordings > 0 ? totalMinutes / totalRecordings : 0;
-  const costPerMinute = totalMinutes > 0 ? totalCosts / totalMinutes : 0;
-  const costPerSubmission = submissions?.length ? totalCosts / submissions.length : 0;
 
   // Calculate remaining hours: credits - (totalMinutes / 60)
   // Allow negative values to show overage
@@ -659,14 +640,11 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   return {
     totalMinutes,
-    analysisCosts: totalCosts,
     totalSubmissions: submissions?.length || 0,
     totalRecordings,
     totalStudents: totalEnrolledStudents,
     activeStudents: activeStudentCount,
     avgRecordingLength,
-    costPerMinute,
-    costPerSubmission,
     remainingHours,
   };
 }

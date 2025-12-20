@@ -7,13 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface UsageMetrics {
   totalMinutes: number;
-  analysisCosts: number;
   totalSubmissions: number;
   totalRecordings: number;
+  totalStudents: number;
   activeStudents: number;
   avgRecordingLength: number;
-  costPerMinute: number;
-  costPerSubmission: number;
   remainingHours: number;
 }
 
@@ -248,17 +246,20 @@ const TeacherUsagePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Active Students */}
+          {/* Students */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+              <CardTitle className="text-sm font-medium">Students</CardTitle>
               <Users className="h-4 w-4 text-[#272A69]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{metrics.activeStudents}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Enrolled students
+                Active this month
               </p>
+              <div className="text-sm text-gray-600 mt-2">
+                <span className="font-medium">{metrics.totalStudents}</span> total enrolled
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -284,33 +285,13 @@ const TeacherUsagePage: React.FC = () => {
                 <p className="text-lg font-semibold text-gray-900">{metrics.totalRecordings}</p>
               </div>
 
-              <div className="flex justify-between items-center border-b pb-3">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="font-medium text-gray-900">Average Recording Length</p>
                   <p className="text-sm text-gray-500">Average duration per recording</p>
                 </div>
                 <p className="text-lg font-semibold text-gray-900">
                   {formatMinutes(metrics.avgRecordingLength)}
-                </p>
-              </div>
-
-              <div className="flex justify-between items-center border-b pb-3">
-                <div>
-                  <p className="font-medium text-gray-900">Estimated Costs</p>
-                  <p className="text-sm text-gray-500">Total processing costs (Deepgram + OpenAI)</p>
-                </div>
-                <p className="text-lg font-semibold text-gray-900">
-                  ${metrics.analysisCosts.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium text-gray-900">Cost Per Minute</p>
-                  <p className="text-sm text-gray-500">Average cost per audio minute</p>
-                </div>
-                <p className="text-lg font-semibold text-gray-900">
-                  ${metrics.costPerMinute.toFixed(4)}
                 </p>
               </div>
             </div>
