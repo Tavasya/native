@@ -9,14 +9,11 @@ import { SubscriptionStatus } from '@/components/subscriptions/SubscriptionStatu
 
 interface UsageMetrics {
   totalMinutes: number;
-  analysisCosts: number;
   totalSubmissions: number;
   totalRecordings: number;
   totalStudents: number;
   activeStudents: number;
   avgRecordingLength: number;
-  costPerMinute: number;
-  costPerSubmission: number;
   remainingHours: number;
 }
 
