@@ -107,21 +107,21 @@ export async function getAllLastLogins(): Promise<LastLogin[]> {
   let allLastLoginsData: any[] = [];
   let hasMore = true;
   let offset = 0;
-  const batchSize = 1000;
+  const pageBatchSize = 1000;
 
   while (hasMore) {
-    const { data: batch, error: batchError } = await supabase
+    const { data: pageBatch, error: pageBatchError } = await supabase
       .from('last_logins')
       .select('*')
       .order('last_logged_in_at', { ascending: false })
-      .range(offset, offset + batchSize - 1);
+      .range(offset, offset + pageBatchSize - 1);
 
-    if (batchError) throw batchError;
+    if (pageBatchError) throw pageBatchError;
 
-    if (batch) {
-      allLastLoginsData = [...allLastLoginsData, ...batch];
-      hasMore = batch.length === batchSize;
-      offset += batchSize;
+    if (pageBatch) {
+      allLastLoginsData = [...allLastLoginsData, ...pageBatch];
+      hasMore = pageBatch.length === pageBatchSize;
+      offset += pageBatchSize;
     } else {
       hasMore = false;
     }
@@ -576,27 +576,27 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   // Starting from subscription period start (or last 30 days if no subscription)
   // Note: Supabase has a default 1000 row limit, so we paginate to get all results
   let allSubmissions: any[] = [];
-  let hasMore = true;
-  let offset = 0;
-  const batchSize = 1000;
+  let hasMoreSubs = true;
+  let subOffset = 0;
+  const subBatchSize = 1000;
 
-  while (hasMore) {
-    const { data: batch, error: batchError } = await supabase
+  while (hasMoreSubs) {
+    const { data: subBatch, error: subBatchError } = await supabase
       .from('submissions')
       .select('id, student_id, recordings, overall_assignment_score')
       .in('assignment_id', assignmentIds)
       .not('submitted_at', 'is', null)
       .gte('submitted_at', startDate)
-      .range(offset, offset + batchSize - 1);
+      .range(subOffset, subOffset + subBatchSize - 1);
 
-    if (batchError) throw batchError;
+    if (subBatchError) throw subBatchError;
 
-    if (batch) {
-      allSubmissions = [...allSubmissions, ...batch];
-      hasMore = batch.length === batchSize;
-      offset += batchSize;
+    if (subBatch) {
+      allSubmissions = [...allSubmissions, ...subBatch];
+      hasMoreSubs = subBatch.length === subBatchSize;
+      subOffset += subBatchSize;
     } else {
-      hasMore = false;
+      hasMoreSubs = false;
     }
   }
 
