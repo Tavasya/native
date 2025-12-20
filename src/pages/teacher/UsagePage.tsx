@@ -12,6 +12,7 @@ interface UsageMetrics {
   analysisCosts: number;
   totalSubmissions: number;
   totalRecordings: number;
+  totalStudents: number;
   activeStudents: number;
   avgRecordingLength: number;
   costPerMinute: number;
@@ -158,17 +159,20 @@ const UsagePage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Active Students */}
+          {/* Students */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+              <CardTitle className="text-sm font-medium">Students</CardTitle>
               <Users className="h-4 w-4 text-[#272A69]" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{metrics.activeStudents}</div>
               <p className="text-xs text-gray-500 mt-1">
-                Enrolled students
+                Active this month
               </p>
+              <div className="text-sm text-gray-600 mt-2">
+                <span className="font-medium">{metrics.totalStudents}</span> total enrolled
+              </div>
             </CardContent>
           </Card>
         </div>

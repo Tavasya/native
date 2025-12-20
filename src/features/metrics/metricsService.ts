@@ -485,6 +485,7 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
   analysisCosts: number;
   totalSubmissions: number;
   totalRecordings: number;
+  totalStudents: number;
   activeStudents: number;
   avgRecordingLength: number;
   costPerMinute: number;
@@ -540,7 +541,8 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
       analysisCosts: 0,
       totalSubmissions: 0,
       totalRecordings: 0,
-      activeStudents: totalEnrolledStudents,
+      totalStudents: totalEnrolledStudents,
+      activeStudents: 0,
       avgRecordingLength: 0,
       costPerMinute: 0,
       costPerSubmission: 0,
@@ -564,7 +566,8 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
       analysisCosts: 0,
       totalSubmissions: 0,
       totalRecordings: 0,
-      activeStudents: totalEnrolledStudents,
+      totalStudents: totalEnrolledStudents,
+      activeStudents: 0,
       avgRecordingLength: 0,
       costPerMinute: 0,
       costPerSubmission: 0,
@@ -623,6 +626,20 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   const totalMinutes = totalDurationSeconds / 60;
 
+  // Calculate active students (students with submissions since start of current month)
+  const currentDate = new Date();
+  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+
+  const { data: activeStudentsSubs, error: activeStudentsError } = await supabase
+    .from('submissions')
+    .select('student_id')
+    .in('assignment_id', assignmentIds)
+    .gte('submitted_at', startOfMonth);
+
+  if (activeStudentsError) throw activeStudentsError;
+
+  const activeStudentCount = new Set(activeStudentsSubs?.map(s => s.student_id) || []).size;
+
   // Cost estimation:
   // - Transcription: ~$0.006 per minute (Deepgram)
   // - AI Analysis: ~$0.01 per submission (OpenAI GPT-4)
@@ -645,7 +662,8 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
     analysisCosts: totalCosts,
     totalSubmissions: submissions?.length || 0,
     totalRecordings,
-    activeStudents: totalEnrolledStudents,
+    totalStudents: totalEnrolledStudents,
+    activeStudents: activeStudentCount,
     avgRecordingLength,
     costPerMinute,
     costPerSubmission,
