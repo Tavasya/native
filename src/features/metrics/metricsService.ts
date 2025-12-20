@@ -103,12 +103,31 @@ export async function getLastLogins(page: number = 1, perPage: number = 20): Pro
  */
 export async function getAllLastLogins(): Promise<LastLogin[]> {
   // First get all users with their last login
-  const { data: lastLoginsData, error: lastLoginsError } = await supabase
-    .from('last_logins')
-    .select('*')
-    .order('last_logged_in_at', { ascending: false });
+  // Note: Supabase has a default 1000 row limit, so we paginate to get all results
+  let allLastLoginsData: any[] = [];
+  let hasMore = true;
+  let offset = 0;
+  const batchSize = 1000;
 
-  if (lastLoginsError) throw lastLoginsError;
+  while (hasMore) {
+    const { data: batch, error: batchError } = await supabase
+      .from('last_logins')
+      .select('*')
+      .order('last_logged_in_at', { ascending: false })
+      .range(offset, offset + batchSize - 1);
+
+    if (batchError) throw batchError;
+
+    if (batch) {
+      allLastLoginsData = [...allLastLoginsData, ...batch];
+      hasMore = batch.length === batchSize;
+      offset += batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const lastLoginsData = allLastLoginsData;
   console.log('Raw last logins data:', lastLoginsData);
 
   // Get the view status for these users
@@ -555,14 +574,33 @@ export async function getTeacherUsageMetrics(teacherId: string): Promise<{
 
   // Get all submissions for these assignments with audio duration
   // Starting from subscription period start (or last 30 days if no subscription)
-  const { data: submissions, error: submissionsError } = await supabase
-    .from('submissions')
-    .select('id, student_id, recordings, overall_assignment_score')
-    .in('assignment_id', assignmentIds)
-    .not('submitted_at', 'is', null)
-    .gte('submitted_at', startDate);
+  // Note: Supabase has a default 1000 row limit, so we paginate to get all results
+  let allSubmissions: any[] = [];
+  let hasMore = true;
+  let offset = 0;
+  const batchSize = 1000;
 
-  if (submissionsError) throw submissionsError;
+  while (hasMore) {
+    const { data: batch, error: batchError } = await supabase
+      .from('submissions')
+      .select('id, student_id, recordings, overall_assignment_score')
+      .in('assignment_id', assignmentIds)
+      .not('submitted_at', 'is', null)
+      .gte('submitted_at', startDate)
+      .range(offset, offset + batchSize - 1);
+
+    if (batchError) throw batchError;
+
+    if (batch) {
+      allSubmissions = [...allSubmissions, ...batch];
+      hasMore = batch.length === batchSize;
+      offset += batchSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const submissions = allSubmissions;
 
   // Calculate metrics from submissions in current billing period
   let totalRecordings = 0;
